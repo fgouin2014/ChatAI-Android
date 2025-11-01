@@ -450,14 +450,15 @@ class KittAIService(
                 Log.d(TAG, "OpenAI raw response body length: ${responseBody?.length ?: 0}")
                 responseBody?.let {
                     val jsonResponse = JSONObject(it)
-                    val content = jsonResponse
+                    val messageObject = jsonResponse
                         .getJSONArray("choices")
                         .getJSONObject(0)
                         .getJSONObject("message")
-                        .getString("content")
-                    
-                    Log.d(TAG, "OpenAI response received successfully: ${content.take(50)}...")
-                    return@withContext content.trim()
+                    val content = extractMessageContent(messageObject)
+                    if (content.isNotBlank()) {
+                        Log.d(TAG, "OpenAI response received successfully: ${content.take(50)}...")
+                        return@withContext content.trim()
+                    }
                 }
             } else {
                 val errorBody = response.body?.string()
@@ -624,15 +625,18 @@ class KittAIService(
                 Log.d(TAG, "Ollama Cloud raw response body length: ${responseBody?.length ?: 0}")
                 responseBody?.let {
                     val jsonResponse = JSONObject(it)
-                    val content = jsonResponse
+                    val messageObject = jsonResponse
                         .getJSONArray("choices")
                         .getJSONObject(0)
                         .getJSONObject("message")
-                        .getString("content")
-                    
-                    Log.d(TAG, "Ollama Cloud response received successfully: ${content.take(50)}...")
-                    addDiagnosticLog("    - Response: ${content.take(100)}")
-                    return@withContext content.trim()
+                    val content = extractMessageContent(messageObject)
+                    if (content.isNotBlank()) {
+                        Log.d(TAG, "Ollama Cloud response received successfully: ${content.take(50)}...")
+                        addDiagnosticLog("    - Response: ${content.take(100)}")
+                        return@withContext content.trim()
+                    } else {
+                        addDiagnosticLog("    - Response: [empty message content]")
+                    }
                 }
             } else {
                 val errorBody = response.body?.string()
@@ -732,15 +736,18 @@ class KittAIService(
                 Log.d(TAG, "Local Server raw response body length: ${responseBody?.length ?: 0}")
                 responseBody?.let {
                     val jsonResponse = JSONObject(it)
-                    val content = jsonResponse
+                    val messageObject = jsonResponse
                         .getJSONArray("choices")
                         .getJSONObject(0)
                         .getJSONObject("message")
-                        .getString("content")
-                    
-                    Log.d(TAG, "Local Server response received successfully: ${content.take(50)}...")
-                    addDiagnosticLog("    - Response: ${content.take(100)}")
-                    return@withContext content.trim()
+                    val content = extractMessageContent(messageObject)
+                    if (content.isNotBlank()) {
+                        Log.d(TAG, "Local Server response received successfully: ${content.take(50)}...")
+                        addDiagnosticLog("    - Response: ${content.take(100)}")
+                        return@withContext content.trim()
+                    } else {
+                        addDiagnosticLog("    - Response: [empty message content]")
+                    }
                 }
             } else {
                 val errorBody = response.body?.string()
@@ -1057,14 +1064,15 @@ class KittAIService(
                 val responseBody = response.body?.string()
                 responseBody?.let {
                     val jsonResponse = JSONObject(it)
-                    val content = jsonResponse
+                    val messageObject = jsonResponse
                         .getJSONArray("choices")
                         .getJSONObject(0)
                         .getJSONObject("message")
-                        .getString("content")
-                    
-                    steps.add(StepResult(1, "OpenAI GPT-4o-mini", "SUCCESS", response.code, null))
-                    return content.trim()
+                    val content = extractMessageContent(messageObject)
+                    if (content.isNotBlank()) {
+                        steps.add(StepResult(1, "OpenAI GPT-4o-mini", "SUCCESS", response.code, null))
+                        return content.trim()
+                    }
                 }
             } else {
                 val errorBody = response.body?.string()
@@ -1178,6 +1186,45 @@ class KittAIService(
             steps.add(StepResult(3, "Hugging Face BlenderBot", "FAILED", null, e.message?.take(80)))
             null
         }
+    }
+
+    private fun extractMessageContent(messageObject: JSONObject): String {
+        messageObject.optJSONArray("content")?.let { array ->
+            val builder = StringBuilder()
+            for (i in 0 until array.length()) {
+                when (val element = array.opt(i)) {
+                    is JSONObject -> {
+                        val text = element.optString("text")
+                        if (text.isNotEmpty()) {
+                            builder.append(text)
+                        }
+                        element.optJSONArray("content")?.let { innerArray ->
+                            for (j in 0 until innerArray.length()) {
+                                when (val inner = innerArray.opt(j)) {
+                                    is JSONObject -> {
+                                        val innerText = inner.optString("text")
+                                        if (innerText.isNotEmpty()) {
+                                            builder.append(innerText)
+                                        }
+                                    }
+                                    is String -> builder.append(inner)
+                                }
+                            }
+                        }
+                    }
+                    is String -> builder.append(element)
+                }
+            }
+            val result = builder.toString().trim()
+            if (result.isNotEmpty()) {
+                return result
+            }
+        }
+        val direct = messageObject.optString("content", "")
+        if (direct.isNotBlank()) {
+            return direct
+        }
+        return ""
     }
 }
 
