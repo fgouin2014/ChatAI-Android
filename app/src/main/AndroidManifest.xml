@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Permissions de base -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
+    <!-- Permissions réseau pour détection d'IP -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+    <!-- Permissions de stockage pour Android < 13 -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="32" />
+    
+    <!-- Permissions pour Android 11+ (API 30+) -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    
+    <!-- Permissions pour Android 13+ (API 33+) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    
+    <!-- Permissions audio pour MediaPlayer -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    
+    <!-- Permissions pour le service en arrière-plan -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <uses-feature android:name="android.hardware.camera"
+                  android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.ChatAI"
+        android:usesCleartextTraffic="true"
+        android:extractNativeLibs="true">
+        
+                <!-- MainActivity (Main) -->
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+                
+                <!-- Game List Activity -->
+                <activity
+                    android:name=".GameListActivity"
+                    android:exported="false"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize" />
+                
+               <!-- Game Details Activity -->
+               <activity
+                   android:name=".GameDetailsActivity"
+                   android:exported="false"
+                   android:screenOrientation="portrait"
+                   android:configChanges="orientation|screenSize" />
+
+               <!-- Console Config Activity -->
+               <activity
+                   android:name=".ConsoleConfigActivity"
+                   android:exported="false"
+                   android:screenOrientation="portrait"
+                   android:configChanges="orientation|screenSize" />
+
+               <!-- Console Manager Activity -->
+               <activity
+                   android:name=".ConsoleManagerActivity"
+                   android:exported="false"
+                   android:screenOrientation="portrait"
+                   android:configChanges="orientation|screenSize" />
+
+               <!-- WebView Activity pour EmulatorJS -->
+               <activity
+                   android:name=".WebViewActivity"
+                   android:exported="false"
+                   android:screenOrientation="sensor"
+                   android:configChanges="orientation|screenSize" />
+               
+               <!-- Native Compose Emulator Activity (LibretroDroid cores + Lemuroid gamepads) -->
+            <activity
+                android:name=".NativeComposeEmulatorActivity"
+                android:exported="false"
+                android:screenOrientation="sensor"
+                android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+                android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+
+            <!-- Cheat Activity (Codes de triche) -->
+            <activity
+                android:name=".cheat.CheatActivity"
+                android:exported="false"
+                android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+               
+               <!-- Fullscreen Custom Tabs Activity (pour PSP) -->
+               <activity
+                   android:name=".FullscreenCustomTabsActivity"
+                   android:exported="false"
+                   android:screenOrientation="sensor"
+                   android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+                   android:configChanges="orientation|screenSize|keyboardHidden" />
+                
+                <activity
+                    android:name=".SettingsActivity"
+                    android:exported="false"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize" />
+                    
+                <activity
+                    android:name=".DatabaseActivity"
+                    android:exported="false"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize" />
+                    
+                <activity
+                    android:name=".ServerActivity"
+                    android:exported="false"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize" />
+                    
+                <!-- KITT Activity -->
+                <activity
+                    android:name=".activities.KittActivity"
+                    android:exported="true"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize"
+                    android:theme="@style/Theme.KITT" />
+                    
+                <!-- Configuration Activity -->
+                <activity
+                    android:name=".activities.ConfigurationActivity"
+                    android:exported="false"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize"
+                    android:theme="@style/Theme.KITT" />
+                    
+                <!-- AI Configuration Activity -->
+                <activity
+                    android:name=".activities.AIConfigurationActivity"
+                    android:exported="false"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize"
+                    android:theme="@style/Theme.KITT" />
+                
+                <!-- Conversation History Activity -->
+                <activity
+                    android:name=".activities.ConversationHistoryActivity"
+                    android:exported="false"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize"
+                    android:theme="@style/Theme.KITT" />
+                    
+                <!-- Server Configuration Activity -->
+                <activity
+                    android:name=".activities.ServerConfigurationActivity"
+                    android:exported="false"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize"
+                    android:theme="@style/Theme.KITT" />
+                    
+                <!-- WebServer Configuration Activity -->
+                <activity
+                    android:name=".activities.WebServerConfigActivity"
+                    android:exported="false"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize"
+                    android:theme="@style/Theme.KITT" />
+                    
+                <!-- Endpoints List Activity -->
+                <activity
+                    android:name=".activities.EndpointsListActivity"
+                    android:exported="false"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize"
+                    android:theme="@style/Theme.KITT" />
+                    
+                <!-- Relax WebView Activity -->
+                <activity
+                    android:name=".activities.RelaxWebViewActivity"
+                    android:exported="false"
+                    android:screenOrientation="sensor"
+                    android:configChanges="orientation|screenSize"
+                    android:theme="@style/Theme.KITT" />
+
+                <!-- Game Library WebView Activity -->
+                <activity
+                    android:name=".activities.GameLibraryWebViewActivity"
+                    android:exported="false"
+                    android:screenOrientation="sensor"
+                    android:configChanges="orientation|screenSize"
+                    android:theme="@style/Theme.KITT" />
+                    
+                <!-- Background Service -->
+                <service
+                    android:name=".BackgroundService"
+                    android:enabled="true"
+                    android:exported="false"
+                    android:foregroundServiceType="dataSync" />
+    </application>
+</manifest>

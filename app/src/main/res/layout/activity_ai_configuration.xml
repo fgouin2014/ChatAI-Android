@@ -1,0 +1,826 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/kitt_black"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:spacing="16dp">
+
+        <!-- Header -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/kitt_dark_red"
+            app:cardCornerRadius="12dp"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="2dp"
+            android:layout_marginBottom="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🤖 CONFIGURATION IA"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="18sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:gravity="center" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Configuration des APIs, modèles et personnalités IA"
+                    android:textColor="@color/kitt_red_light"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:layout_marginTop="4dp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Section: Configuration des APIs -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/kitt_black"
+            app:cardCornerRadius="12dp"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🔑 CONFIGURATION DES APIs IA"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="14sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- OpenAI API Key -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    app:boxStrokeColor="@color/kitt_red"
+                    app:hintTextColor="@color/kitt_red_light"
+                    android:hint="OpenAI API Key">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/openaiApiKeyInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/kitt_red"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        android:inputType="textPassword" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Hugging Face API Key -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    app:boxStrokeColor="@color/kitt_red"
+                    app:hintTextColor="@color/kitt_red_light"
+                    android:hint="Hugging Face API Key">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/huggingfaceApiKeyInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/kitt_red"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        android:inputType="textPassword" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Anthropic API Key -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:boxStrokeColor="@color/kitt_red"
+                    app:hintTextColor="@color/kitt_red_light"
+                    android:hint="Anthropic API Key">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/anthropicApiKeyInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/kitt_red"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        android:inputType="textPassword" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Section: Ollama Cloud -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/kitt_black"
+            app:cardCornerRadius="12dp"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="☁️ OLLAMA CLOUD"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="14sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- Ollama Cloud API Key -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    app:boxStrokeColor="@color/kitt_red"
+                    app:hintTextColor="@color/kitt_red_light"
+                    android:hint="Ollama Cloud API Key">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/ollamaCloudApiKeyInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/kitt_red"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        android:inputType="textPassword" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Ollama Cloud Model -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:boxStrokeColor="@color/kitt_red"
+                    app:hintTextColor="@color/kitt_red_light"
+                    android:hint="Modèle Cloud (ex: gpt-oss:120b-cloud)">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/ollamaCloudModelInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/kitt_red"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        android:inputType="text"
+                        android:hint="gpt-oss:120b-cloud ou deepseek-v3.1:671b-cloud" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="💡 Modèles géants cloud (gratuit ou Pro $20/mois). Créer compte sur ollama.com"
+                    android:textColor="@color/kitt_red_light"
+                    android:textSize="10sp"
+                    android:fontFamily="monospace"
+                    android:layout_marginTop="8dp"
+                    android:alpha="0.7" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Section: Serveur Local (Ollama/LM Studio) -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/kitt_black"
+            app:cardCornerRadius="12dp"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🏠 SERVEUR LOCAL (Ollama/LM Studio)"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="14sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- Local Server URL -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    app:boxStrokeColor="@color/kitt_red"
+                    app:hintTextColor="@color/kitt_red_light"
+                    android:hint="URL du serveur local">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/localServerUrlInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/kitt_red"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        android:inputType="textUri"
+                        android:hint="http://192.168.1.100:11434/v1/chat/completions" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Local Model Name -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:boxStrokeColor="@color/kitt_red"
+                    app:hintTextColor="@color/kitt_red_light"
+                    android:hint="Nom du modèle local">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/localModelNameInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/kitt_red"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        android:inputType="text"
+                        android:hint="llama3.2 ou gpt-oss:20b-cloud" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="💡 Gratuit, privé et illimité ! Configurez Ollama ou LM Studio sur votre PC."
+                    android:textColor="@color/kitt_red_light"
+                    android:textSize="10sp"
+                    android:fontFamily="monospace"
+                    android:layout_marginTop="8dp"
+                    android:alpha="0.7" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Section: Configuration TTS (Voix de KITT) -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/kitt_black"
+            app:cardCornerRadius="12dp"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🎙️ VOIX DE KITT (TTS)"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="14sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- Vitesse de parole -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Vitesse de parole"
+                    android:textColor="@color/kitt_red_light"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace"
+                    android:layout_marginBottom="4dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0.5x"
+                        android:textColor="@color/kitt_red_light"
+                        android:textSize="10sp"
+                        android:fontFamily="monospace"
+                        android:layout_marginEnd="8dp" />
+
+                    <SeekBar
+                        android:id="@+id/ttsSpeedSeekBar"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="30"
+                        android:progress="11"
+                        android:progressTint="@color/kitt_red"
+                        android:thumbTint="@color/kitt_red" />
+
+                    <TextView
+                        android:id="@+id/ttsSpeedValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1.1x"
+                        android:textColor="@color/kitt_red"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        android:textStyle="bold"
+                        android:layout_marginStart="8dp"
+                        android:minWidth="40dp" />
+
+                </LinearLayout>
+
+                <!-- Tonalité (Pitch) -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Tonalité (grave/aigu)"
+                    android:textColor="@color/kitt_red_light"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace"
+                    android:layout_marginBottom="4dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0.5x"
+                        android:textColor="@color/kitt_red_light"
+                        android:textSize="10sp"
+                        android:fontFamily="monospace"
+                        android:layout_marginEnd="8dp" />
+
+                    <SeekBar
+                        android:id="@+id/ttsPitchSeekBar"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="20"
+                        android:progress="8"
+                        android:progressTint="@color/kitt_red"
+                        android:thumbTint="@color/kitt_red" />
+
+                    <TextView
+                        android:id="@+id/ttsPitchValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0.8x"
+                        android:textColor="@color/kitt_red"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        android:textStyle="bold"
+                        android:layout_marginStart="8dp"
+                        android:minWidth="40dp" />
+
+                </LinearLayout>
+
+                <!-- Bouton Test TTS -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/testTTSButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🔊 TESTER LA VOIX"
+                    android:textSize="10sp"
+                    app:backgroundTint="@color/amber_primary"
+                    app:cornerRadius="8dp"
+                    android:textColor="@color/amber_on_surface"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="💡 Vitesse recommandée: 1.0-1.2x | Tonalité: 0.7-0.9x"
+                    android:textColor="@color/kitt_red_light"
+                    android:textSize="9sp"
+                    android:fontFamily="monospace"
+                    android:layout_marginTop="8dp"
+                    android:alpha="0.7" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Section: Configuration des Modèles -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/kitt_black"
+            app:cardCornerRadius="12dp"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🧠 CONFIGURATION DES MODÈLES"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="14sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- Modèle par défaut -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    app:boxStrokeColor="@color/kitt_red"
+                    app:hintTextColor="@color/kitt_red_light"
+                    android:hint="Modèle par défaut">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/defaultModelInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/kitt_red"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        android:inputType="text" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Max Tokens -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    app:boxStrokeColor="@color/kitt_red"
+                    app:hintTextColor="@color/kitt_red_light"
+                    android:hint="Nombre maximum de tokens">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/maxTokensInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/kitt_red"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        android:inputType="number" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Température -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:boxStrokeColor="@color/kitt_red"
+                    app:hintTextColor="@color/kitt_red_light"
+                    android:hint="Température (0.0 - 1.0)">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/temperatureInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/kitt_red"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        android:inputType="numberDecimal" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Section: Configuration des Personnalités -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/kitt_black"
+            app:cardCornerRadius="12dp"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🎭 CONFIGURATION DES PERSONNALITÉS"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="14sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- Personnalités -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="🎭 Personnalités multiples"
+                        android:textColor="@color/kitt_red_light"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/enablePersonalitiesSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:thumbTint="@color/kitt_red"
+                        app:trackTint="@color/kitt_red_alpha" />
+
+                </LinearLayout>
+
+                <!-- Réponse vocale -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="🎤 Réponse vocale"
+                        android:textColor="@color/kitt_red_light"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/enableVoiceResponseSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:thumbTint="@color/kitt_red"
+                        app:trackTint="@color/kitt_red_alpha" />
+
+                </LinearLayout>
+
+                <!-- Mémoire contextuelle -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="🧠 Mémoire contextuelle"
+                        android:textColor="@color/kitt_red_light"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/enableContextMemorySwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:thumbTint="@color/kitt_red"
+                        app:trackTint="@color/kitt_red_alpha" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Section: Fonctionnalités IA -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/kitt_black"
+            app:cardCornerRadius="12dp"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="⚡ FONCTIONNALITÉS IA"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="14sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- Génération d'images -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="🖼️ Génération d'images"
+                        android:textColor="@color/kitt_red_light"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/enableImageGenerationSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:thumbTint="@color/kitt_red"
+                        app:trackTint="@color/kitt_red_alpha" />
+
+                </LinearLayout>
+
+                <!-- Génération de code -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="💻 Génération de code"
+                        android:textColor="@color/kitt_red_light"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/enableCodeGenerationSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:thumbTint="@color/kitt_red"
+                        app:trackTint="@color/kitt_red_alpha" />
+
+                </LinearLayout>
+
+                <!-- Traduction -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="🌍 Traduction multilingue"
+                        android:textColor="@color/kitt_red_light"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/enableTranslationSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:thumbTint="@color/kitt_red"
+                        app:trackTint="@color/kitt_red_alpha" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Section: Actions -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Première ligne de boutons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:spacing="8dp"
+                android:layout_marginBottom="8dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/saveAISettingsButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="💾 SAUVEGARDER"
+                    android:textSize="10sp"
+                    app:backgroundTint="@color/kitt_red"
+                    app:cornerRadius="8dp"
+                    app:strokeColor="@color/kitt_red"
+                    app:strokeWidth="2dp"
+                    android:textColor="@color/kitt_black"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/testAPIsButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🧪 TESTER APIs"
+                    android:textSize="10sp"
+                    app:backgroundTint="@color/amber_primary"
+                    app:cornerRadius="8dp"
+                    app:strokeColor="@color/amber_primary"
+                    app:strokeWidth="2dp"
+                    android:textColor="@color/amber_on_surface"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/resetAISettingsButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🔄 RÉINITIALISER"
+                    android:textSize="10sp"
+                    app:backgroundTint="@color/dark_gray_medium"
+                    app:cornerRadius="8dp"
+                    app:strokeColor="@color/dark_gray_light"
+                    app:strokeWidth="2dp"
+                    android:textColor="@color/dark_white"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
+
+            <!-- Bouton Historique -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/viewHistoryButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📜 VOIR L'HISTORIQUE DES CONVERSATIONS"
+                android:textSize="12sp"
+                app:backgroundTint="@color/kitt_dark_red"
+                app:cornerRadius="8dp"
+                app:strokeColor="@color/kitt_red"
+                app:strokeWidth="2dp"
+                android:textColor="@color/kitt_red"
+                android:fontFamily="monospace"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>

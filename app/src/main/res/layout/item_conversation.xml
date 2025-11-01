@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp"
+    app:cardBackgroundColor="@color/kitt_black"
+    app:cardCornerRadius="8dp"
+    app:strokeColor="@color/kitt_red"
+    app:strokeWidth="1dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- Header (Date + Personnalité) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/timestampText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="01/11/2025 08:20:01"
+                android:textColor="@color/kitt_red_light"
+                android:textSize="10sp"
+                android:fontFamily="monospace" />
+
+            <TextView
+                android:id="@+id/personalityText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🚗 KITT"
+                android:textColor="@color/kitt_red"
+                android:textSize="10sp"
+                android:fontFamily="monospace"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <!-- Question de l'utilisateur -->
+        <TextView
+            android:id="@+id/userMessageText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="VOUS: Quelle heure est-il ?"
+            android:textColor="@color/amber_primary"
+            android:textSize="13sp"
+            android:fontFamily="monospace"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
+
+        <!-- Réponse de l'IA -->
+        <TextView
+            android:id="@+id/aiResponseText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="KITT: Certainement, Michael. L'heure est actuellement 8h20."
+            android:textColor="@color/kitt_red"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Métadonnées -->
+        <TextView
+            android:id="@+id/metadataText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="API: ollama | 1965ms | vocal"
+            android:textColor="@color/kitt_red_light"
+            android:textSize="9sp"
+            android:fontFamily="monospace"
+            android:alpha="0.7" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>
+
