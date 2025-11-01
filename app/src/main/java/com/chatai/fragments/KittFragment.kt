@@ -8,6 +8,7 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Bundle
@@ -31,6 +32,8 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.chip.Chip
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.textfield.TextInputEditText
 import com.chatai.R
@@ -99,6 +102,8 @@ class KittFragment : Fragment(), RecognitionListener, TextToSpeech.OnInitListene
     private lateinit var viewModel: KittViewModel
     
     // Views principales
+    private lateinit var kittToolbar: MaterialToolbar
+    private lateinit var statusIcon: ImageView
     private lateinit var statusText: TextView
     private lateinit var powerSwitch: MaterialSwitch
     private lateinit var switchStatus: TextView
@@ -122,7 +127,9 @@ class KittFragment : Fragment(), RecognitionListener, TextToSpeech.OnInitListene
     private lateinit var sendButton: MaterialButton
     private lateinit var vuModeButton: MaterialButton
     private lateinit var menuDrawerButton: MaterialButton
-    private lateinit var backToChatButton: MaterialButton
+    private lateinit var chipListening: Chip
+    private lateinit var chipThinking: Chip
+    private lateinit var chipPersistent: Chip
 
     // Animation handlers
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -299,6 +306,8 @@ class KittFragment : Fragment(), RecognitionListener, TextToSpeech.OnInitListene
     }
 
     private fun initializeViews(view: View) {
+        kittToolbar = view.findViewById(R.id.kittToolbar)
+        statusIcon = view.findViewById(R.id.statusIcon)
         statusText = view.findViewById(R.id.statusText)
         powerSwitch = view.findViewById(R.id.powerSwitch)
         switchStatus = view.findViewById(R.id.switchStatus)
@@ -320,6 +329,9 @@ class KittFragment : Fragment(), RecognitionListener, TextToSpeech.OnInitListene
         sendButton = view.findViewById(R.id.sendButton)
         vuModeButton = view.findViewById(R.id.vuModeButton)
         menuDrawerButton = view.findViewById(R.id.menuDrawerButton)
+        chipListening = view.findViewById(R.id.chipListening)
+        chipThinking = view.findViewById(R.id.chipThinking)
+        chipPersistent = view.findViewById(R.id.chipPersistent)
 
         // Initialiser le bouton de test dans le menu VU
         // NE PAS décomenter
@@ -335,6 +347,16 @@ class KittFragment : Fragment(), RecognitionListener, TextToSpeech.OnInitListene
             VUMeterMode.AMBIENT -> "VU-AMBI"
             VUMeterMode.OFF -> "VU-OFF"
         }
+
+        chipListening.visibility = View.GONE
+        chipThinking.visibility = View.GONE
+        chipPersistent.visibility = View.GONE
+
+        kittToolbar.setNavigationOnClickListener {
+            goBackToChat()
+        }
+        kittToolbar.subtitle = getString(R.string.kitt_status_standby)
+        statusIcon.imageTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.kitt_red_dark))
 
         // Configurer le défilement marquee pour le statusText
         setupMarqueeScrolling()
@@ -492,6 +514,7 @@ class KittFragment : Fragment(), RecognitionListener, TextToSpeech.OnInitListene
         if (isMicrophoneListening) return
 
         isMicrophoneListening = true
+        updateStatusIndicators()
 
         // Démarrer une reconnaissance continue pour capturer les niveaux audio
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -511,6 +534,7 @@ class KittFragment : Fragment(), RecognitionListener, TextToSpeech.OnInitListene
 
     private fun stopMicrophoneListening() {
         isMicrophoneListening = false
+        updateStatusIndicators()
         // Utiliser le SpeechRecognizer séparé pour le VU-meter
         vuMeterRecognizer?.stopListening()
     }
@@ -1058,6 +1082,19 @@ class KittFragment : Fragment(), RecognitionListener, TextToSpeech.OnInitListene
             statusBarIndicatorMSQ.setBackgroundResource(R.drawable.kitt_status_background)
             statusBarIndicatorMSQ.setTextColor(ContextCompat.getColor(requireContext(), R.color.kitt_red_dark))
         }
+
+        chipListening.visibility = if (isListening || isMicrophoneListening) View.VISIBLE else View.GONE
+        chipThinking.visibility = if (isThinking || isSpeaking || isTTSSpeaking) View.VISIBLE else View.GONE
+        chipPersistent.visibility = if (isPersistentMode) View.VISIBLE else View.GONE
+
+        val iconColor = if (isReadyIndicator) R.color.kitt_red_light else R.color.kitt_red_dark
+        statusIcon.imageTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), iconColor))
+
+        kittToolbar.subtitle = when {
+            isBusy -> getString(R.string.kitt_status_speaking)
+            isReady -> getString(R.string.kitt_status_ready)
+            else -> getString(R.string.kitt_status_standby)
+        }
     }
 
     private fun toggleAIMode() {
@@ -1473,6 +1510,8 @@ class KittFragment : Fragment(), RecognitionListener, TextToSpeech.OnInitListene
                 }
             }
         }
+
+        updateStatusIndicators()
     }
     
     private fun startScannerAnimation(speed: Long) {

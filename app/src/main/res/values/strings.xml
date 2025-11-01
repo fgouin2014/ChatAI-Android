@@ -8,6 +8,12 @@
     <string name="kitt_status_ready">KITT READY</string>
     <string name="kitt_status_stby">STBY</string>
     <string name="kitt_status_rdy">RDY</string>
+    <string name="kitt_toolbar_title">Interface KITT</string>
+    <string name="kitt_toolbar_back">Retour</string>
+    <string name="kitt_status_icon">Icône de statut KITT</string>
+    <string name="kitt_chip_listening">Écoute active</string>
+    <string name="kitt_chip_thinking">Réflexion en cours</string>
+    <string name="kitt_chip_persistent">Mode persistant</string>
     
     <!-- WebServer Strings -->
     <string name="webserver_config_title">Configuration WebServer</string>

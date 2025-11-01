@@ -18,7 +18,23 @@
         android:padding="16dp"
         android:paddingBottom="0dp">
 
-        <!-- Back to Chat Button -->
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/kittToolbar"
+            style="@style/Widget.Material3.Toolbar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@android:color/transparent"
+            android:contentInsetStartWithNavigation="0dp"
+            android:navigationContentDescription="@string/kitt_toolbar_back"
+            android:title="@string/kitt_toolbar_title"
+            android:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge"
+            android:titleTextColor="@color/kitt_red"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:navigationIcon="@drawable/ic_arrow_back_24"
+            app:titleCentered="false" />
 
         <!-- Status Text -->
         <com.google.android.material.card.MaterialCardView
@@ -31,17 +47,181 @@
             app:cardElevation="8dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/kittToolbar"
             app:strokeColor="@color/kitt_red"
-            app:strokeWidth="1dp"
-            tools:layout_editor_absoluteY="88dp">
+            app:strokeWidth="1dp">
 
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/statusText"
-                style="@style/Widget.Kitt.StatusText"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <ImageView
+                    android:id="@+id/statusIcon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginEnd="12dp"
+                    android:contentDescription="@string/kitt_status_icon"
+                    android:src="@drawable/ic_joystick"
+                    android:tint="@color/kitt_red" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/statusText"
+                    style="@style/Widget.Kitt.StatusText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/kitt_status_standby" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/statusChipsCard"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="16dp"
+            android:padding="8dp"
+            app:cardBackgroundColor="@color/kitt_red_alpha"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/statusCard"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="1dp">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/statusChipGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:paddingHorizontal="4dp"
+                android:paddingVertical="2dp"
+                app:chipSpacingHorizontal="8dp"
+                app:chipSpacingVertical="4dp">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipListening"
+                    style="@style/Widget.Material3.Chip.Assist"
+                    android:checkable="false"
+                    android:text="@string/kitt_chip_listening"
+                    android:textColor="@color/kitt_red"
+                    app:chipBackgroundColor="@color/kitt_red_overlay"
+                    app:chipIcon="@drawable/ic_play_arrow_24"
+                    app:chipIconTint="@color/kitt_red" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipThinking"
+                    style="@style/Widget.Material3.Chip.Assist"
+                    android:checkable="false"
+                    android:text="@string/kitt_chip_thinking"
+                    android:textColor="@color/kitt_red"
+                    app:chipBackgroundColor="@color/kitt_red_overlay"
+                    app:chipIcon="@drawable/ic_chat"
+                    app:chipIconTint="@color/kitt_red" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipPersistent"
+                    style="@style/Widget.Material3.Chip.Assist"
+                    android:checkable="false"
+                    android:text="@string/kitt_chip_persistent"
+                    android:textColor="@color/kitt_red"
+                    app:chipBackgroundColor="@color/kitt_red_overlay"
+                    app:chipIcon="@drawable/ic_star_24"
+                    app:chipIconTint="@color/kitt_red" />
+
+            </com.google.android.material.chip.ChipGroup>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/statusIndicatorsCard"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="16dp"
+            app:cardBackgroundColor="@color/kitt_red_alpha"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="4dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/statusChipsCard"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="horizontal"
                 android:padding="12dp"
-                android:text="@string/kitt_status_standby" />
+                android:weightSum="4">
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/statusBarIndicatorRDY"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/kitt_status_background"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:padding="6dp"
+                    android:text="@string/status_indicator_rdy"
+                    android:textColor="@color/kitt_red_dark"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/statusBarIndicatorBSY"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/kitt_status_background"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:padding="6dp"
+                    android:text="@string/status_indicator_bsy"
+                    android:textColor="@color/kitt_red_dark"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/statusBarIndicatorNET"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/kitt_status_background"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:padding="6dp"
+                    android:text="@string/status_indicator_net"
+                    android:textColor="@color/kitt_red_dark"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/statusBarIndicatorMSQ"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@drawable/kitt_status_background"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:padding="6dp"
+                    android:text="@string/status_indicator_msq"
+                    android:textColor="@color/kitt_red_dark"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
@@ -57,7 +237,7 @@
             app:cardElevation="12dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/statusCard"
+            app:layout_constraintTop_toBottomOf="@id/statusIndicatorsCard"
             app:strokeColor="@color/kitt_red"
             app:strokeWidth="3dp">
 
@@ -83,47 +263,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/scannerCard">
 
-            <!-- Left VU Bar Menu-->
-
-            <LinearLayout
-                android:id="@+id/leftVuBarMenu"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_marginEnd="12dp"
-                android:background="@drawable/kitt_vu_bar_background"
-                android:gravity="top"
-                android:orientation="vertical"
-                android:padding="8dp" >
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/statusBarIndicatorRDY"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/kitt_status_background"
-                    android:fontFamily="monospace"
-                    android:padding="4dp"
-                    android:text="@string/status_indicator_rdy"
-                    android:textColor="@color/kitt_red_dark"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="6dp" />
-
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/statusBarIndicatorBSY"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/kitt_status_background"
-                    android:fontFamily="monospace"
-                    android:padding="4dp"
-                    android:text="@string/status_indicator_bsy"
-                    android:textColor="@color/kitt_red_dark"
-                    android:textSize="12sp"
-                    android:textStyle="bold" 
-                    android:layout_marginBottom="6dp" />
-                
-
-            </LinearLayout>
             <!-- Left VU Bar -->
             <LinearLayout
                 android:id="@+id/leftVuBar"
@@ -153,45 +292,6 @@
                 android:background="@drawable/kitt_vu_bar_background"
                 android:orientation="vertical"
                 android:padding="8dp" />
-
-            <!-- Right VU Bar Menu -->
-            <LinearLayout
-                android:id="@+id/rightVuBarMenu"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_marginStart="12dp"
-                android:background="@drawable/kitt_vu_bar_background"
-                android:gravity="top"
-                android:orientation="vertical"
-                android:padding="8dp" >
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/statusBarIndicatorNET"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@drawable/kitt_status_background"
-                android:fontFamily="monospace"
-                android:padding="4dp"
-                android:text="@string/status_indicator_net"
-                android:textColor="@color/kitt_red_dark"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="6dp" />
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/statusBarIndicatorMSQ"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@drawable/kitt_status_background"
-                android:fontFamily="monospace"
-                android:padding="4dp"
-                android:text="@string/status_indicator_msq"
-                android:textColor="@color/kitt_red_dark"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="6dp" />
-
-            </LinearLayout>
 
         </LinearLayout>
 
@@ -348,7 +448,7 @@
                             android:layout_marginHorizontal="4dp"
                             android:layout_weight="1"
                             android:enabled="false"
-                            android:text="RÉFLÉCHIR"
+                            android:text="R?FL?CHIR"
                             android:textSize="10sp"
                             app:backgroundTint="@color/kitt_red_alpha"
                             app:cornerRadius="8dp"

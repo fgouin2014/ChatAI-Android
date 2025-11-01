@@ -6,6 +6,7 @@
     <color name="kitt_red_dark">#660000</color>
     <color name="kitt_red_medium">#cc0000</color>
     <color name="kitt_red_light">#ff6666</color>
+    <color name="kitt_red_overlay">#33ff3333</color>
     <color name="kitt_red_very_light">#ffaaaa</color>
     
     <!-- KITT Green (Cheat Codes) -->
