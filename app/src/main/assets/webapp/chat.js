@@ -810,9 +810,9 @@ function openPlugin(pluginType) {
     const content = document.getElementById('modalContent');
     
     const plugins = {
-        translator: {
-            title: '🌐 Traducteur',
-            content: '<div><input type="text" id="translateInput" placeholder="Texte à traduire..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 10px;"><button onclick="translateText()" style="width: 100%; padding: 10px; background: #4ECDC4; color: white; border: none; border-radius: 8px;">Traduire</button><div id="translationResult" style="background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 10px; display: none;"></div></div>'
+        websearch: {
+            title: '🔍 Recherche Web',
+            content: '<div style="text-align: center;"><input type="text" id="searchQuery" placeholder="Bitcoin, météo, actualités..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px;"><button onclick="performWebSearch()" style="width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: bold;">🔍 Rechercher sur le web</button><div id="searchResults" style="background: #f8f9fa; padding: 15px; border-radius: 8px; display: none; margin-top: 10px; max-height: 300px; overflow-y: auto; text-align: left; font-size: 13px; line-height: 1.6;"></div></div>'
         },
         calculator: {
             title: '🔢 Calculette',
@@ -821,14 +821,6 @@ function openPlugin(pluginType) {
         weather: {
             title: '🌤️ Météo',
             content: '<div style="text-align: center;"><input type="text" id="cityInput" placeholder="Entrez une ville..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px;"><button onclick="getWeather()" style="width: 100%; padding: 12px; background: #4ECDC4; color: white; border: none; border-radius: 8px;">Obtenir la météo</button><div id="weatherResult" style="background: #f8f9fa; padding: 15px; border-radius: 8px; display: none; margin-top: 10px;"></div></div>'
-        },
-        camera: {
-            title: '📷 Caméra & Photos',
-            content: '<div style="text-align: center;"><button onclick="window.secureChatApp.requestCameraAccess()" style="width: 100%; padding: 20px; background: #4ECDC4; color: white; border: none; border-radius: 12px; font-size: 16px; margin-bottom: 10px;">📸 Prendre une photo</button><button onclick="window.secureChatApp.requestFileAccess()" style="width: 100%; padding: 20px; background: #667eea; color: white; border: none; border-radius: 12px; font-size: 16px;">🖼️ Choisir une image</button><div style="background: #f8f9fa; padding: 15px; border-radius: 8px; color: #666; font-size: 14px; margin-top: 15px;"><p>📷 Prenez ou sélectionnez une image pour analyse IA !</p></div></div>'
-        },
-        files: {
-            title: '📁 Gestionnaire de Fichiers',
-            content: '<div style="text-align: center;"><button onclick="window.secureChatApp.requestFileAccess()" style="width: 100%; padding: 20px; background: #ffa502; color: white; border: none; border-radius: 12px; font-size: 16px; margin-bottom: 10px;">📄 Fichier Texte</button><button onclick="requestDocumentAccess()" style="width: 100%; padding: 20px; background: #ff6b6b; color: white; border: none; border-radius: 12px; font-size: 16px;">📊 Document</button><div style="background: #f8f9fa; padding: 15px; border-radius: 8px; color: #666; font-size: 14px; margin-top: 15px;"><p>📁 Accédez à vos fichiers pour analyse IA</p></div></div>'
         },
         jokes: {
             title: '😂 Générateur de Blagues',
@@ -904,16 +896,36 @@ function safeEval(expression) {
     }
 }
 
-function translateText() { 
-    const text = document.getElementById('translateInput');
-    const result = document.getElementById('translationResult');
-    if (!text || !result) return;
+function performWebSearch() {
+    const searchQuery = document.getElementById('searchQuery');
+    const searchResults = document.getElementById('searchResults');
+    if (!searchQuery || !searchResults) return;
     
-    if (!text.value) return;
-    const safeText = text.value.replace(/[<>]/g, '');
-    const translation = 'Traduction simulée de: "' + safeText + '"';
-    result.innerHTML = translation;
-    result.style.display = 'block';
+    const query = searchQuery.value.trim();
+    if (!query) return;
+    
+    const safeQuery = query.replace(/[<>]/g, '');
+    
+    searchResults.innerHTML = '<div style="text-align: center; padding: 20px;">🔄 Recherche en cours...</div>';
+    searchResults.style.display = 'block';
+    
+    // Appeler nouvelle API web_search
+    fetch(`/api/search?q=${encodeURIComponent(safeQuery)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                searchResults.innerHTML = `
+                    <h4 style="margin-bottom: 10px;">🔍 Résultats pour "${data.query}":</h4>
+                    <div style="white-space: pre-wrap;">${data.results}</div>
+                `;
+            } else {
+                searchResults.innerHTML = `<p style="color: #999;">Aucun résultat trouvé pour "${data.query}"</p>`;
+            }
+        })
+        .catch(error => {
+            console.error('Erreur recherche web:', error);
+            searchResults.innerHTML = `<p style="color: #ff4757;">❌ Erreur: ${error.message}</p>`;
+        });
 }
 
 function getWeather() {
