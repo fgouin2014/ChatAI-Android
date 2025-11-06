@@ -433,6 +433,43 @@ class KittAIService(
     }
     
     /**
+     * ⭐ SYSTEM CONTEXT - Construit le contexte système temps réel
+     * Donne à l'IA accès aux infos device Android
+     */
+    private fun buildSystemContext(): String {
+        try {
+            // Date et heure actuelle
+            val currentTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("America/Montreal"))
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+            val dateTimeString = currentTime.format(formatter)
+            val dayOfWeek = currentTime.dayOfWeek.toString()
+            
+            // Batterie
+            val batteryManager = context.getSystemService(android.content.Context.BATTERY_SERVICE) as android.os.BatteryManager
+            val batteryLevel = batteryManager.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            
+            // Réseau
+            val hasInternet = hasInternet()
+            
+            return """
+[CONTEXTE SYSTÈME DEVICE - Temps réel]
+Date et heure: $dateTimeString (EST/EDT - Montréal)
+Jour de la semaine: $dayOfWeek
+Batterie: $batteryLevel%
+Internet: ${if (hasInternet) "Disponible" else "Indisponible"}
+
+Note: Ces informations sont en TEMPS RÉEL depuis le device Android.
+Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état du système, etc.
+[FIN CONTEXTE SYSTÈME]
+            """.trimIndent()
+            
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "❌ Error building system context: ${e.message}")
+            return "[CONTEXTE SYSTÈME: Non disponible]"
+        }
+    }
+    
+    /**
      * ⭐ WEB SEARCH API - Appelle l'API web_search d'Ollama Cloud
      * Référence: https://docs.ollama.com/capabilities/web-search
      */
@@ -1300,6 +1337,13 @@ class KittAIService(
             messages.put(JSONObject().apply {
                 put("role", "system")
                 put("content", getSystemPrompt())
+            })
+            
+            // ⭐ CONTEXTE SYSTÈME - Info temps réel device Android
+            val systemContext = buildSystemContext()
+            messages.put(JSONObject().apply {
+                put("role", "system")
+                put("content", systemContext)
             })
             
             // Historique de conversation (derniers N échanges depuis la BD)
