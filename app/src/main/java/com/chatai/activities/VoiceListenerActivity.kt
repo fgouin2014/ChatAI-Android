@@ -531,7 +531,10 @@ class VoiceListenerActivity : Activity(), RecognitionListener, TextToSpeech.OnIn
             return
         }
         
-        Log.i(TAG, "🔊 Speaking: '$text'")
+        // Nettoyer Markdown avant TTS (retire *, **, _, etc.)
+        val cleanText = cleanMarkdownForTTS(text)
+        
+        Log.i(TAG, "🔊 Speaking: '$cleanText'")
         
         // ⭐ ANNULER le timeout de sécurité - le TTS va gérer la fermeture
         cancelSafetyTimeout()
@@ -539,7 +542,7 @@ class VoiceListenerActivity : Activity(), RecognitionListener, TextToSpeech.OnIn
         val params = Bundle()
         params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "tts_response")
         
-        val result = textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "tts_response")
+        val result = textToSpeech?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, params, "tts_response")
         
         if (result == TextToSpeech.ERROR) {
             Log.e(TAG, "❌ TTS speak() returned ERROR")
@@ -547,6 +550,40 @@ class VoiceListenerActivity : Activity(), RecognitionListener, TextToSpeech.OnIn
         } else {
             Log.i(TAG, "✅ TTS speak() started successfully - Waiting for onDone()")
         }
+    }
+    
+    /**
+     * Nettoie le formatage Markdown pour TTS
+     * Identique à KittTTSManager.cleanMarkdownForTTS()
+     */
+    private fun cleanMarkdownForTTS(text: String): String {
+        var cleaned = text
+        
+        // Retirer gras/italique (ordre important: ** avant *)
+        cleaned = cleaned.replace("**", "")
+        cleaned = cleaned.replace("*", "")
+        cleaned = cleaned.replace("__", "")
+        cleaned = cleaned.replace("_", "")
+        
+        // Retirer liens [texte](url) → garder juste le texte
+        cleaned = cleaned.replace(Regex("\\[([^\\]]+)\\]\\([^)]+\\)"), "$1")
+        
+        // Retirer code inline `code`
+        cleaned = cleaned.replace("`", "")
+        
+        // Retirer headings ### (début de ligne)
+        cleaned = cleaned.replace(Regex("(?m)^#{1,6}\\s+"), "")
+        
+        // Retirer blockquotes > (début de ligne)
+        cleaned = cleaned.replace(Regex("(?m)^>\\s+"), "")
+        
+        // Retirer listes - ou * (début de ligne)
+        cleaned = cleaned.replace(Regex("(?m)^[\\-\\*]\\s+"), "")
+        
+        // Nettoyer espaces multiples
+        cleaned = cleaned.replace(Regex("\\s+"), " ")
+        
+        return cleaned.trim()
     }
     
     // ═══════════════════════════════════════════════════════════════════════════════
