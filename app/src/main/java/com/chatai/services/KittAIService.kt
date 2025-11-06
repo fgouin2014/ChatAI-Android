@@ -57,7 +57,7 @@ class KittAIService(
     
     companion object {
         private const val TAG = "KittAIService"
-        private const val VERSION = "4.6.0" // Professional Drawer: All buttons functional + Real utilities (no roleplay)
+        private const val VERSION = "4.7.0" // Intelligence System: Web Search + System Context + AI Learning
         
         // APIs URLs
         private const val OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
