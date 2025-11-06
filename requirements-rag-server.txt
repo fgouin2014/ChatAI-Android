@@ -1,0 +1,20 @@
+# ChatAI RAG Server - Python Dependencies
+
+# Web Framework
+flask==3.0.0
+
+# Embeddings & NLP
+sentence-transformers==2.2.2
+
+# Math & Arrays
+numpy==1.24.3
+
+# CORS (si nécessaire pour interface web)
+flask-cors==4.0.0
+
+# Note: sentence-transformers installe automatiquement:
+# - torch (PyTorch)
+# - transformers (HuggingFace)
+# - scikit-learn
+# Total size: ~500 MB avec modèle all-MiniLM-L6-v2
+
