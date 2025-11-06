@@ -130,8 +130,14 @@ class KittDrawerFragment : Fragment() {
         
         // Commandes de base
         view.findViewById<MaterialButton>(R.id.activateKittButton).setOnClickListener {
-            commandListener?.onButtonPressed("Activation de KITT")
-            commandListener?.onCommandSelected("ACTIVATE_KITT")
+            commandListener?.onButtonPressed("Activation vocale")
+            try {
+                val intent = Intent(requireContext(), com.chatai.activities.VoiceListenerActivity::class.java)
+                startActivity(intent)
+                commandListener?.onCloseDrawer()
+            } catch (e: Exception) {
+                android.util.Log.e("KittDrawer", "Erreur ouverture VoiceListenerActivity: ${e.message}")
+            }
         }
         
         view.findViewById<MaterialButton>(R.id.systemStatusButton).setOnClickListener {
@@ -140,8 +146,8 @@ class KittDrawerFragment : Fragment() {
         }
         
         view.findViewById<MaterialButton>(R.id.activateScannerButton).setOnClickListener {
-            commandListener?.onButtonPressed("Activation du scanner")
-            commandListener?.onCommandSelected("ACTIVATE_SCANNER")
+            commandListener?.onButtonPressed("Scanner QR")
+            showQRScannerInfo()
         }
         
         // Mode affichage - Animation VU-meter
@@ -159,50 +165,93 @@ class KittDrawerFragment : Fragment() {
         
         // Analyse et surveillance
         view.findViewById<MaterialButton>(R.id.environmentalAnalysisButton).setOnClickListener {
-            commandListener?.onButtonPressed("Analyse environnementale")
-            commandListener?.onCommandSelected("ENVIRONMENTAL_ANALYSIS")
+            commandListener?.onButtonPressed("Capteurs device")
+            showSensorsDialog()
         }
         
         view.findViewById<MaterialButton>(R.id.surveillanceModeButton).setOnClickListener {
-            commandListener?.onButtonPressed("Mode surveillance")
-            commandListener?.onCommandSelected("SURVEILLANCE_MODE")
+            commandListener?.onButtonPressed("Mode Ne Pas Déranger")
+            toggleDoNotDisturbMode()
         }
         
         view.findViewById<MaterialButton>(R.id.emergencyModeButton).setOnClickListener {
-            commandListener?.onButtonPressed("Mode urgence")
-            commandListener?.onCommandSelected("EMERGENCY_MODE")
+            commandListener?.onButtonPressed("Contacts d'urgence")
+            openEmergencyContacts()
         }
         
         // Navigation
         view.findViewById<MaterialButton>(R.id.gpsActivationButton).setOnClickListener {
-            commandListener?.onButtonPressed("Activation GPS")
-            commandListener?.onCommandSelected("GPS_ACTIVATION")
+            commandListener?.onButtonPressed("Ouverture Google Maps")
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("google.navigation:q="))
+                startActivity(intent)
+                commandListener?.onCloseDrawer()
+            } catch (e: Exception) {
+                android.util.Log.e("KittDrawer", "Erreur ouverture Google Maps: ${e.message}")
+            }
         }
         
         view.findViewById<MaterialButton>(R.id.calculateRouteButton).setOnClickListener {
-            commandListener?.onButtonPressed("Calcul de route")
-            commandListener?.onCommandSelected("CALCULATE_ROUTE")
+            commandListener?.onButtonPressed("Partage de position")
+            try {
+                // Get current location would require LocationManager - simplified for now
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, "Ma position GPS (fonctionnalité en développement)")
+                }
+                startActivity(Intent.createChooser(intent, "Partager ma position"))
+                commandListener?.onCloseDrawer()
+            } catch (e: Exception) {
+                android.util.Log.e("KittDrawer", "Erreur partage position: ${e.message}")
+            }
         }
         
         view.findViewById<MaterialButton>(R.id.setDestinationButton).setOnClickListener {
-            commandListener?.onButtonPressed("Définition de destination")
-            commandListener?.onCommandSelected("SET_DESTINATION")
+            commandListener?.onButtonPressed("Recherche navigation")
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("geo:0,0?q="))
+                startActivity(intent)
+                commandListener?.onCloseDrawer()
+            } catch (e: Exception) {
+                android.util.Log.e("KittDrawer", "Erreur recherche Maps: ${e.message}")
+            }
         }
         
         // Communication
         view.findViewById<MaterialButton>(R.id.openCommunicationButton).setOnClickListener {
-            commandListener?.onButtonPressed("Ouverture de communication")
-            commandListener?.onCommandSelected("OPEN_COMMUNICATION")
+            commandListener?.onButtonPressed("Ouverture contacts")
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, android.provider.ContactsContract.Contacts.CONTENT_URI)
+                startActivity(intent)
+                commandListener?.onCloseDrawer()
+            } catch (e: Exception) {
+                android.util.Log.e("KittDrawer", "Erreur ouverture Contacts: ${e.message}")
+            }
         }
         
         view.findViewById<MaterialButton>(R.id.setFrequencyButton).setOnClickListener {
-            commandListener?.onButtonPressed("Définition de fréquence")
-            commandListener?.onCommandSelected("SET_FREQUENCY")
+            commandListener?.onButtonPressed("Réglages audio")
+            try {
+                val intent = Intent(android.provider.Settings.ACTION_SOUND_SETTINGS)
+                startActivity(intent)
+                commandListener?.onCloseDrawer()
+            } catch (e: Exception) {
+                android.util.Log.e("KittDrawer", "Erreur ouverture réglages audio: ${e.message}")
+            }
         }
         
         view.findViewById<MaterialButton>(R.id.transmitMessageButton).setOnClickListener {
-            commandListener?.onButtonPressed("Transmission de message")
-            commandListener?.onCommandSelected("TRANSMIT_MESSAGE")
+            commandListener?.onButtonPressed("Partage rapide")
+            try {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, "")
+                }
+                startActivity(Intent.createChooser(intent, "Partager via"))
+                commandListener?.onCloseDrawer()
+            } catch (e: Exception) {
+                android.util.Log.e("KittDrawer", "Erreur partage: ${e.message}")
+            }
         }
         
         // Performance
@@ -564,6 +613,77 @@ class KittDrawerFragment : Fragment() {
             .setTitle("INFORMATIONS SYSTÈME")
             .setMessage(message)
             .setPositiveButton("FERMER") { dialog, _ -> dialog.dismiss() }
+            .show()
+    }
+    
+    /**
+     * Affiche informations sur les capteurs device
+     */
+    private fun showSensorsDialog() {
+        val context = requireContext()
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as android.hardware.SensorManager
+        
+        val sensors = sensorManager.getSensorList(android.hardware.Sensor.TYPE_ALL)
+        val sensorNames = sensors.joinToString("\n") { sensor ->
+            "• ${sensor.name}"
+        }
+        
+        val message = """
+            CAPTEURS DÉTECTÉS: ${sensors.size}
+            
+            $sensorNames
+        """.trimIndent()
+        
+        AlertDialog.Builder(context)
+            .setTitle("CAPTEURS DEVICE")
+            .setMessage(message)
+            .setPositiveButton("FERMER") { dialog, _ -> dialog.dismiss() }
+            .show()
+    }
+    
+    /**
+     * Toggle mode Ne Pas Déranger (DND)
+     */
+    private fun toggleDoNotDisturbMode() {
+        try {
+            val intent = Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+            startActivity(intent)
+            commandListener?.onCloseDrawer()
+        } catch (e: Exception) {
+            AlertDialog.Builder(requireContext())
+                .setTitle("MODE NE PAS DÉRANGER")
+                .setMessage("Ouvrir les paramètres de notifications pour activer/désactiver le mode Ne Pas Déranger")
+                .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+                .show()
+        }
+    }
+    
+    /**
+     * Ouvrir contacts d'urgence
+     */
+    private fun openEmergencyContacts() {
+        try {
+            // Option 1: Ouvrir contacts favoris
+            val intent = Intent(Intent.ACTION_VIEW, android.provider.ContactsContract.Contacts.CONTENT_URI)
+            startActivity(intent)
+            commandListener?.onCloseDrawer()
+        } catch (e: Exception) {
+            AlertDialog.Builder(requireContext())
+                .setTitle("CONTACTS D'URGENCE")
+                .setMessage("Impossible d'ouvrir les contacts. Assurez-vous d'avoir l'app Contacts installée.")
+                .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+                .show()
+        }
+    }
+    
+    /**
+     * Info scanner QR (fonctionnalité future)
+     */
+    private fun showQRScannerInfo() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("SCANNER QR/BARCODE")
+            .setMessage("Fonctionnalité en développement.\n\nLe scanner QR Code sera intégré dans une future version avec ZXing ou ML Kit.")
+            .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
             .show()
     }
 }
