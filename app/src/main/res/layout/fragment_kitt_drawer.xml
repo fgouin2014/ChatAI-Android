@@ -689,11 +689,11 @@
 
             </LinearLayout>
 
-            <!-- Section: Web Services -->
+            <!-- Section: Diagnostic & Monitoring -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="SERVICES WEB"
+                android:text="DIAGNOSTIC &amp; MONITORING"
                 android:textColor="@color/kitt_red"
                 android:textSize="12sp"
                 android:fontFamily="monospace"
@@ -702,13 +702,28 @@
                 android:layout_marginBottom="4dp" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAPITest"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_marginBottom="8dp"
+                android:text="🔍 DIAGNOSTIC API"
+                android:textSize="10sp"
+                app:backgroundTint="@color/kitt_red_alpha"
+                app:cornerRadius="8dp"
+                app:strokeColor="@color/kitt_red"
+                app:strokeWidth="2dp"
+                android:textColor="@color/kitt_red"
+                android:fontFamily="monospace"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnWebServer"
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
                 android:layout_marginBottom="8dp"
-                android:text="⚙️ CONFIG SERVEUR WEB"
+                android:text="📊 MONITORING SERVEURS"
                 android:textSize="10sp"
-                app:backgroundTint="@color/kitt_red_alpha"
+                app:backgroundTint="@color/kitt_black_alpha"
                 app:cornerRadius="8dp"
                 app:strokeColor="@color/kitt_red"
                 app:strokeWidth="2dp"
@@ -721,7 +736,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
                 android:layout_marginBottom="8dp"
-                android:text="🌐 CONFIG WEBSERVER"
+                android:text="⚙️ CONFIG SERVEURS"
                 android:textSize="10sp"
                 app:backgroundTint="@color/kitt_black_alpha"
                 app:cornerRadius="8dp"
@@ -751,9 +766,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
                 android:layout_marginBottom="16dp"
-                android:text="EXPLORATEUR HTML"
+                android:text="💬 HISTORIQUE"
                 android:textSize="10sp"
-                app:backgroundTint="@color/kitt_red_alpha"
+                app:backgroundTint="@color/kitt_black_alpha"
                 app:cornerRadius="8dp"
                 app:strokeColor="@color/kitt_red"
                 app:strokeWidth="2dp"
