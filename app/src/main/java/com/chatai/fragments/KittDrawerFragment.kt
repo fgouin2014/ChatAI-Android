@@ -1,17 +1,25 @@
 package com.chatai.fragments
 
+import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.os.BatteryManager
 import android.os.Bundle
+import android.os.Environment
+import android.os.StatFs
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.button.MaterialButton
 import com.chatai.R
+import java.text.DecimalFormat
 
 /**
  * Fragment drawer pour le menu des commandes KITT
@@ -127,8 +135,8 @@ class KittDrawerFragment : Fragment() {
         }
         
         view.findViewById<MaterialButton>(R.id.systemStatusButton).setOnClickListener {
-            commandListener?.onButtonPressed("Statut du système")
-            commandListener?.onCommandSelected("SYSTEM_STATUS")
+            commandListener?.onButtonPressed("Informations système")
+            showSystemInfoDialog()
         }
         
         view.findViewById<MaterialButton>(R.id.activateScannerButton).setOnClickListener {
@@ -235,6 +243,19 @@ class KittDrawerFragment : Fragment() {
                 commandListener?.onConfigurationCenterRequested()
             }
             
+            // API Diagnostic button → AIConfigurationActivity
+            view.findViewById<MaterialButton>(R.id.btnAPITest).setOnClickListener {
+                commandListener?.onButtonPressed("Diagnostic API")
+                try {
+                    val intent = android.content.Intent(requireContext(), com.chatai.activities.AIConfigurationActivity::class.java)
+                    intent.putExtra("AUTO_TEST", true) // Trigger automatic API test
+                    startActivity(intent)
+                    commandListener?.onCloseDrawer()
+                } catch (e: Exception) {
+                    android.util.Log.e("KittDrawer", "Erreur ouverture AIConfigurationActivity: ${e.message}")
+                }
+            }
+            
             // Music button
             view.findViewById<MaterialButton>(R.id.musicButton).setOnClickListener {
                 android.util.Log.d("Music", "Bouton musique cliqué dans le drawer")
@@ -263,28 +284,52 @@ class KittDrawerFragment : Fragment() {
                 android.util.Log.d("Games", "Ouverture de GameListActivity")
             }
             
-            // Web Server Configuration button
+            // Server Monitoring button → ServerActivity
             view.findViewById<MaterialButton>(R.id.btnWebServer).setOnClickListener {
-                commandListener?.onButtonPressed("Configuration serveur web")
-                commandListener?.onWebServerRequested()
+                commandListener?.onButtonPressed("Monitoring serveurs")
+                try {
+                    val intent = android.content.Intent(requireContext(), com.chatai.ServerActivity::class.java)
+                    startActivity(intent)
+                    commandListener?.onCloseDrawer()
+                } catch (e: Exception) {
+                    android.util.Log.e("KittDrawer", "Erreur ouverture ServerActivity: ${e.message}")
+                }
             }
             
-            // WebServer Configuration button (port 8888)
+            // Server Configuration button → ServerConfigurationActivity
             view.findViewById<MaterialButton>(R.id.btnWebServerConfig).setOnClickListener {
-                commandListener?.onButtonPressed("Configuration WebServer")
-                commandListener?.onWebServerConfigRequested()
+                commandListener?.onButtonPressed("Configuration serveurs")
+                try {
+                    val intent = android.content.Intent(requireContext(), com.chatai.activities.ServerConfigurationActivity::class.java)
+                    startActivity(intent)
+                    commandListener?.onCloseDrawer()
+                } catch (e: Exception) {
+                    android.util.Log.e("KittDrawer", "Erreur ouverture ServerConfigurationActivity: ${e.message}")
+                }
             }
             
-            // Endpoints List button
+            // Endpoints List button → EndpointsListActivity
             view.findViewById<MaterialButton>(R.id.btnEndpointsList).setOnClickListener {
-                commandListener?.onButtonPressed("Liste des endpoints API")
-                commandListener?.onEndpointsListRequested()
+                commandListener?.onButtonPressed("Endpoints API")
+                try {
+                    val intent = android.content.Intent(requireContext(), com.chatai.activities.EndpointsListActivity::class.java)
+                    startActivity(intent)
+                    commandListener?.onCloseDrawer()
+                } catch (e: Exception) {
+                    android.util.Log.e("KittDrawer", "Erreur ouverture EndpointsListActivity: ${e.message}")
+                }
             }
             
-            // HTML Explorer button
+            // Conversation History button → ConversationHistoryActivity
             view.findViewById<MaterialButton>(R.id.btnHtmlExplorer).setOnClickListener {
-                commandListener?.onButtonPressed("Explorateur HTML")
-                commandListener?.onHtmlExplorerRequested()
+                commandListener?.onButtonPressed("Historique conversations")
+                try {
+                    val intent = android.content.Intent(requireContext(), com.chatai.activities.ConversationHistoryActivity::class.java)
+                    startActivity(intent)
+                    commandListener?.onCloseDrawer()
+                } catch (e: Exception) {
+                    android.util.Log.e("KittDrawer", "Erreur ouverture ConversationHistoryActivity: ${e.message}")
+                }
             }
             
             // Theme toggle buttons
@@ -386,8 +431,8 @@ class KittDrawerFragment : Fragment() {
             R.id.emergencyModeButton, R.id.gpsActivationButton, R.id.calculateRouteButton,
             R.id.setDestinationButton, R.id.openCommunicationButton, R.id.setFrequencyButton,
             R.id.transmitMessageButton, R.id.turboBoostButton, R.id.pursuitModeButton,
-            R.id.deactivateKittButton, R.id.btnAIConfig, R.id.musicButton, R.id.btnWebServer, 
-            R.id.btnWebServerConfig, R.id.btnEndpointsList, R.id.btnHtmlExplorer
+            R.id.deactivateKittButton, R.id.btnAIConfig, R.id.musicButton, R.id.btnAPITest,
+            R.id.btnWebServer, R.id.btnWebServerConfig, R.id.btnEndpointsList, R.id.btnHtmlExplorer
         )
         
         allButtons.forEach { buttonId ->
@@ -418,8 +463,8 @@ class KittDrawerFragment : Fragment() {
             R.id.emergencyModeButton, R.id.gpsActivationButton, R.id.calculateRouteButton,
             R.id.setDestinationButton, R.id.openCommunicationButton, R.id.setFrequencyButton,
             R.id.transmitMessageButton, R.id.turboBoostButton, R.id.pursuitModeButton,
-            R.id.deactivateKittButton, R.id.btnAIConfig, R.id.musicButton, R.id.btnWebServer, 
-            R.id.btnWebServerConfig, R.id.btnEndpointsList, R.id.btnHtmlExplorer
+            R.id.deactivateKittButton, R.id.btnAIConfig, R.id.musicButton, R.id.btnAPITest,
+            R.id.btnWebServer, R.id.btnWebServerConfig, R.id.btnEndpointsList, R.id.btnHtmlExplorer
         )
         
         allButtons.forEach { buttonId ->
@@ -450,8 +495,8 @@ class KittDrawerFragment : Fragment() {
             R.id.emergencyModeButton, R.id.gpsActivationButton, R.id.calculateRouteButton,
             R.id.setDestinationButton, R.id.openCommunicationButton, R.id.setFrequencyButton,
             R.id.transmitMessageButton, R.id.turboBoostButton, R.id.pursuitModeButton,
-            R.id.deactivateKittButton, R.id.btnAIConfig, R.id.musicButton, R.id.btnWebServer, 
-            R.id.btnWebServerConfig, R.id.btnEndpointsList, R.id.btnHtmlExplorer
+            R.id.deactivateKittButton, R.id.btnAIConfig, R.id.musicButton, R.id.btnAPITest,
+            R.id.btnWebServer, R.id.btnWebServerConfig, R.id.btnEndpointsList, R.id.btnHtmlExplorer
         )
         
         allButtons.forEach { buttonId ->
@@ -464,5 +509,61 @@ class KittDrawerFragment : Fragment() {
         updateThemeButtons(view)
         // Mettre à jour les boutons de mode d'affichage avec le nouveau thème
         updateAnimationModeButtons(true) // ORIGINAL par défaut
+    }
+    
+    /**
+     * Affiche un dialog avec les vraies informations système du device
+     */
+    private fun showSystemInfoDialog() {
+        val context = requireContext()
+        
+        // Batterie
+        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val batteryLevel = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
+            context.registerReceiver(null, ifilter)
+        }
+        val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || 
+                        status == BatteryManager.BATTERY_STATUS_FULL
+        val chargingText = if (isCharging) "EN CHARGE" else "SUR BATTERIE"
+        
+        // RAM
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memInfo = ActivityManager.MemoryInfo()
+        activityManager.getMemoryInfo(memInfo)
+        val totalRam = memInfo.totalMem / (1024 * 1024) // MB
+        val availRam = memInfo.availMem / (1024 * 1024) // MB
+        val usedRam = totalRam - availRam
+        
+        // Stockage
+        val statFs = StatFs(Environment.getDataDirectory().path)
+        val totalStorage = statFs.blockCountLong * statFs.blockSizeLong / (1024 * 1024 * 1024) // GB
+        val availStorage = statFs.availableBlocksLong * statFs.blockSizeLong / (1024 * 1024 * 1024) // GB
+        val usedStorage = totalStorage - availStorage
+        
+        // Format
+        val df = DecimalFormat("#.##")
+        
+        // Build message
+        val message = """
+            BATTERIE:
+            Niveau: $batteryLevel%
+            État: $chargingText
+            
+            MÉMOIRE RAM:
+            Utilisée: ${usedRam}MB / ${totalRam}MB
+            Disponible: ${availRam}MB
+            
+            STOCKAGE:
+            Utilisé: ${df.format(usedStorage)}GB / ${df.format(totalStorage)}GB
+            Disponible: ${df.format(availStorage)}GB
+        """.trimIndent()
+        
+        AlertDialog.Builder(context)
+            .setTitle("INFORMATIONS SYSTÈME")
+            .setMessage(message)
+            .setPositiveButton("FERMER") { dialog, _ -> dialog.dismiss() }
+            .show()
     }
 }
