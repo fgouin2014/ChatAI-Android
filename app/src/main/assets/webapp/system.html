@@ -164,20 +164,20 @@
             <div class="section">
                 <h2>🔌 API Services</h2>
                 <div class="grid">
-                    <div class="card" onclick="window.open('http://localhost:8080/api/status', '_blank')">
+                    <div class="card" onclick="window.open('http://localhost:8081/api/status', '_blank')">
                         <h3>📊 Statut API ChatAI</h3>
                         <p>Vérifier le statut de l'API ChatAI</p>
-                        <div class="url">http://localhost:8080/api/status</div>
+                        <div class="url">http://localhost:8081/api/status</div>
                     </div>
-                    <div class="card" onclick="window.open('http://localhost:8080/api/plugins', '_blank')">
+                    <div class="card" onclick="window.open('http://localhost:8081/api/plugins', '_blank')">
                         <h3>🔌 Plugins Disponibles</h3>
                         <p>Liste des plugins et fonctionnalités</p>
-                        <div class="url">http://localhost:8080/api/plugins</div>
+                        <div class="url">http://localhost:8081/api/plugins</div>
                     </div>
-                    <div class="card" onclick="window.open('http://localhost:8080/api/health', '_blank')">
+                    <div class="card" onclick="window.open('http://localhost:8081/api/health', '_blank')">
                         <h3>🏥 Santé Système</h3>
                         <p>Vérification de la santé du système</p>
-                        <div class="url">http://localhost:8080/api/health</div>
+                        <div class="url">http://localhost:8081/api/health</div>
                     </div>
                 </div>
             </div>
@@ -186,37 +186,37 @@
             <div class="section">
                 <h2>🧩 Plugins</h2>
                 <div class="grid">
-                    <div class="card" onclick="window.open('http://localhost:8080/api/weather/Paris', '_blank')">
+                    <div class="card" onclick="window.open('http://localhost:8081/api/weather/Paris', '_blank')">
                         <h3>🌤️ Météo</h3>
-                        <p>Service météo pour n'importe quelle ville (données réelles web_search)</p>
-                        <div class="url">http://localhost:8080/api/weather/[ville]</div>
+                        <p>Service météo pour n'importe quelle ville</p>
+                        <div class="url">http://localhost:8081/api/weather/[ville]</div>
                     </div>
-                    <div class="card" onclick="window.open('http://localhost:8080/api/search?q=bitcoin', '_blank')">
-                        <h3>🔍 Recherche Web</h3>
-                        <p>Recherche web générique via Ollama</p>
-                        <div class="url">http://localhost:8080/api/search?q=[query]</div>
-                    </div>
-                    <div class="card" onclick="window.open('http://localhost:8080/api/jokes/random', '_blank')">
+                    <div class="card" onclick="window.open('http://localhost:8081/api/jokes', '_blank')">
                         <h3>😄 Blagues</h3>
                         <p>Service de blagues aléatoires</p>
-                        <div class="url">http://localhost:8080/api/jokes/random</div>
+                        <div class="url">http://localhost:8081/api/jokes</div>
                     </div>
-                    <div class="card" onclick="window.open('http://localhost:8080/api/tips/productivity', '_blank')">
+                    <div class="card" onclick="window.open('http://localhost:8081/api/tips/productivity', '_blank')">
                         <h3>💡 Conseils</h3>
                         <p>Conseils par catégorie</p>
-                        <div class="url">http://localhost:8080/api/tips/[catégorie]</div>
+                        <div class="url">http://localhost:8081/api/tips/[catégorie]</div>
                     </div>
                 </div>
             </div>
             
-            <!-- GameLibrary -->
+            <!-- KITT System -->
             <div class="section">
-                <h2>🎮 GameLibrary</h2>
+                <h2>🚗 KITT System</h2>
                 <div class="grid">
-                    <div class="card" onclick="window.open('http://localhost:8888/gamelibrary/', '_blank')">
-                        <h3>🕹️ GameLibrary Interface</h3>
-                        <p>Émulateurs rétro (NES, SNES, PSX, etc.)</p>
-                        <div class="url">http://localhost:8888/gamelibrary/</div>
+                    <div class="card" onclick="window.open('http://localhost:8083/dashboard', '_blank')">
+                        <h3>📊 Dashboard KITT</h3>
+                        <p>Tableau de bord du système KITT</p>
+                        <div class="url">http://localhost:8083/dashboard</div>
+                    </div>
+                    <div class="card" onclick="window.open('http://localhost:8083/api/system', '_blank')">
+                        <h3>⚙️ API Système</h3>
+                        <p>API système KITT</p>
+                        <div class="url">http://localhost:8083/api/system</div>
                     </div>
                 </div>
             </div>
@@ -238,8 +238,8 @@
                 <h2>⚡ Actions Rapides</h2>
                 <div style="text-align: center;">
                     <a href="/index.html" class="btn primary">💬 Ouvrir Chat</a>
-                    <a href="http://localhost:8080/api/status" class="btn">📊 Statut API</a>
-                    <a href="http://localhost:8888/gamelibrary/" class="btn">🎮 GameLibrary</a>
+                    <a href="http://localhost:8081/api/status" class="btn">📊 Statut API</a>
+                    <a href="http://localhost:8083/dashboard" class="btn">🚗 Dashboard KITT</a>
                     <button onclick="testAllServices()" class="btn">🧪 Tester Services</button>
                 </div>
             </div>
@@ -268,8 +268,9 @@
         
         async function testAllServices() {
             const services = [
-                { name: 'ChatAI HttpServer', url: 'http://localhost:8080/api/status' },
-                { name: 'GameLibrary WebServer', url: 'http://localhost:8888/gamelibrary/' }
+                { name: 'Web Server', url: 'http://localhost:8080' },
+                { name: 'ChatAI API', url: 'http://localhost:8081/api/status' },
+                { name: 'System API', url: 'http://localhost:8083/api/system' }
             ];
             
             let results = [];
@@ -289,7 +290,7 @@
         // Auto-refresh status every 30 seconds
         setInterval(async () => {
             try {
-                const response = await fetch('http://localhost:8080/api/status');
+                const response = await fetch('http://localhost:8081/api/status');
                 if (response.ok) {
                     document.title = '🚀 ChatAI System - En ligne';
                 }

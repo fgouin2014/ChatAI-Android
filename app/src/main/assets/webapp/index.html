@@ -383,9 +383,11 @@
 
         <div class="chat-input-container">
             <div class="plugins-bar">
-                <button class="plugin-btn" onclick="openPlugin('websearch')">🔍 Recherche</button>
+                <button class="plugin-btn" onclick="openPlugin('translator')">🌐 Traducteur</button>
                 <button class="plugin-btn" onclick="openPlugin('calculator')">🔢 Calculette</button>
                 <button class="plugin-btn" onclick="openPlugin('weather')">🌤️ Météo</button>
+                <button class="plugin-btn" onclick="openPlugin('camera')">📷 Photo</button>
+                <button class="plugin-btn" onclick="openPlugin('files')">📁 Fichiers</button>
                 <button class="plugin-btn" onclick="openPlugin('jokes')">😂 Blagues</button>
                 <button class="plugin-btn" onclick="openPlugin('tips')">💡 Conseils</button>
             </div>
@@ -449,9 +451,5 @@
     </div>
 
     <script src="chat.js"></script>
-    <script>
-        console.log('✅ chat.js loaded successfully');
-        console.log('✅ openPlugin function exists:', typeof openPlugin !== 'undefined');
-    </script>
 </body>
 </html>

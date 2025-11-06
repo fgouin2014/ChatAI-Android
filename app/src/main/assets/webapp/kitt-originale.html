@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistant KITT</title>
+<!-- 
+/**
+Parfait ! Maintenant vous avez le vrai scanner KITT authentique avec :
+🔴 Scanner horizontal authentique :
+✨ 24 segments individuels
+
+Chaque segment est clairement séparé avec un espacement visible
+Style rectangulaire comme dans la série TV originale
+4 niveaux de luminosité : glow-low, glow-medium, glow-high, glow-max
+
+🔄 Animation de balayage réaliste
+
+5 segments s'allument simultanément (position centrale + 2 de chaque côté)
+Dégradé de luminosité : le segment central est le plus brillant
+Mouvement fluide de gauche à droite puis retour
+Rebond aux extrémités comme dans la série
+
+⚡ Vitesses adaptées selon l'activité
+
+Écoute : 100ms (modérée)
+Réflexion : 60ms (rapide et intense)
+Parole : 80ms (rythmée)
+Initialisation : 90ms
+
+🎯 État de repos
+
+4 segments centraux légèrement allumés quand inactif
+Animation automatique au démarrage
+
+Vous devriez maintenant voir 24 segments rectangulaires distincts qui créent l'effet de balayage iconique de KITT !
+**/
+-->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            color: #ff3333;
+            font-family: 'Courier New', monospace;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        .kitt-fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+        }
+
+        .scanner-display {
+            display: flex;
+            gap: 80px;
+            align-items: center;
+            justify-content: center;
+            margin-top: 200px;
+        }
+
+        .vu-meter-container {
+            position: fixed;
+            top: 280px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 80px;
+            align-items: end;
+            justify-content: center;
+            z-index: 15;
+        }
+
+        .led-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #660000;
+            border-radius: 8px;
+            padding: 10px;
+            z-index: 10;
+        }
+
+        .vu-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            align-items: center;
+            justify-content: end;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #660000;
+            border-radius: 8px;
+            padding: 8px;
+            z-index: 10;
+        }
+
+        .led-segment {
+            width: 50px;
+            height: 30px;
+            background: #330000;
+            border: 3px solid #660000;
+            border-radius: 8px;
+            transition: all 0.1s ease;
+        }
+
+        .vu-led {
+            width: 35px;
+            height: 12px;
+            background: #1a0000;
+            border: 1px solid #330000;
+            border-radius: 3px;
+            transition: all 0.05s ease;
+        }
+
+        .led-segment.active {
+            background: linear-gradient(45deg, #ff3333, #ff6666);
+            border-color: #ff3333;
+            box-shadow:
+                0 0 25px #ff3333,
+                inset 0 4px 8px rgba(255, 255, 255, 0.3);
+        }
+
+        .vu-led.active {
+            background: linear-gradient(45deg, #ff3333, #ff6666);
+            border-color: #ff3333;
+            box-shadow: 0 0 8px #ff3333;
+        }
+
+        .vu-led.peak {
+            background: linear-gradient(45deg, #ff6666, #ffaaaa);
+            border-color: #ffaaaa;
+            box-shadow: 0 0 12px #ffaaaa;
+        }
+
+        .vu-led.warning {
+            background: linear-gradient(45deg, #ffaa00, #ffcc66);
+            border-color: #ffaa00;
+            box-shadow: 0 0 10px #ffaa00;
+        }
+
+        /* Switch adapté pour s'intégrer dans la grille uniforme */
+        .power-switch-grid {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            border: 2px solid #ff3333;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(255, 51, 51, 0.1), rgba(255, 51, 51, 0.05));
+            backdrop-filter: blur(10px);
+            height: 100%;
+            width: 100%;
+            box-shadow:
+                0 4px 15px rgba(255, 51, 51, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .power-switch-grid::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 51, 51, 0.1), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .power-switch-grid:hover {
+            background: linear-gradient(135deg, rgba(255, 51, 51, 0.2), rgba(255, 51, 51, 0.1));
+            border-color: #ff6666;
+            transform: translateY(-4px) scale(1.02);
+            box-shadow:
+                0 8px 25px rgba(255, 51, 51, 0.5),
+                0 0 0 1px rgba(255, 51, 51, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        .power-switch-grid:hover::before {
+            left: 100%;
+        }
+
+        .switch-label-grid {
+            color: #ff3333;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            font-weight: bold;
+            text-shadow: 0 0 8px #ff3333;
+            letter-spacing: 1px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .toggle-switch-grid {
+            position: relative;
+            width: 40px;
+            height: 20px;
+            background: #1a0000;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .toggle-switch-grid.active {
+            background: linear-gradient(90deg, #330000, #660000);
+            box-shadow:
+                0 0 15px rgba(255, 51, 51, 0.5),
+                inset 0 2px 4px rgba(255, 51, 51, 0.2);
+        }
+
+        .toggle-slider-grid {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(45deg, #ff3333, #ff6666);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            box-shadow:
+                0 2px 6px rgba(0, 0, 0, 0.8),
+                inset 0 1px 2px rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toggle-switch-grid.active .toggle-slider-grid {
+            left: 22px;
+            background: linear-gradient(45deg, #ff6666, #ffaaaa);
+            box-shadow:
+                0 0 10px rgba(255, 51, 51, 0.8),
+                inset 0 1px 2px rgba(255, 255, 255, 0.5);
+        }
+
+        .toggle-indicator-grid {
+            width: 6px;
+            height: 6px;
+            background: #000;
+            border-radius: 50%;
+            opacity: 0.7;
+        }
+
+        .toggle-switch-grid.active .toggle-indicator-grid {
+            background: #fff;
+            opacity: 1;
+        }
+
+        .switch-status-grid {
+            color: #ff3333;
+            font-family: 'Courier New', monospace;
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 2px 6px;
+            border: 1px solid #ff3333;
+            border-radius: 4px;
+            background: linear-gradient(135deg, rgba(255, 51, 51, 0.2), rgba(255, 51, 51, 0.1));
+            text-shadow: 0 0 8px #ff3333;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(255, 51, 51, 0.3);
+            text-align: center;
+        }
+
+        .status-text {
+            position: fixed;
+            top: 200px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            text-align: center;
+            text-shadow: 0 0 10px #ff3333;
+            z-index: 35;
+            background: rgba(0, 0, 0, 0.95);
+            padding: 6px 15px;
+            border-radius: 6px;
+            border: 1px solid #ff3333;
+            max-width: 70vw;
+            height: auto;
+            min-height: 30px;
+            max-height: 50px;
+            word-wrap: break-word;
+            opacity: 1;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(255, 51, 51, 0.3);
+            backdrop-filter: blur(5px);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.2;
+        }
+
+        /* Scanner horizontal KITT (œil) */
+        .horizontal-scanner {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 700px;
+            height: 80px;
+            background: #000;
+            border: 3px solid #ff3333;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            padding: 15px;
+            box-shadow: 0 0 30px rgba(255, 51, 51, 0.5);
+        }
+
+        .scanner-row {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .kitt-segment {
+            width: 24px;
+            height: 40px;
+            background: #1a0000;
+            border: 1px solid #330000;
+            border-radius: 3px;
+            transition: all 0.08s ease;
+        }
+
+        .kitt-segment.glow-low {
+            background: linear-gradient(45deg, #660000, #990000);
+            border-color: #990000;
+            box-shadow: 0 0 8px #990000;
+        }
+
+        .kitt-segment.glow-medium {
+            background: linear-gradient(45deg, #cc0000, #ff3333);
+            border-color: #ff3333;
+            box-shadow: 0 0 15px #ff3333;
+        }
+
+        .kitt-segment.glow-high {
+            background: linear-gradient(45deg, #ff3333, #ff6666);
+            border-color: #ff6666;
+            box-shadow: 0 0 25px #ff6666, inset 0 2px 6px rgba(255, 255, 255, 0.4);
+        }
+
+        .kitt-segment.glow-max {
+            background: linear-gradient(45deg, #ff6666, #ffaaaa);
+            border-color: #ffaaaa;
+            box-shadow: 0 0 35px #ffaaaa, inset 0 3px 8px rgba(255, 255, 255, 0.6);
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100vw;
+            background: rgba(0, 0, 0, 0.95);
+            padding: 10px;
+            border-top: 2px solid #ff3333;
+            display: grid;
+            grid-template-rows: auto auto auto;
+            gap: 8px;
+            z-index: 30;
+        }
+
+        .text-input-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        /* Grid layout : colonne gauche (switch) + boutons droite sur 2 rangées */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 50px 1fr;
+            grid-template-rows: auto auto;
+            gap: 8px;
+            width: 100%;
+        }
+
+        /* Switch vertical qui occupe 2 rangées - taille réduite */
+        .power-switch-vertical {
+            grid-row: span 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 6px;
+            border: 2px solid #ff3333;
+            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(255, 51, 51, 0.1), rgba(255, 51, 51, 0.05));
+            backdrop-filter: blur(10px);
+            box-shadow:
+                0 2px 8px rgba(255, 51, 51, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .power-switch-vertical::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 51, 51, 0.1), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .power-switch-vertical:hover {
+            background: linear-gradient(135deg, rgba(255, 51, 51, 0.2), rgba(255, 51, 51, 0.1));
+            border-color: #ff6666;
+            transform: translateY(-2px) scale(1.02);
+            box-shadow:
+                0 4px 15px rgba(255, 51, 51, 0.5),
+                0 0 0 1px rgba(255, 51, 51, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        .power-switch-vertical:hover::before {
+            left: 100%;
+        }
+
+        .switch-label-vertical {
+            color: #ff3333;
+            font-family: 'Courier New', monospace;
+            font-size: 8px;
+            font-weight: bold;
+            text-shadow: 0 0 8px #ff3333;
+            letter-spacing: 1px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        /* Toggle vertical (de bas en haut) - taille réduite */
+        .toggle-switch-vertical {
+            position: relative;
+            width: 18px;
+            height: 40px;
+            background: #1a0000;
+            border-radius: 9px;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .toggle-switch-vertical.active {
+            background: linear-gradient(0deg, #330000, #660000);
+            box-shadow:
+                0 0 10px rgba(255, 51, 51, 0.5),
+                inset 0 1px 2px rgba(255, 51, 51, 0.2);
+        }
+
+        .toggle-slider-vertical {
+            position: absolute;
+            bottom: 1px;
+            left: 1px;
+            width: 14px;
+            height: 14px;
+            background: linear-gradient(45deg, #ff3333, #ff6666);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            box-shadow:
+                0 1px 3px rgba(0, 0, 0, 0.8),
+                inset 0 1px 1px rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toggle-switch-vertical.active .toggle-slider-vertical {
+            bottom: 25px;
+            background: linear-gradient(45deg, #ff6666, #ffaaaa);
+            box-shadow:
+                0 0 8px rgba(255, 51, 51, 0.8),
+                inset 0 1px 1px rgba(255, 255, 255, 0.5);
+        }
+
+        .toggle-indicator {
+            width: 4px;
+            height: 4px;
+            background: #000;
+            border-radius: 50%;
+            opacity: 0.7;
+        }
+
+        .toggle-switch-vertical.active .toggle-indicator {
+            background: #fff;
+            opacity: 1;
+        }
+
+        .switch-status-vertical {
+            color: #ff3333;
+            font-family: 'Courier New', monospace;
+            font-size: 7px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 2px 3px;
+            border: 1px solid #ff3333;
+            border-radius: 3px;
+            background: linear-gradient(135deg, rgba(255, 51, 51, 0.2), rgba(255, 51, 51, 0.1));
+            text-shadow: 0 0 8px #ff3333;
+            transition: all 0.3s ease;
+            box-shadow: 0 1px 4px rgba(255, 51, 51, 0.3);
+            text-align: center;
+        }
+
+        /* Grilles des boutons - 2 rangées, taille réduite */
+        .buttons-row-1,
+        .buttons-row-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+            gap: 8px;
+            align-items: stretch;
+        }
+
+        button {
+            background: linear-gradient(135deg, rgba(255, 51, 51, 0.1), rgba(255, 51, 51, 0.05));
+            border: 2px solid #ff3333;
+            color: #ff3333;
+            padding: 10px 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 12px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            box-shadow:
+                0 4px 15px rgba(255, 51, 51, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 51, 51, 0.1), transparent);
+            transition: left 0.6s ease;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, rgba(255, 51, 51, 0.2), rgba(255, 51, 51, 0.1));
+            border-color: #ff6666;
+            color: #ff6666;
+            transform: translateY(-4px) scale(1.02);
+            box-shadow:
+                0 8px 25px rgba(255, 51, 51, 0.5),
+                0 0 0 1px rgba(255, 51, 51, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        button:active {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(255, 51, 51, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        button:disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: transparent;
+            border: 2px solid #ff3333;
+            color: #ff3333;
+            padding: 12px 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            box-shadow: 0 0 15px #ff3333;
+        }
+
+        input[type="text"]::placeholder {
+            color: rgba(255, 51, 51, 0.5);
+        }
+
+        /* Animations */
+        .listening .led-segment.active {
+            animation: ledPulse 1s infinite alternate;
+        }
+
+        .speaking .led-segment.active {
+            animation: ledPulse 0.3s infinite alternate;
+        }
+
+        .thinking .led-segment {
+            animation: ledSweep 2s infinite;
+        }
+
+        @keyframes ledPulse {
+            0% {
+                box-shadow: 0 0 25px #ff3333, inset 0 4px 8px rgba(255, 255, 255, 0.3);
+                opacity: 1;
+            }
+            100% {
+                box-shadow: 0 0 40px #ff3333, inset 0 4px 8px rgba(255, 255, 255, 0.5);
+                opacity: 0.7;
+            }
+        }
+
+        @keyframes ledSweep {
+            0% {
+                opacity: 0.2;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0.2;
+            }
+        }
+
+        .led-bar:nth-child(1) .led-segment {
+            animation-delay: 0s;
+        }
+
+        .led-bar:nth-child(2) .led-segment {
+            animation-delay: 0.3s;
+        }
+
+        .led-bar:nth-child(3) .led-segment {
+            animation-delay: 0.6s;
+        }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .buttons-row {
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                grid-auto-rows: 70px;
+                gap: 10px;
+            }
+
+            .scanner-display {
+                gap: 50px;
+            }
+
+            .led-segment {
+                width: 35px;
+                height: 22px;
+            }
+
+            .led-bar {
+                gap: 10px;
+            }
+
+            .status-text {
+                font-size: 16px;
+                top: 15px;
+                padding: 10px 20px;
+                max-width: 90vw;
+            }
+
+            .horizontal-scanner {
+                width: 90vw;
+                height: 60px;
+                top: 80px;
+            }
+
+            .scanner-display {
+                margin-top: 150px;
+            }
+
+            .kitt-segment {
+                width: 18px;
+                height: 30px;
+            }
+
+            .scanner-row {
+                gap: 3px;
+            }
+
+            .controls {
+                padding: 15px;
+                gap: 10px;
+            }
+
+            button {
+                padding: 8px 10px;
+                font-size: 11px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .controls-grid {
+                grid-template-columns: 35px 1fr;
+                gap: 4px;
+            }
+
+            .power-switch-vertical {
+                padding: 4px 2px;
+                gap: 3px;
+            }
+
+            .toggle-switch-vertical {
+                width: 12px;
+                height: 25px;
+            }
+
+            .toggle-slider-vertical {
+                width: 10px;
+                height: 10px;
+            }
+
+            .toggle-switch-vertical.active .toggle-slider-vertical {
+                bottom: 14px;
+            }
+
+            .buttons-row-1,
+            .buttons-row-2 {
+                grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+                gap: 4px;
+            }
+
+            button {
+                font-size: 7px;
+                height: 20px;
+                padding: 1px 2px;
+            }
+
+            .send-button {
+                width: 40px !important;
+            }
+
+            input[type="text"] {
+                font-size: 10px;
+                padding: 3px 6px;
+                height: 20px;
+            }
+
+            .scanner-display {
+                gap: 30px;
+            }
+
+            .led-segment {
+                width: 25px;
+                height: 16px;
+            }
+
+            .led-bar {
+                gap: 8px;
+            }
+
+            .status-text {
+                font-size: 14px;
+                top: 10px;
+                padding: 8px 15px;
+                max-width: 95vw;
+            }
+
+            .horizontal-scanner {
+                width: 95vw;
+                height: 50px;
+                top: 60px;
+            }
+
+            .scanner-display {
+                margin-top: 120px;
+            }
+
+            .kitt-segment {
+                width: 12px;
+                height: 25px;
+            }
+
+            .scanner-row {
+                gap: 2px;
+            }
+
+            .controls {
+                padding: 10px;
+                gap: 8px;
+            }
+
+            button {
+                padding: 6px 8px;
+                font-size: 10px;
+            }
+        }
+
+        .fade-out {
+            opacity: 0 !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="status-text" id="statusText">Assistant KITT - Standby</div>
+
+    <!-- Scanner horizontal KITT (œil) authentique -->
+    <div class="horizontal-scanner" id="kittScanner">
+        <div class="scanner-row" id="kittScannerRow">
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+            <div class="kitt-segment"></div>
+        </div>
+    </div>
+
+    <!-- VU-Meter 60 LEDs (3 bandes de 20) -->
+    <div class="kitt-fullscreen" id="vuMeter">
+        <div class="vu-meter-container">
+            <!-- Barre gauche - 20 LEDs -->
+            <div class="vu-bar">
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+            </div>
+
+            <!-- Barre centrale - 20 LEDs -->
+            <div class="vu-bar">
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+            </div>
+
+            <!-- Barre droite - 20 LEDs -->
+            <div class="vu-bar">
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+                <div class="vu-led"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <!-- Rangée 1 : Champ de texte maximisé avec petit bouton -->
+        <div class="text-input-row">
+            <div class="input-container">
+                <input type="text" id="textInput" placeholder="Ou tapez votre message ici..." />
+                <button class="send-button" onclick="processText()">OK</button>
+            </div>
+        </div>
+
+        <!-- Rangées 2-3 : Layout en grille avec switch vertical à gauche et boutons à droite -->
+        <div class="controls-grid">
+            <!-- Switch vertical qui occupe 2 rangées -->
+            <div class="power-switch-vertical" onclick="togglePower()">
+                <div class="switch-label-vertical">POWER</div>
+                <div class="toggle-switch-vertical" id="powerSwitch">
+                    <div class="toggle-slider-vertical">
+                        <div class="toggle-indicator"></div>
+                    </div>
+                </div>
+                <div class="switch-status-vertical" id="switchStatus">STBY</div>
+            </div>
+
+            <!-- Première rangée de boutons - 4 boutons existants -->
+            <div class="buttons-row-1">
+                <button onclick="startListening()" id="listenBtn">Écouter</button>
+                <button onclick="simulateThinking()">Réfléchir</button>
+                <button onclick="simulateSpeaking()">Parler</button>
+                <button onclick="resetInterface()">Reset</button>
+            </div>
+
+            <!-- Deuxième rangée de boutons - boutons de réserve -->
+            <div class="buttons-row-2">
+                <button onclick="" disabled>---</button>
+                <button onclick="" disabled>---</button>
+                <button onclick="" disabled>---</button>
+                <button onclick="" disabled>---</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const statusText = document.getElementById('statusText');
+        const listenBtn = document.getElementById('listenBtn');
+        const textInput = document.getElementById('textInput');
+        const kittSegments = document.querySelectorAll('.kitt-segment');
+        const vuLeds = document.querySelectorAll('.vu-led');
+        const powerSwitch = document.getElementById('powerSwitch');
+        const switchStatus = document.getElementById('switchStatus');
+        const kittScanner = document.getElementById('kittScanner');
+
+        let isListening = false;
+        let isSpeaking = false;
+        let isThinking = false;
+        let isReady = false;
+        let recognition;
+        let audioLevel = 0;
+        let messageTimeout;
+        let kittAnimation;
+        let kittDirection = 1;
+        let kittPosition = 0;
+
+        function showMessage(text, duration = 5000) {
+            clearTimeout(messageTimeout);
+            statusText.classList.remove('fade-out');
+            statusText.textContent = text;
+
+            if (duration > 0) {
+                messageTimeout = setTimeout(() => {
+                    statusText.classList.add('fade-out');
+                }, duration);
+            }
+        }
+
+        function togglePower() {
+            isReady = !isReady;
+
+            if (isReady) {
+                powerSwitch.classList.add('active');
+                switchStatus.textContent = "RDY";
+                statusText.textContent = "Assistant KITT - Ready";
+                showMessage("Systèmes activés - KITT en ligne !", 3000);
+
+                startKittScanner(120);
+
+                document.querySelectorAll('button').forEach(btn => {
+                    if (btn !== powerSwitch) btn.disabled = false;
+                });
+
+                setTimeout(() => {
+                    simulateSpeaking();
+                }, 2000);
+
+            } else {
+                powerSwitch.classList.remove('active');
+                switchStatus.textContent = "STBY";
+                statusText.textContent = "Assistant KITT - Standby";
+                showMessage("Systèmes en veille", 2000);
+
+                stopKittScanner();
+                resetKittScanner();
+
+                vuLeds.forEach(led => {
+                    led.className = 'vu-led';
+                });
+
+                document.querySelectorAll('button').forEach(btn => {
+                    if (btn !== powerSwitch) btn.disabled = true;
+                });
+
+                document.body.classList.remove('listening', 'speaking', 'thinking');
+                isListening = false;
+                isSpeaking = false;
+                isThinking = false;
+            }
+        }
+
+        function startKittScanner(speed = 120) {
+            stopKittScanner();
+
+            kittAnimation = setInterval(() => {
+                kittSegments.forEach(seg => {
+                    seg.className = 'kitt-segment';
+                });
+
+                for (let i = -2; i <= 2; i++) {
+                    const index = kittPosition + i;
+                    if (index >= 0 && index < kittSegments.length) {
+                        if (i === 0) {
+                            kittSegments[index].classList.add('glow-max');
+                        } else if (Math.abs(i) === 1) {
+                            kittSegments[index].classList.add('glow-high');
+                        } else if (Math.abs(i) === 2) {
+                            kittSegments[index].classList.add('glow-medium');
+                        }
+                    }
+                }
+
+                kittPosition += kittDirection;
+
+                if (kittPosition >= kittSegments.length - 1) {
+                    kittDirection = -1;
+                } else if (kittPosition <= 0) {
+                    kittDirection = 1;
+                }
+            }, speed);
+        }
+
+        function stopKittScanner() {
+            if (kittAnimation) {
+                clearInterval(kittAnimation);
+                kittAnimation = null;
+            }
+        }
+
+        function resetKittScanner() {
+            stopKittScanner();
+            kittSegments.forEach((seg, index) => {
+                seg.className = 'kitt-segment';
+                if (index >= 10 && index <= 13) {
+                    seg.classList.add('glow-low');
+                }
+            });
+            kittPosition = 0;
+            kittDirection = 1;
+        }
+
+        function updateVUMeter(level) {
+            if (!isReady) return;
+
+            const bars = document.querySelectorAll('.vu-bar');
+
+            bars.forEach((bar, barIndex) => {
+                const leds = bar.querySelectorAll('.vu-led');
+                const centerIndex = Math.floor(leds.length / 2);
+
+                leds.forEach(led => {
+                    led.className = 'vu-led';
+                });
+
+                let adjustedLevel = level;
+                if (barIndex === 0 || barIndex === 2) {
+                    adjustedLevel = level * 0.6;
+                }
+
+                const amplitude = Math.floor(adjustedLevel * centerIndex);
+
+                for (let i = -amplitude; i <= amplitude; i++) {
+                    const ledIndex = centerIndex + i;
+                    if (ledIndex >= 0 && ledIndex < leds.length) {
+                        const led = leds[ledIndex];
+                        const distanceFromCenter = Math.abs(i);
+
+                        if (distanceFromCenter === 0) {
+                            led.classList.add('active');
+                        } else if (distanceFromCenter <= 3) {
+                            led.classList.add('active');
+                        } else if (distanceFromCenter <= 7) {
+                            led.classList.add('warning');
+                        } else {
+                            led.classList.add('peak');
+                        }
+                    }
+                }
+            });
+        }
+
+        function resetVUMeter() {
+            vuLeds.forEach(led => {
+                led.className = 'vu-led';
+            });
+        }
+
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.lang = 'fr-FR';
+
+            recognition.onstart = function () {
+                isListening = true;
+                document.body.classList.add('listening');
+                showMessage("Je vous écoute...", 0);
+                listenBtn.textContent = "Arrêter";
+                listenBtn.disabled = false;
+                startVoiceVisualization();
+                startKittScanner(100);
+            };
+
+            recognition.onresult = function (event) {
+                const transcript = event.results[0][0].transcript;
+                textInput.value = transcript;
+                showMessage(`Vous avez dit: "${transcript}"`, 4000);
+                setTimeout(() => processCommand(transcript), 1500);
+            };
+
+            recognition.onerror = function (event) {
+                showMessage("Erreur de reconnaissance vocale: " + event.error, 3000);
+                resetInterface();
+            };
+
+            recognition.onend = function () {
+                isListening = false;
+                document.body.classList.remove('listening');
+                if (!isSpeaking && !isThinking) {
+                    listenBtn.textContent = "Écouter";
+                    listenBtn.disabled = false;
+                }
+                stopVoiceVisualization();
+                if (!isSpeaking && !isThinking) {
+                    startKittScanner(120);
+                }
+            };
+        }
+
+        function startVoiceVisualization() {
+            const interval = setInterval(() => {
+                if (!isListening) {
+                    clearInterval(interval);
+                    return;
+                }
+                createAudioVisualization();
+            }, 100);
+        }
+
+        function stopVoiceVisualization() {
+            setTimeout(() => {
+                if (!isSpeaking && !isThinking) {
+                    resetLedLevels();
+                }
+            }, 300);
+        }
+
+        function updateLedLevels(level) {
+            const bars = document.querySelectorAll('.led-bar');
+
+            bars.forEach((bar, barIndex) => {
+                const segments = bar.querySelectorAll('.led-segment');
+                const barLevel = Math.floor(level * segments.length * (0.5 + Math.random() * 0.5));
+
+                segments.forEach((segment, segIndex) => {
+                    if (segIndex < barLevel) {
+                        segment.classList.add('active');
+                    } else {
+                        segment.classList.remove('active');
+                    }
+                });
+            });
+        }
+
+        function resetLedLevels() {
+            const leftBar = document.querySelectorAll('.led-bar')[0].querySelectorAll('.led-segment');
+            leftBar.forEach((seg, i) => {
+                if (i >= 3 && i <= 5) seg.classList.add('active');
+                else seg.classList.remove('active');
+            });
+
+            const centerBar = document.querySelectorAll('.led-bar')[1].querySelectorAll('.led-segment');
+            centerBar.forEach((seg, i) => {
+                if (i >= 3 && i <= 7) seg.classList.add('active');
+                else seg.classList.remove('active');
+            });
+
+            const rightBar = document.querySelectorAll('.led-bar')[2].querySelectorAll('.led-segment');
+            rightBar.forEach((seg, i) => {
+                if (i >= 3 && i <= 5) seg.classList.add('active');
+                else seg.classList.remove('active');
+            });
+        }
+
+        function createAudioVisualization() {
+            const bars = document.querySelectorAll('.led-bar');
+
+            bars.forEach((bar, barIndex) => {
+                const segments = bar.querySelectorAll('.led-segment');
+                const centerIndex = Math.floor(segments.length / 2);
+
+                segments.forEach(seg => seg.classList.remove('active'));
+
+                const amplitude = 0.3 + Math.random() * 0.4;
+                const spread = Math.floor(amplitude * (segments.length / 2));
+
+                for (let i = -spread; i <= spread; i++) {
+                    const index = centerIndex + i;
+                    if (index >= 0 && index < segments.length) {
+                        segments[index].classList.add('active');
+                    }
+                }
+            });
+        }
+
+        function startListening() {
+            if (!isReady) return;
+
+            if (!recognition) {
+                showMessage('Reconnaissance vocale non supportée par ce navigateur', 3000);
+                return;
+            }
+
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+                listenBtn.disabled = true;
+            }
+        }
+
+        function simulateThinking() {
+            if (!isReady) return;
+
+            isThinking = true;
+            document.body.classList.add('thinking');
+            showMessage("Analyse en cours...", 0);
+            startKittScanner(60);
+
+            vuLeds.forEach(led => {
+                led.classList.add('active');
+            });
+
+            setTimeout(() => {
+                isThinking = false;
+                document.body.classList.remove('thinking');
+                showMessage("Analyse terminée - Prêt à répondre", 3000);
+                resetVUMeter();
+                startKittScanner(120);
+            }, 3000);
+        }
+
+        function simulateSpeaking() {
+            if (!isReady) return;
+
+            isSpeaking = true;
+            document.body.classList.add('speaking');
+            showMessage("Transmission de la réponse...", 0);
+
+            const speakingInterval = setInterval(() => {
+                if (!isSpeaking) {
+                    clearInterval(speakingInterval);
+                    return;
+                }
+
+                const audioLevel = 0.2 + Math.random() * 0.6;
+                updateVUMeter(audioLevel);
+            }, 100);
+
+            setTimeout(() => {
+                isSpeaking = false;
+                document.body.classList.remove('speaking');
+                clearInterval(speakingInterval);
+                showMessage("Communication terminée. En attente de nouvelles instructions.", 4000);
+                resetVUMeter();
+            }, 4000);
+        }
+
+        function processText() {
+            if (!isReady) return;
+
+            const text = textInput.value.trim();
+            if (!text) return;
+
+            showMessage(`Message reçu: "${text}"`, 3000);
+            setTimeout(() => processCommand(text), 1500);
+            textInput.value = '';
+        }
+
+        function processCommand(command) {
+            if (!isReady) return;
+
+            simulateThinking();
+
+            setTimeout(() => {
+                let response = "Commande analysée et traitée";
+
+                const cmd = command.toLowerCase();
+                if (cmd.includes('bonjour') || cmd.includes('salut') || cmd.includes('hello')) {
+                    response = "Affirmatif ! Michael... euh ! Francis ! Comment puis-je vous assister ?";
+                } else if (cmd.includes('heure') || cmd.includes('temps')) {
+                    response = `Il est actuellement ${new Date().toLocaleTimeString('fr-FR')}, Francis`;
+                } else if (cmd.includes('météo') || cmd.includes('temps qu\'il fait')) {
+                    response = "Affirmatif ! Consultation des données météorologiques en cours, Francis...";
+                } else if (cmd.includes('scanner') || cmd.includes('analyse')) {
+                    response = "Scanner activé - Analyse de l'environnement...";
+                } else if (cmd.includes('vitesse') || cmd.includes('turbo')) {
+                    response = "Tous systèmes opérationnels - Prêt pour le mode turbo !";
+                } else if (cmd.includes('musique') || cmd.includes('radio')) {
+                    response = "Activation du système audio - Fréquence synchronisée";
+                } else if (cmd.includes('navigation') || cmd.includes('route')) {
+                    response = "GPS activé - Calcul de l'itinéraire optimal";
+                } else if (cmd.includes('merci') || cmd.includes('thanks')) {
+                    response = "C'est un plaisir de vous servir, Francis !";
+                } else if (cmd.includes('qui es-tu') || cmd.includes('qui êtes-vous')) {
+                    response = "Je suis KITT, Francis. Knight Industries Two Thousand.";
+                }
+
+                showMessage(response, 5000);
+                setTimeout(() => simulateSpeaking(), 1000);
+            }, 3000);
+        }
+
+        function resetInterface() {
+            document.body.classList.remove('listening', 'speaking', 'thinking');
+            showMessage("Assistant KITT - En attente", 0);
+            listenBtn.textContent = "Écouter";
+            listenBtn.disabled = false;
+            isSpeaking = false;
+            isThinking = false;
+            resetLedLevels();
+            startKittScanner(120);
+        }
+
+        textInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                processText();
+            }
+        });
+
+        window.addEventListener('load', function () {
+            statusText.textContent = "Assistant KITT - Standby";
+            switchStatus.textContent = "STBY";
+            powerSwitch.classList.remove('active');
+
+            document.querySelectorAll('button').forEach(btn => {
+                if (!btn.classList.contains('power-switch-vertical')) btn.disabled = true;
+            });
+
+            resetVUMeter();
+            resetKittScanner();
+
+            showMessage("Systèmes en veille - Appuyez sur POWER pour activer", 3000);
+        });
+    </script>
+</body>
+
+</html>
