@@ -371,7 +371,7 @@ public class HttpServer {
             String safeCity = SecurityUtils.sanitizeInput(city);
             
             // Récupérer clé API Ollama depuis SharedPreferences
-            android.content.SharedPreferences prefs = context.getSharedPreferences("ChatAI_Prefs", android.content.Context.MODE_PRIVATE);
+            android.content.SharedPreferences prefs = context.getSharedPreferences("chatai_ai_config", android.content.Context.MODE_PRIVATE);
             String ollamaApiKey = prefs.getString("ollama_cloud_api_key", "");
             
             if (ollamaApiKey == null || ollamaApiKey.trim().isEmpty()) {
@@ -411,13 +411,15 @@ public class HttpServer {
             
             String safeQuery = SecurityUtils.sanitizeInput(query);
             
-            // Récupérer clé API Ollama
-            android.content.SharedPreferences prefs = context.getSharedPreferences("ChatAI_Prefs", android.content.Context.MODE_PRIVATE);
+            // Récupérer clé API Ollama (même SharedPreferences que KittAIService)
+            android.content.SharedPreferences prefs = context.getSharedPreferences("chatai_ai_config", android.content.Context.MODE_PRIVATE);
             String ollamaApiKey = prefs.getString("ollama_cloud_api_key", "");
+            
+            Log.d(TAG, "Generic search - Checking API key in 'chatai_ai_config': " + (ollamaApiKey != null && !ollamaApiKey.isEmpty() ? "FOUND (" + ollamaApiKey.length() + " chars)" : "EMPTY/NULL"));
             
             if (ollamaApiKey == null || ollamaApiKey.trim().isEmpty()) {
                 Log.w(TAG, "Ollama API key not configured for generic search");
-                return createHttpErrorResponse(503, "Web search service not configured");
+                return createHttpErrorResponse(503, "Web search service not configured - API key missing");
             }
             
             // Appeler Ollama web_search
