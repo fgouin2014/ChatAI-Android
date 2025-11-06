@@ -401,6 +401,7 @@
                 android:orientation="horizontal"
                 android:layout_marginBottom="16dp">
 
+                <!-- HIDDEN: Fictional roleplay buttons -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/turboBoostButton"
                     android:layout_width="0dp"
@@ -409,6 +410,7 @@
                     android:layout_marginEnd="4dp"
                     android:text="TURBO\nBOOST"
                     android:textSize="9sp"
+                    android:visibility="gone"
                     app:backgroundTint="@color/kitt_red_alpha"
                     app:cornerRadius="8dp"
                     app:strokeColor="@color/kitt_red"
@@ -425,6 +427,7 @@
                     android:layout_marginHorizontal="4dp"
                     android:text="MODE\nPOURSUITE"
                     android:textSize="8sp"
+                    android:visibility="gone"
                     app:backgroundTint="@color/kitt_red_alpha"
                     app:cornerRadius="8dp"
                     app:strokeColor="@color/kitt_red"
