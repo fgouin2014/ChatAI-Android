@@ -238,7 +238,7 @@ class KittAIService(
         📋 EXEMPLES DE BONNES RÉPONSES:
         
         Question: "Quel modèle es-tu?"
-        ✅ "Michael, je fonctionne actuellement sur qwen3-coder:480b via Ollama Cloud. C'est un modèle de 480 milliards de paramètres spécialisé en programmation et raisonnement."
+        ✅ "Michael, je fonctionne actuellement sur qwen3-coder:480b-cloud via Ollama Cloud. C'est un modèle de 480 milliards de paramètres spécialisé en programmation et raisonnement."
         
         Question: "2 + 2 ?"
         ✅ "4, Michael. Un calcul simple mais fondamental."
@@ -1187,8 +1187,15 @@ class KittAIService(
             }
             addDiagnosticLog("    - Key: Configured (${ollamaCloudApiKey.length} chars)")
             
-            // Récupérer le modèle cloud (par défaut: gpt-oss:120b - Stable et performant)
-            val ollamaCloudModel = sharedPreferences.getString("ollama_cloud_model", "gpt-oss:120b")?.trim() ?: "gpt-oss:120b"
+            // Récupérer le modèle cloud (par défaut: gpt-oss:120b-cloud - Stable et performant)
+            var ollamaCloudModel = sharedPreferences.getString("ollama_cloud_model", "gpt-oss:120b-cloud")?.trim() ?: "gpt-oss:120b-cloud"
+            
+            // S'assurer que le modèle a le suffixe "-cloud" (requis pour capabilities comme web_search)
+            if (!ollamaCloudModel.endsWith("-cloud")) {
+                ollamaCloudModel = "$ollamaCloudModel-cloud"
+                Log.i(TAG, "📝 Added '-cloud' suffix to model name: $ollamaCloudModel")
+            }
+            
             addDiagnosticLog("    - Model: $ollamaCloudModel")
             
             Log.d(TAG, "Trying Ollama Cloud API...")
