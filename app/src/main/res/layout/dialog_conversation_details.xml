@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="16dp"
+    android:background="@color/kitt_black">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Header avec ID -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardBackgroundColor="@color/kitt_dark_red"
+            app:cardCornerRadius="8dp"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🆔 CONVERSATION DETAILS"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="14sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/dialogConversationId"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="UUID: 123e4567-e89b-12d3-a456-426614174000"
+                    android:textColor="@color/kitt_red_light"
+                    android:textSize="10sp"
+                    android:fontFamily="monospace"
+                    android:textIsSelectable="true"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:id="@+id/dialogMetadata"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📅 2025-11-05 14:32:10 | 🤖 KITT | 🌐 ollama_cloud | ⏱️ 2340ms"
+                    android:textColor="@color/kitt_red_light"
+                    android:textSize="10sp"
+                    android:fontFamily="monospace"
+                    android:textIsSelectable="true" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Question -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardBackgroundColor="@color/kitt_black"
+            app:cardCornerRadius="8dp"
+            app:strokeColor="@color/amber_primary"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="💬 QUESTION"
+                    android:textColor="@color/amber_primary"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/dialogUserMessage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Quel est le prix du Bitcoin aujourd'hui ?"
+                    android:textColor="@color/amber_primary"
+                    android:textSize="13sp"
+                    android:fontFamily="monospace"
+                    android:textIsSelectable="true" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Réponse -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardBackgroundColor="@color/kitt_black"
+            app:cardCornerRadius="8dp"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🤖 RÉPONSE"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/dialogAiResponse"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Selon mes dernières données..."
+                    android:textColor="@color/kitt_red"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace"
+                    android:textIsSelectable="true" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Thinking Trace (conditionnellement visible) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/dialogThinkingCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            app:cardBackgroundColor="@color/kitt_black"
+            app:cardCornerRadius="8dp"
+            app:strokeColor="@color/kitt_red_light"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🧠 THINKING TRACE (RAISONNEMENT)"
+                    android:textColor="@color/kitt_red_light"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/dialogThinkingTrace"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Let me search for current Bitcoin price..."
+                    android:textColor="@color/kitt_red_light"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:textIsSelectable="true" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+
+</androidx.core.widget.NestedScrollView>
+

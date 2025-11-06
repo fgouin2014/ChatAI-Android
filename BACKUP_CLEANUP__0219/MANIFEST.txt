@@ -1,0 +1,37 @@
+BACKUP AVANT NETTOYAGE - 2025-10-19 14:19:24.22
+========================================
+
+FICHIERS SAUVEGARDES:
+
+1. MODULE DUPLIQUE:
+   - ChatAI-Android/lemuroid-touchinput/
+
+2. FICHIERS .BAK ASSETS:
+   - app/src/main/assets/webapp/chat.js.bak (43.8 KB)
+   - app/src/main/assets/webapp/index.html.bak (15.6 KB)
+   - app/src/main/assets/webapp/kitt-originale.html
+
+3. CORE DE TEST:
+   - app/src/main/jniLibs/arm64-v8a/libretro-test-gl.so
+
+4. FICHIERS TEMPORAIRES:
+   - browse_test.html
+   - temp_loader_psx.js
+   - gradle-temp.zip
+   - cool_spot_check/
+
+5. LOGS DE COMPILATION:
+   - compile.log
+   - compile_error.log
+   - compile_error2.log
+   - compile_error3.log
+   - compile_error_full.log
+
+6. DOCUMENTATIONS OBSOLETES (24 fichiers .md)
+
+7. SCRIPTS OBSOLETES (23 fichiers .bat)
+
+========================================
+POUR RESTAURER UN FICHIER:
+   copy "BACKUP_CLEANUP__0219\[categorie]\[fichier]" "[destination]"
+========================================

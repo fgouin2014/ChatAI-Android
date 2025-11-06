@@ -1,0 +1,10 @@
+{
+  \"id\": \"fbneo/sega\",
+  \"name\": \"SEGA\",
+  \"fullName\": \"FBNeo - Sega Arcade\",
+  \"defaultCore\": \"fbneo\",
+  \"cores\": [\"fbneo\"],
+  \"extensions\": [\".zip\"],
+  \"color\": \"#FFCC00\",
+  \"enabled\": true
+}

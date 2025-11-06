@@ -1,10 +1,14 @@
 package com.chatai.activities
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.switchmaterial.SwitchMaterial
@@ -19,7 +23,15 @@ import android.widget.TextView
 import android.widget.ProgressBar
 import android.view.View
 import android.speech.tts.TextToSpeech
+import java.io.File
+import java.io.FileWriter
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 /**
  * Configuration spécialisée pour l'IA
@@ -37,6 +49,7 @@ class AIConfigurationActivity : AppCompatActivity() {
     // Configuration Ollama Cloud
     private lateinit var ollamaCloudApiKeyInput: TextInputEditText
     private lateinit var ollamaCloudModelInput: TextInputEditText
+    private lateinit var ollamaCloudModelSpinner: android.widget.Spinner
     
     // Configuration Serveur Local (Ollama/LM Studio)
     private lateinit var localServerUrlInput: TextInputEditText
@@ -62,6 +75,8 @@ class AIConfigurationActivity : AppCompatActivity() {
     private lateinit var enableImageGenerationSwitch: SwitchMaterial
     private lateinit var enableCodeGenerationSwitch: SwitchMaterial
     private lateinit var enableTranslationSwitch: SwitchMaterial
+    
+    // Toggle V1/V2 retiré - V2 est maintenant la version unique
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,6 +104,10 @@ class AIConfigurationActivity : AppCompatActivity() {
         // Ollama Cloud
         ollamaCloudApiKeyInput = findViewById(R.id.ollamaCloudApiKeyInput)
         ollamaCloudModelInput = findViewById(R.id.ollamaCloudModelInput)
+        ollamaCloudModelSpinner = findViewById(R.id.ollamaCloudModelSpinner)
+        
+        // Initialiser le Spinner avec les modèles Cloud
+        setupCloudModelSpinner()
         
         // Serveur Local (Ollama/LM Studio)
         localServerUrlInput = findViewById(R.id.localServerUrlInput)
@@ -116,6 +135,53 @@ class AIConfigurationActivity : AppCompatActivity() {
         enableTranslationSwitch = findViewById(R.id.enableTranslationSwitch)
     }
     
+    private fun setupCloudModelSpinner() {
+        // Liste des modèles Ollama Cloud disponibles (noms officiels sans -cloud)
+        val cloudModels = listOf(
+            "gpt-oss:120b",
+            "deepseek-v3.1:671b",
+            "qwen3-coder:480b",
+            "kimi-k2:1t",
+            "gpt-oss:20b",
+            "glm-4.6",
+            "Manuel (entrer ci-dessous)"
+        )
+        
+        // Créer adapter
+        val adapter = android.widget.ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            cloudModels
+        )
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        ollamaCloudModelSpinner.adapter = adapter
+        
+        // Listener pour sélection
+        ollamaCloudModelSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                val selectedModel = cloudModels[position]
+                
+                if (selectedModel == "Manuel (entrer ci-dessous)") {
+                    // Mode manuel - activer input
+                    ollamaCloudModelInput.isEnabled = true
+                    ollamaCloudModelInput.requestFocus()
+                    android.util.Log.d("AIConfig", "Mode manuel sélectionné")
+                } else {
+                    // Modèle pré-défini - désactiver input et le remplir
+                    ollamaCloudModelInput.isEnabled = false
+                    ollamaCloudModelInput.setText(selectedModel)
+                    android.util.Log.d("AIConfig", "Modèle sélectionné: $selectedModel")
+                }
+            }
+            
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {
+                // Rien
+            }
+        }
+        
+        android.util.Log.d("AIConfig", "✅ Cloud model spinner initialized with ${cloudModels.size} models")
+    }
+    
     private fun loadCurrentSettings() {
         // Charger les clés API (partiellement masquées)
         val openaiKey = sharedPreferences.getString("openai_api_key", "")
@@ -131,8 +197,30 @@ class AIConfigurationActivity : AppCompatActivity() {
         val ollamaCloudKey = sharedPreferences.getString("ollama_cloud_api_key", "")
         ollamaCloudApiKeyInput.setText(if (ollamaCloudKey.isNullOrEmpty()) "" else maskApiKey(ollamaCloudKey))
         
-        val ollamaCloudModel = sharedPreferences.getString("ollama_cloud_model", "gpt-oss:120b-cloud")
-        ollamaCloudModelInput.setText(ollamaCloudModel)
+        val ollamaCloudModel = sharedPreferences.getString("ollama_cloud_model", "gpt-oss:120b")
+        
+        // Sélectionner dans le Spinner si c'est un modèle connu (noms officiels sans -cloud)
+        val cloudModels = listOf(
+            "gpt-oss:120b",
+            "deepseek-v3.1:671b",
+            "qwen3-coder:480b",
+            "kimi-k2:1t",
+            "gpt-oss:20b",
+            "glm-4.6"
+        )
+        
+        val spinnerPosition = cloudModels.indexOf(ollamaCloudModel)
+        if (spinnerPosition >= 0) {
+            // Modèle connu - sélectionner dans Spinner
+            ollamaCloudModelSpinner.setSelection(spinnerPosition)
+            ollamaCloudModelInput.isEnabled = false
+            ollamaCloudModelInput.setText(ollamaCloudModel)
+        } else {
+            // Modèle custom - mode manuel
+            ollamaCloudModelSpinner.setSelection(cloudModels.size) // "Manuel"
+            ollamaCloudModelInput.isEnabled = true
+            ollamaCloudModelInput.setText(ollamaCloudModel)
+        }
         
         // Charger la configuration du serveur local
         val localServerUrl = sharedPreferences.getString("local_server_url", "")
@@ -191,6 +279,11 @@ class AIConfigurationActivity : AppCompatActivity() {
             startActivity(android.content.Intent(this, ConversationHistoryActivity::class.java))
         }
         
+        // ⭐ Bouton Auto-Détection Serveur (Phase 2 - Discovery)
+        findViewById<MaterialButton>(R.id.autoDetectServerButton).setOnClickListener {
+            autoDetectOllamaServer()
+        }
+        
         // SeekBar TTS Speed
         ttsSpeedSeekBar.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
@@ -239,8 +332,16 @@ class AIConfigurationActivity : AppCompatActivity() {
                 editor.putString("ollama_cloud_api_key", ollamaCloudKey)
             }
             
-            val ollamaCloudModel = ollamaCloudModelInput.text.toString().trim()
+            // Sauvegarder modèle Cloud (depuis input si manuel, sinon depuis spinner)
+            val ollamaCloudModel = if (ollamaCloudModelInput.isEnabled) {
+                // Mode manuel
+                ollamaCloudModelInput.text.toString().trim()
+            } else {
+                // Mode spinner - utiliser ce qui est dans le input (déjà rempli par le spinner)
+                ollamaCloudModelInput.text.toString().trim()
+            }
             editor.putString("ollama_cloud_model", ollamaCloudModel)
+            android.util.Log.d("AIConfig", "Modèle Cloud sauvegardé: $ollamaCloudModel")
             
             // Sauvegarder la configuration du serveur local (Ollama/LM Studio/Oobabooga)
             val localServerUrl = localServerUrlInput.text.toString().trim()
@@ -282,12 +383,18 @@ class AIConfigurationActivity : AppCompatActivity() {
     private fun testAPIConnections() {
         // Créer un dialog personnalisé pour afficher les résultats
         val dialogView = LayoutInflater.from(this).inflate(android.R.layout.simple_list_item_1, null)
-        val textView = dialogView.findViewById<TextView>(android.R.id.text1)
+        val textView = dialogView.findViewById<TextView>(android.R.id.text1).apply {
+            setTextColor(getColor(R.color.kitt_red))
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 11f
+        }
         
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Diagnostic API IA")
+        val dialog = AlertDialog.Builder(this, R.style.KittDialogTheme)
+            .setTitle("🧪 Diagnostic API IA")
             .setView(dialogView)
             .setPositiveButton("Fermer", null)
+            .setNeutralButton("📄 Fichier Log", null)
+            .setNegativeButton("ADB", null)
             .create()
         
         textView.text = "Initialisation du diagnostic...\n\nVeuillez patienter..."
@@ -296,48 +403,104 @@ class AIConfigurationActivity : AppCompatActivity() {
         
         dialog.show()
         
+        // Variable pour stocker le fichier log
+        var logFile: File? = null
+        
+        // Style boutons
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(getColor(R.color.kitt_red))
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.apply {
+            setTextColor(getColor(R.color.kitt_red))
+            setOnClickListener {
+                // Ouvrir le fichier log
+                logFile?.let { file ->
+                    openLogFile(file)
+                } ?: run {
+                    Toast.makeText(this@AIConfigurationActivity, "Fichier log non disponible", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
+            setTextColor(getColor(R.color.kitt_red))
+            setOnClickListener {
+                // Afficher commande logcat (optionnel)
+                AlertDialog.Builder(this@AIConfigurationActivity, R.style.KittDialogTheme)
+                    .setTitle("📋 Commande ADB (Optionnel)")
+                    .setMessage("Pour voir les détails via PC:\n\nadb logcat -s API_TEST_EXPORT")
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+        }
+        
         // Créer le service pour tester
         val testService = KittAIService(this)
         
         lifecycleScope.launch {
             val diagnosticResult = StringBuilder()
+            val testTimestamp = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
             
             try {
+                // ═══════════════════════════════════════════════════════════
+                // EXPORT LOGCAT - DÉBUT
+                // ═══════════════════════════════════════════════════════════
+                android.util.Log.i("API_TEST_EXPORT", "═══════════════════════════════════════════════════════════")
+                android.util.Log.i("API_TEST_EXPORT", "🧪 TEST COMPLET DES APIs IA")
+                android.util.Log.i("API_TEST_EXPORT", "═══════════════════════════════════════════════════════════")
+                android.util.Log.i("API_TEST_EXPORT", "📅 Date: $testTimestamp")
+                android.util.Log.i("API_TEST_EXPORT", "")
+                
                 diagnosticResult.appendLine("=== DIAGNOSTIC API IA ===\n")
                 
                 // 1. Vérifier la configuration
                 diagnosticResult.appendLine("1. Configuration des clés API:")
+                android.util.Log.i("API_TEST_EXPORT", "┌─ CONFIGURATION")
+                
                 val openaiKey = sharedPreferences.getString("openai_api_key", null)
                 val anthropicKey = sharedPreferences.getString("anthropic_api_key", null)
                 val huggingfaceKey = sharedPreferences.getString("huggingface_api_key", null)
                 val ollamaCloudKey = sharedPreferences.getString("ollama_cloud_api_key", null)
                 
                 diagnosticResult.appendLine("   OpenAI: ${if (!openaiKey.isNullOrEmpty()) "✓ Configurée (${openaiKey.length} chars)" else "✗ Non configurée"}")
+                android.util.Log.i("API_TEST_EXPORT", "│ OpenAI: ${if (!openaiKey.isNullOrEmpty()) "✅ Configurée (${openaiKey.length} chars)" else "❌ Non configurée"}")
+                
                 diagnosticResult.appendLine("   Anthropic: ${if (!anthropicKey.isNullOrEmpty()) "✓ Configurée (${anthropicKey.length} chars)" else "✗ Non configurée"}")
+                android.util.Log.i("API_TEST_EXPORT", "│ Anthropic: ${if (!anthropicKey.isNullOrEmpty()) "✅ Configurée (${anthropicKey.length} chars)" else "❌ Non configurée"}")
+                
                 diagnosticResult.appendLine("   Hugging Face: ${if (!huggingfaceKey.isNullOrEmpty()) "✓ Configurée (${huggingfaceKey.length} chars)" else "✗ Non configurée"}")
+                android.util.Log.i("API_TEST_EXPORT", "│ Hugging Face: ${if (!huggingfaceKey.isNullOrEmpty()) "✅ Configurée (${huggingfaceKey.length} chars)" else "❌ Non configurée"}")
                 
                 val ollamaCloudModel = sharedPreferences.getString("ollama_cloud_model", null)
                 diagnosticResult.appendLine("   Ollama Cloud: ${if (!ollamaCloudKey.isNullOrEmpty()) "✓ Configurée (${ollamaCloudKey.length} chars)" else "✗ Non configurée"}")
+                android.util.Log.i("API_TEST_EXPORT", "│ ☁️  Ollama Cloud: ${if (!ollamaCloudKey.isNullOrEmpty()) "✅ Configurée (${ollamaCloudKey.length} chars)" else "❌ Non configurée"}")
+                
                 if (!ollamaCloudModel.isNullOrEmpty()) {
                     diagnosticResult.appendLine("   Modèle Cloud: $ollamaCloudModel")
+                    android.util.Log.i("API_TEST_EXPORT", "│ 🤖 Modèle Cloud: $ollamaCloudModel")
                 }
                 
                 val localServerUrl = sharedPreferences.getString("local_server_url", null)
                 val localModelName = sharedPreferences.getString("local_model_name", null)
                 diagnosticResult.appendLine("   Serveur Local: ${if (!localServerUrl.isNullOrEmpty()) "✓ Configuré ($localServerUrl)" else "✗ Non configuré"}")
+                android.util.Log.i("API_TEST_EXPORT", "│ 💻 Serveur Local: ${if (!localServerUrl.isNullOrEmpty()) "✅ Configuré ($localServerUrl)" else "❌ Non configuré"}")
+                
                 if (!localModelName.isNullOrEmpty()) {
                     diagnosticResult.appendLine("   Modèle Local: $localModelName")
+                    android.util.Log.i("API_TEST_EXPORT", "│ 🎯 Modèle Local: $localModelName")
                 }
+                android.util.Log.i("API_TEST_EXPORT", "└────────────────────────────────────────────────────────")
+                android.util.Log.i("API_TEST_EXPORT", "")
+                
                 diagnosticResult.appendLine("")
                 
                 // 2. Test de connexion
                 diagnosticResult.appendLine("2. Test de connexion API:")
                 diagnosticResult.appendLine("   Envoi d'une requête test...\n")
+                android.util.Log.i("API_TEST_EXPORT", "┌─ TEST DE CONNEXION")
                 
                 // Mise à jour du dialog
                 textView.post { textView.text = diagnosticResult.toString() }
                 
                 val testMessage = "Hello KITT, this is a connection test"
+                android.util.Log.i("API_TEST_EXPORT", "│ 📝 Message test: $testMessage")
                 val startTime = System.currentTimeMillis()
                 
                 val response = testService.processUserInput(testMessage)
@@ -348,65 +511,328 @@ class AIConfigurationActivity : AppCompatActivity() {
                 // 3. Résultat
                 diagnosticResult.appendLine("3. Résultat du test:")
                 diagnosticResult.appendLine("   Temps de réponse: ${duration}ms")
+                android.util.Log.i("API_TEST_EXPORT", "│ ⏱️  Temps réponse: ${duration}ms")
                 diagnosticResult.appendLine("")
                 diagnosticResult.appendLine("   Question: $testMessage")
                 diagnosticResult.appendLine("")
                 diagnosticResult.appendLine("   Réponse reçue:")
                 diagnosticResult.appendLine("   \"${response.take(200)}${if (response.length > 200) "..." else ""}\"")
+                android.util.Log.i("API_TEST_EXPORT", "│ 🤖 Réponse: ${response.take(150)}${if (response.length > 150) "..." else ""}")
+                android.util.Log.i("API_TEST_EXPORT", "└────────────────────────────────────────────────────────")
+                android.util.Log.i("API_TEST_EXPORT", "")
                 diagnosticResult.appendLine("")
                 
                 // 4. Analyse de la réponse
                 diagnosticResult.appendLine("4. Analyse:")
+                android.util.Log.i("API_TEST_EXPORT", "┌─ ANALYSE")
+                
                 when {
                     response.contains("mes capacités IA actuelles sont limitées sans connexion aux services cloud") -> {
                         diagnosticResult.appendLine("   ⚠ FALLBACK LOCAL utilisé")
                         diagnosticResult.appendLine("   Aucune API n'a répondu")
                         diagnosticResult.appendLine("   Vérifiez vos clés API")
+                        android.util.Log.i("API_TEST_EXPORT", "│ ⚠️  FALLBACK LOCAL utilisé")
+                        android.util.Log.i("API_TEST_EXPORT", "│ ❌ Aucune API n'a répondu")
+                        android.util.Log.i("API_TEST_EXPORT", "│ 🔧 Action: Vérifiez vos clés API")
                     }
                     response.contains("Michael") || response.contains("KITT") -> {
                         diagnosticResult.appendLine("   ✓ Réponse de type KITT détectée")
+                        android.util.Log.i("API_TEST_EXPORT", "│ ✅ Réponse de type KITT détectée")
                         if (duration < 100) {
                             diagnosticResult.appendLine("   → Probablement CACHE ou FALLBACK (très rapide)")
+                            android.util.Log.i("API_TEST_EXPORT", "│ ⚡ Probablement CACHE ou FALLBACK (${duration}ms)")
                         } else {
                             diagnosticResult.appendLine("   → Probablement API GÉNÉRATIVE (réponse lente)")
                             diagnosticResult.appendLine("   ✓ TEST RÉUSSI !")
+                            android.util.Log.i("API_TEST_EXPORT", "│ 🌐 API GÉNÉRATIVE (${duration}ms)")
+                            android.util.Log.i("API_TEST_EXPORT", "│ ✅ TEST RÉUSSI !")
                         }
                     }
                     else -> {
                         diagnosticResult.appendLine("   ? Réponse inattendue")
+                        android.util.Log.i("API_TEST_EXPORT", "│ ❓ Réponse inattendue")
                     }
                 }
+                android.util.Log.i("API_TEST_EXPORT", "└────────────────────────────────────────────────────────")
+                android.util.Log.i("API_TEST_EXPORT", "")
                 
                 // 5. Logs détaillés capturés
                 val diagnosticLogs = testService.getDiagnosticLogs()
                 if (diagnosticLogs.isNotEmpty()) {
                     diagnosticResult.appendLine("")
                     diagnosticResult.appendLine("5. Logs détaillés capturés:")
+                    android.util.Log.i("API_TEST_EXPORT", "┌─ LOGS DÉTAILLÉS SYSTÈME")
                     diagnosticLogs.forEach { log ->
                         diagnosticResult.appendLine(log)
+                        android.util.Log.i("API_TEST_EXPORT", "│ $log")
                     }
+                    android.util.Log.i("API_TEST_EXPORT", "└────────────────────────────────────────────────────────")
                 }
+                
+                android.util.Log.i("API_TEST_EXPORT", "")
+                android.util.Log.i("API_TEST_EXPORT", "═══════════════════════════════════════════════════════════")
+                // ═══════════════════════════════════════════════════════════
+                // EXPORT LOGCAT - FIN
+                // ═══════════════════════════════════════════════════════════
                 
                 diagnosticResult.appendLine("")
                 diagnosticResult.appendLine("=== FIN DU DIAGNOSTIC ===")
                 
-                // Mise à jour finale
+                // Écrire le diagnostic complet dans le fichier
+                val fullLog = diagnosticResult.toString()
+                logFile = writeLogToFile(fullLog, "diagnostic_api_${System.currentTimeMillis()}.log")
+                
+                // Afficher le diagnostic complet dans le dialog
                 textView.post { textView.text = diagnosticResult.toString() }
                 
-                android.util.Log.d("AIConfigTest", diagnosticResult.toString())
-                
             } catch (e: Exception) {
+                android.util.Log.e("API_TEST_EXPORT", "❌ ERREUR: ${e.message}", e)
+                android.util.Log.i("API_TEST_EXPORT", "═══════════════════════════════════════════════════════════")
+                
                 diagnosticResult.appendLine("\n✗ ERREUR DURANT LE TEST:")
                 diagnosticResult.appendLine("   ${e.javaClass.simpleName}: ${e.message}")
                 diagnosticResult.appendLine("")
                 diagnosticResult.appendLine("Stack trace:")
                 diagnosticResult.appendLine(e.stackTraceToString())
                 
+                // Écrire l'erreur dans le fichier
+                logFile = writeLogToFile(diagnosticResult.toString(), "diagnostic_error_${System.currentTimeMillis()}.log")
+                
+                // Afficher l'erreur complète dans le dialog
                 textView.post { textView.text = diagnosticResult.toString() }
                 
                 android.util.Log.e("AIConfigTest", "Test API failed", e)
             }
         }
+    }
+    
+    /**
+     * Écrit les logs dans un fichier sur le device
+     * /storage/emulated/0/ChatAI-Files/logs/
+     */
+    private fun writeLogToFile(content: String, filename: String = "chatai.log"): File? {
+        return try {
+            // Créer le répertoire logs si nécessaire
+            val logsDir = File(Environment.getExternalStorageDirectory(), "ChatAI-Files/logs")
+            if (!logsDir.exists()) {
+                val created = logsDir.mkdirs()
+                android.util.Log.i("AIConfig", "📁 Création du répertoire logs: $created -> ${logsDir.absolutePath}")
+            }
+            
+            val logFile = File(logsDir, filename)
+            val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            
+            android.util.Log.i("AIConfig", "📝 Écriture du log dans: ${logFile.absolutePath}")
+            
+            FileWriter(logFile, true).use { writer ->
+                writer.appendLine("═══════════════════════════════════════════════════════════")
+                writer.appendLine("📅 $timestamp")
+                writer.appendLine("═══════════════════════════════════════════════════════════")
+                writer.appendLine(content)
+                writer.appendLine("")
+            }
+            
+            android.util.Log.i("AIConfig", "✅ Log écrit avec succès! Taille: ${logFile.length()} bytes")
+            logFile
+            
+        } catch (e: Exception) {
+            android.util.Log.e("AIConfig", "❌ Erreur écriture log fichier: ${e.message}", e)
+            e.printStackTrace()
+            null
+        }
+    }
+    
+    /**
+     * Ouvre le fichier log avec une app externe (éditeur de texte)
+     */
+    private fun openLogFile(logFile: File) {
+        try {
+            val uri: Uri = FileProvider.getUriForFile(
+                this,
+                "${applicationContext.packageName}.provider",
+                logFile
+            )
+            
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "text/plain")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            
+            startActivity(Intent.createChooser(intent, "Ouvrir le fichier log"))
+            
+        } catch (e: Exception) {
+            // Fallback: copier le chemin dans le clipboard
+            Toast.makeText(
+                this,
+                "Fichier log: ${logFile.absolutePath}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+    
+    /**
+     * ⭐ Auto-détection du serveur Ollama via Discovery Server (Phase 2)
+     * Scanne le réseau local pour trouver le serveur de découverte
+     */
+    private fun autoDetectOllamaServer() {
+        lifecycleScope.launch {
+            try {
+                // Afficher un dialog de progression
+                val progressDialog = AlertDialog.Builder(this@AIConfigurationActivity)
+                    .setTitle("🔍 Auto-Détection")
+                    .setMessage("Recherche du serveur Ollama sur le réseau...\n\nAssurez-vous que ollama_discovery_server.ps1 tourne sur votre PC.")
+                    .setCancelable(false)
+                    .create()
+                
+                progressDialog.show()
+                
+                // Obtenir l'IP du device pour déduire le subnet
+                val deviceIP = getDeviceIP()
+                android.util.Log.d("AutoDetect", "Device IP: $deviceIP")
+                
+                if (deviceIP == null) {
+                    progressDialog.dismiss()
+                    Toast.makeText(this@AIConfigurationActivity, 
+                        "❌ Impossible de détecter l'IP du device", 
+                        Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                
+                // Scanner les IPs courantes (*.1 = gateway/PC souvent)
+                val subnet = deviceIP.substringBeforeLast(".")
+                val discoveryPort = 8889
+                val testIPs = listOf(
+                    "$subnet.1",   // Souvent le PC/routeur
+                    "$subnet.100", // Adresse commune PC
+                    "$subnet.101",
+                    "$subnet.2"
+                )
+                
+                android.util.Log.d("AutoDetect", "Scanning subnet: $subnet.*")
+                
+                var foundConfig: JSONObject? = null
+                val httpClient = OkHttpClient.Builder()
+                    .connectTimeout(2, TimeUnit.SECONDS)
+                    .readTimeout(2, TimeUnit.SECONDS)
+                    .build()
+                
+                // Scanner les IPs (sans break dans lambda - utiliser firstOrNull à la place)
+                run scanLoop@ {
+                    for (ip in testIPs) {
+                        if (foundConfig != null) return@scanLoop // Sortir si déjà trouvé
+                        
+                        try {
+                            val url = "http://$ip:$discoveryPort/discover"
+                            android.util.Log.d("AutoDetect", "Testing: $url")
+                            
+                            val request = Request.Builder()
+                                .url(url)
+                                .get()
+                                .build()
+                            
+                            val response = httpClient.newCall(request).execute()
+                            
+                            if (response.isSuccessful) {
+                                val body = response.body?.string()
+                                body?.let {
+                                    val json = JSONObject(it)
+                                    if (json.optString("app") == "ChatAI-Discovery") {
+                                        foundConfig = json
+                                        android.util.Log.d("AutoDetect", "✅ Found at $url")
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            // Continue au prochain IP
+                            android.util.Log.d("AutoDetect", "Failed $ip: ${e.message}")
+                        }
+                    }
+                }
+                
+                progressDialog.dismiss()
+                
+                if (foundConfig != null) {
+                    // Config trouvée !
+                    val serverInfo = foundConfig!!.getJSONObject("server")
+                    val chatUrl = serverInfo.getString("chat_url")
+                    val recommendedModel = foundConfig!!.optString("recommended_model", "gemma3:1b")
+                    val models = foundConfig!!.getJSONArray("models")
+                    
+                    // Construire le message avec les modèles disponibles
+                    val modelsList = StringBuilder()
+                    for (i in 0 until models.length()) {
+                        modelsList.append("\n  • ${models.getString(i)}")
+                    }
+                    
+                    // Afficher un dialog de confirmation
+                    AlertDialog.Builder(this@AIConfigurationActivity)
+                        .setTitle("✅ Serveur Ollama Détecté!")
+                        .setMessage("Configuration trouvée:\n\n" +
+                                "URL: $chatUrl\n" +
+                                "Modèles disponibles:$modelsList\n\n" +
+                                "Modèle recommandé: $recommendedModel\n\n" +
+                                "Appliquer cette configuration?")
+                        .setPositiveButton("Oui") { _, _ ->
+                            // Remplir automatiquement les champs
+                            localServerUrlInput.setText(chatUrl)
+                            localModelNameInput.setText(recommendedModel)
+                            
+                            Toast.makeText(this@AIConfigurationActivity, 
+                                "✅ Configuration appliquée! Cliquez SAUVEGARDER", 
+                                Toast.LENGTH_LONG).show()
+                        }
+                        .setNegativeButton("Non", null)
+                        .show()
+                    
+                } else {
+                    // Aucun serveur trouvé
+                    AlertDialog.Builder(this@AIConfigurationActivity)
+                        .setTitle("❌ Serveur Non Trouvé")
+                        .setMessage("Aucun serveur de découverte Ollama détecté sur le réseau.\n\n" +
+                                "Vérifiez que:\n" +
+                                "1. ollama_discovery_server.ps1 tourne sur votre PC\n" +
+                                "2. PC et device sont sur le même WiFi\n" +
+                                "3. Le pare-feu autorise le port 8889")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+                
+            } catch (e: Exception) {
+                android.util.Log.e("AutoDetect", "Error during auto-detection", e)
+                Toast.makeText(this@AIConfigurationActivity, 
+                    "❌ Erreur: ${e.message}", 
+                    Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    
+    /**
+     * Obtient l'IP locale du device Android
+     */
+    private fun getDeviceIP(): String? {
+        try {
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val iface = interfaces.nextElement()
+                val addresses = iface.inetAddresses
+                
+                while (addresses.hasMoreElements()) {
+                    val addr = addresses.nextElement()
+                    
+                    // Chercher une adresse IPv4 non-loopback
+                    if (!addr.isLoopbackAddress && addr is java.net.Inet4Address) {
+                        val ip = addr.hostAddress
+                        // Filtrer les IPs locales (192.168.*.* ou 172.*.*.*)
+                        if (ip.startsWith("192.168.") || ip.startsWith("172.")) {
+                            return ip
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AutoDetect", "Failed to get device IP", e)
+        }
+        return null
     }
     
     private fun resetAIToDefaults() {

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat IA Mobile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #FF8A80 0%, #FFB74D 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+        .chat-container {
+            width: 100%;
+            height: 100vh;
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-header {
+            background: linear-gradient(135deg, #FF6B6B, #4ECDC4);
+            color: white;
+            padding: 12px;
+            position: relative;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            min-height: 40px;
+            overflow: hidden;
+        }
+        .chat-title {
+            font-size: 18px;
+            font-weight: bold;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .header-controls {
+            display: flex;
+            gap: 6px;
+            flex-wrap: nowrap;
+            max-width: 60%;
+            justify-content: flex-end;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .header-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 4px;
+            border-radius: 50%;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-width: 28px;
+            min-height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .header-btn:active {
+            transform: scale(0.9);
+            background: rgba(255,255,255,0.3);
+        }
+        .personality-selector {
+            display: flex;
+            gap: 5px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+        }
+        .personality-btn {
+            padding: 5px 12px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 11px;
+            white-space: nowrap;
+            transition: all 0.3s;
+        }
+        .personality-btn.active {
+            background: rgba(255,255,255,0.3);
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background: #f8f9fa;
+            -webkit-overflow-scrolling: touch;
+        }
+        .message {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            animation: slideIn 0.3s ease-out;
+        }
+        .message.user {
+            flex-direction: row-reverse;
+        }
+        .message-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            position: relative;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        .message.ai .message-bubble {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+        }
+        .message-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+            opacity: 0.7;
+        }
+        .message-btn {
+            background: none;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 3px;
+        }
+        .message-btn:active {
+            transform: scale(0.9);
+        }
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #FF6B6B, #4ECDC4);
+            color: white;
+        }
+        .message.ai .message-avatar {
+            background: linear-gradient(135deg, #4ECDC4, #44A08D);
+            color: white;
+        }
+        .typing-indicator {
+            display: none;
+            padding: 10px;
+        }
+        .typing-dots {
+            display: inline-flex;
+            gap: 2px;
+        }
+        .typing-dots span {
+            width: 6px;
+            height: 6px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        .chat-input-container {
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            padding: 10px;
+        }
+        .plugins-bar {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+            overflow-x: auto;
+        }
+        .plugin-btn {
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 15px;
+            font-size: 11px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s;
+        }
+        .plugin-btn:active {
+            background: #ddd;
+        }
+        .input-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        .input-field {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 16px;
+            outline: none;
+            resize: none;
+            max-height: 100px;
+            min-height: 44px;
+        }
+        .input-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .control-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        .send-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        .voice-btn {
+            background: #4ECDC4;
+            color: white;
+        }
+        .voice-btn.recording {
+            background: #ff4757;
+            animation: pulse 1s infinite;
+        }
+        .control-btn:active {
+            transform: scale(0.9);
+        }
+        .plugin-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            z-index: 1000;
+        }
+        .modal-content {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: white;
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .language-selector {
+            position: absolute;
+            top: 70px;
+            right: 15px;
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 100;
+        }
+        .lang-btn {
+            display: block;
+            width: 100%;
+            padding: 8px 15px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            text-align: left;
+            border-radius: 5px;
+            margin: 2px 0;
+        }
+        .lang-btn:hover, .lang-btn.active {
+            background: #f0f0f0;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .chat-messages::-webkit-scrollbar { width: 3px; }
+        .chat-messages::-webkit-scrollbar-track { background: transparent; }
+        .chat-messages::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="header-top">
+                <div class="chat-title">🤖 Assistant IA</div>
+                <div class="header-controls">
+                    <button class="header-btn" id="settingsBtn" title="Paramètres">⚙️</button>
+                    <button class="header-btn" id="databaseBtn" title="Base de données">💾</button>
+                    <button class="header-btn" id="serverBtn" title="Serveurs">🌐</button>
+                    <button class="header-btn" id="kittBtn" title="Interface KITT">🚗</button>
+                    <button class="header-btn" id="infoBtn" title="Informations">ℹ️</button>
+                    <button class="header-btn" id="langBtn">🌍</button>
+                    <button class="header-btn" id="clearBtn">🗑️</button>
+                </div>
+            </div>
+            <div class="personality-selector">
+                <button class="personality-btn active" data-personality="casual">😊 Décontracté</button>
+                <button class="personality-btn" data-personality="friendly">🤝 Amical</button>
+                <button class="personality-btn" data-personality="professional">👔 Pro</button>
+                <button class="personality-btn" data-personality="creative">🎨 Créatif</button>
+                <button class="personality-btn" data-personality="funny">😄 Drôle</button>
+            </div>
+        </div>
+
+        <div class="language-selector" id="langSelector">
+            <button class="lang-btn active" data-lang="fr">🇫🇷 Français</button>
+            <button class="lang-btn" data-lang="en">🇺🇸 English</button>
+            <button class="lang-btn" data-lang="auto">🔄 Auto</button>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai">
+                <div class="message-avatar">🤖</div>
+                <div class="message-bubble">
+                    Salut ! Je suis ton assistant IA décontracté ! 😊 Comment ça va aujourd'hui ?
+                    <div class="message-actions">
+                        <button class="message-btn" title="Écouter" onclick="speakText(this)">🔊</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="message ai">
+                <div class="message-avatar">🤖</div>
+                <div class="message-bubble">
+                    Je réfléchis <div class="typing-dots"><span></span><span></span><span></span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-input-container">
+            <div class="plugins-bar">
+                <button class="plugin-btn" onclick="openPlugin('translator')">🌐 Traducteur</button>
+                <button class="plugin-btn" onclick="openPlugin('calculator')">🔢 Calculette</button>
+                <button class="plugin-btn" onclick="openPlugin('weather')">🌤️ Météo</button>
+                <button class="plugin-btn" onclick="openPlugin('camera')">📷 Photo</button>
+                <button class="plugin-btn" onclick="openPlugin('files')">📁 Fichiers</button>
+                <button class="plugin-btn" onclick="openPlugin('jokes')">😂 Blagues</button>
+                <button class="plugin-btn" onclick="openPlugin('tips')">💡 Conseils</button>
+            </div>
+            
+            <div class="input-row">
+                <textarea class="input-field" id="messageInput" placeholder="Tape ton message ici..." rows="1"></textarea>
+                <div class="input-controls">
+                    <button class="control-btn voice-btn" id="voiceBtn" title="Message vocal">🎤</button>
+                    <button class="control-btn send-btn" id="sendBtn" title="Envoyer">📤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="plugin-modal" id="pluginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Plugin</h3>
+                <button class="close-btn" onclick="closePlugin()">×</button>
+            </div>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- Modal d'informations -->
+    <div class="plugin-modal" id="infoModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🚀 Informations Système</h3>
+                <button class="close-btn" onclick="closeInfo()">×</button>
+            </div>
+            <div id="infoContent">
+                <div style="padding: 20px; text-align: center;">
+                    <h4>📱 Application ChatAI-Android</h4>
+                    <p>Version complète avec toutes les fonctionnalités</p>
+                    
+                    <div style="margin: 20px 0; text-align: left;">
+                        <h5>🌐 Serveurs Locaux :</h5>
+                        <p><strong>HTTP Server :</strong> <span id="httpStatus">Vérification...</span></p>
+                        <p><strong>WebSocket Server :</strong> <span id="wsStatus">Vérification...</span></p>
+                        <p><strong>Service IA :</strong> <span id="aiStatus">Vérification...</span></p>
+                    </div>
+                    
+                    <div style="margin: 20px 0; text-align: left;">
+                        <h5>🔌 Plugins Disponibles :</h5>
+                        <p>🌐 Traducteur | 🔢 Calculette | 🌤️ Météo</p>
+                        <p>📷 Caméra | 📁 Fichiers | 😂 Blagues | 💡 Conseils</p>
+                    </div>
+                    
+                    <div style="margin: 20px 0; text-align: left;">
+                        <h5>🔒 Sécurité :</h5>
+                        <p>✅ Chiffrement AES-256</p>
+                        <p>✅ Validation XSS</p>
+                        <p>✅ Cache sécurisé</p>
+                    </div>
+                    
+                    <button onclick="testServers()" style="width: 100%; padding: 10px; background: #4ECDC4; color: white; border: none; border-radius: 8px; margin-top: 10px;">🧪 Tester les Serveurs</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="chat.js"></script>
+</body>
+</html>

@@ -3,6 +3,22 @@
 *.ap_
 *.aab
 
+# Archives volumineuses
+*.zip
+*.rar
+*.7z
+*.tar.gz
+
+# OBB files (volumineux)
+*.obb
+
+# Bibliothèques natives volumineuses (>50MB)
+**/jniLibs/**/fbneo_libretro_android.so
+**/jniLibs/**/mame2010_libretro_android.so
+
+# Backups locaux
+BACKUP_*/
+
 # Files for the ART/Dalvik VM
 *.dex
 

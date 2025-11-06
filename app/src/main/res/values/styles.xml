@@ -98,4 +98,23 @@
         <item name="android:textStyle">bold</item>
     </style>
 
+    <!-- KITT Dialog Theme -->
+    <style name="KittDialogTheme" parent="Theme.Material3.Dark.Dialog">
+        <item name="android:background">@color/kitt_black</item>
+        <item name="android:windowBackground">@color/kitt_black</item>
+        <item name="android:textColor">@color/kitt_red</item>
+        <item name="colorPrimary">@color/kitt_red</item>
+        <item name="colorAccent">@color/kitt_red</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="buttonBarNegativeButtonStyle">@style/KittDialogButton</item>
+        <item name="buttonBarPositiveButtonStyle">@style/KittDialogButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/KittDialogButton</item>
+    </style>
+
+    <style name="KittDialogButton" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/kitt_red</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
 </resources>

@@ -52,14 +52,15 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Section: Configuration des APIs -->
+        <!-- Section: Configuration des APIs (MASQUÉE - Obsolète) -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardBackgroundColor="@color/kitt_black"
             app:cardCornerRadius="12dp"
             app:strokeColor="@color/kitt_red"
-            app:strokeWidth="2dp">
+            app:strokeWidth="2dp"
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -185,13 +186,32 @@
 
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- Ollama Cloud Model -->
+                <!-- Ollama Cloud Model (Spinner) -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Modèle Cloud:"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:layout_marginBottom="4dp"
+                    android:layout_marginTop="8dp" />
+
+                <Spinner
+                    android:id="@+id/ollamaCloudModelSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:background="@drawable/spinner_background"
+                    android:padding="12dp"
+                    android:layout_marginBottom="8dp" />
+                
+                <!-- Ollama Cloud Model (Manuel - optionnel) -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:boxStrokeColor="@color/kitt_red"
                     app:hintTextColor="@color/kitt_red_light"
-                    android:hint="Modèle Cloud (ex: gpt-oss:120b-cloud)">
+                    android:hint="OU entrer modèle manuellement">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/ollamaCloudModelInput"
@@ -201,7 +221,7 @@
                         android:textSize="12sp"
                         android:fontFamily="monospace"
                         android:inputType="text"
-                        android:hint="gpt-oss:120b-cloud ou deepseek-v3.1:671b-cloud" />
+                        android:hint="Laisser vide pour utiliser menu ci-dessus" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -281,7 +301,7 @@
                         android:textSize="12sp"
                         android:fontFamily="monospace"
                         android:inputType="text"
-                        android:hint="llama3.2 ou gpt-oss:20b-cloud" />
+                        android:hint="llama3.2 ou gpt-oss:20b" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -294,6 +314,20 @@
                     android:fontFamily="monospace"
                     android:layout_marginTop="8dp"
                     android:alpha="0.7" />
+                
+                <!-- ⭐ Bouton Auto-Détection Serveur (Phase 2 - Discovery) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/autoDetectServerButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🔍 AUTO-DÉTECTER SERVEUR OLLAMA"
+                    android:textColor="@color/amber_primary"
+                    android:backgroundTint="@color/kitt_red_dark"
+                    app:strokeColor="@color/amber_primary"
+                    app:strokeWidth="1dp"
+                    android:layout_marginTop="12dp"
+                    android:fontFamily="monospace"
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
@@ -449,14 +483,15 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Section: Configuration des Modèles -->
+        <!-- Section: Configuration des Modèles (MASQUÉE - Inutile) -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardBackgroundColor="@color/kitt_black"
             app:cardCornerRadius="12dp"
             app:strokeColor="@color/kitt_red"
-            app:strokeWidth="2dp">
+            app:strokeWidth="2dp"
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -537,14 +572,15 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Section: Configuration des Personnalités -->
+        <!-- Section: Configuration des Personnalités (MASQUÉE - Inutile) -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardBackgroundColor="@color/kitt_black"
             app:cardCornerRadius="12dp"
             app:strokeColor="@color/kitt_red"
-            app:strokeWidth="2dp">
+            app:strokeWidth="2dp"
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -640,14 +676,15 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Section: Fonctionnalités IA -->
+        <!-- Section: Fonctionnalités IA (MASQUÉE - Inutile) -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardBackgroundColor="@color/kitt_black"
             app:cardCornerRadius="12dp"
             app:strokeColor="@color/kitt_red"
-            app:strokeWidth="2dp">
+            app:strokeWidth="2dp"
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -749,13 +786,33 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Première ligne de boutons -->
+            <!-- Bouton Historique -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/viewHistoryButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📜 VOIR L'HISTORIQUE DES CONVERSATIONS"
+                android:textSize="12sp"
+                app:backgroundTint="@color/kitt_dark_red"
+                app:cornerRadius="8dp"
+                app:strokeColor="@color/kitt_red"
+                app:strokeWidth="2dp"
+                android:textColor="@color/kitt_red"
+                android:fontFamily="monospace"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp" />
+                
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <!-- 💾 SAUVEGARDE (À LA FIN POUR CLARTÉ)                        -->
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            
+            <!-- Ligne de boutons d'actions -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:spacing="8dp"
-                android:layout_marginBottom="8dp">
+                android:layout_marginBottom="16dp">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/saveAISettingsButton"
@@ -803,21 +860,6 @@
                     android:textStyle="bold" />
 
             </LinearLayout>
-
-            <!-- Bouton Historique -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/viewHistoryButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="📜 VOIR L'HISTORIQUE DES CONVERSATIONS"
-                android:textSize="12sp"
-                app:backgroundTint="@color/kitt_dark_red"
-                app:cornerRadius="8dp"
-                app:strokeColor="@color/kitt_red"
-                app:strokeWidth="2dp"
-                android:textColor="@color/kitt_red"
-                android:fontFamily="monospace"
-                android:textStyle="bold" />
 
         </LinearLayout>
 

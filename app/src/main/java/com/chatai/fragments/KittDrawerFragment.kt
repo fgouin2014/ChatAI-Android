@@ -33,6 +33,7 @@ class KittDrawerFragment : Fragment() {
         fun onThemeChanged(theme: String) // Changement de thème
         fun onButtonPressed(buttonName: String) // Annonce vocale du bouton pressé
         fun onAnimationModeChanged(mode: String) // Changement de mode d'animation VU-meter
+        fun onPersonalityChanged(personality: String) // Changement de personnalité (KITT/GLaDOS)
     }
     
     fun setCommandListener(listener: CommandListener) {
@@ -210,6 +211,22 @@ class KittDrawerFragment : Fragment() {
         view.findViewById<MaterialButton>(R.id.deactivateKittButton).setOnClickListener {
             commandListener?.onButtonPressed("Désactivation de KITT")
             commandListener?.onCommandSelected("DEACTIVATE_KITT")
+        }
+        
+        // Personnalité IA
+        view.findViewById<MaterialButton>(R.id.personalityKittButton).setOnClickListener {
+            commandListener?.onButtonPressed("Personnalité KITT professionnelle activée")
+            commandListener?.onPersonalityChanged("KITT")
+        }
+        
+        view.findViewById<MaterialButton>(R.id.personalityGladosButton).setOnClickListener {
+            commandListener?.onButtonPressed("Personnalité GLaDOS sarcastique activée")
+            commandListener?.onPersonalityChanged("GLaDOS")
+        }
+        
+        view.findViewById<MaterialButton>(R.id.personalityKarrButton).setOnClickListener {
+            commandListener?.onButtonPressed("Personnalité KARR dominante activée")
+            commandListener?.onPersonalityChanged("KARR")
         }
         
             // AI Configuration button

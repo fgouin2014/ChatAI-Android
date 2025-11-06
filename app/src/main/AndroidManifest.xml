@@ -154,7 +154,7 @@
                     android:screenOrientation="portrait"
                     android:configChanges="orientation|screenSize"
                     android:theme="@style/Theme.KITT" />
-                
+                    
                 <!-- Conversation History Activity -->
                 <activity
                     android:name=".activities.ConversationHistoryActivity"
@@ -162,6 +162,17 @@
                     android:screenOrientation="portrait"
                     android:configChanges="orientation|screenSize"
                     android:theme="@style/Theme.KITT" />
+                    
+                <!-- Voice Listener Activity (Quick Settings Tile) -->
+                <activity
+                    android:name=".activities.VoiceListenerActivity"
+                    android:exported="false"
+                    android:screenOrientation="portrait"
+                    android:theme="@android:style/Theme.Translucent.NoTitleBar"
+                    android:launchMode="singleInstance"
+                    android:taskAffinity=""
+                    android:excludeFromRecents="true"
+                    android:noHistory="true" />
                     
                 <!-- Server Configuration Activity -->
                 <activity
@@ -209,5 +220,28 @@
                     android:enabled="true"
                     android:exported="false"
                     android:foregroundServiceType="dataSync" />
+                    
+                <!-- KITT Quick Settings Tile Service -->
+                <service
+                    android:name=".services.KittTileService"
+                    android:exported="true"
+                    android:icon="@drawable/ic_kitt_tile"
+                    android:label="KITT"
+                    android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+                    <intent-filter>
+                        <action android:name="android.service.quicksettings.action.QS_TILE" />
+                    </intent-filter>
+                </service>
+                
+                <!-- FileProvider pour partager les fichiers logs -->
+                <provider
+                    android:name="androidx.core.content.FileProvider"
+                    android:authorities="${applicationId}.provider"
+                    android:exported="false"
+                    android:grantUriPermissions="true">
+                    <meta-data
+                        android:name="android.support.FILE_PROVIDER_PATHS"
+                        android:resource="@xml/file_paths" />
+                </provider>
     </application>
 </manifest>

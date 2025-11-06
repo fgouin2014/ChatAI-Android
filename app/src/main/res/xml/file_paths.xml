@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Accès aux fichiers dans ChatAI-Files/logs/ -->
+    <external-path 
+        name="chatai_logs" 
+        path="ChatAI-Files/logs/" />
+    
+    <!-- Accès aux fichiers dans ChatAI-Files/ (pour d'autres usages futurs) -->
+    <external-path 
+        name="chatai_files" 
+        path="ChatAI-Files/" />
+</paths>
+

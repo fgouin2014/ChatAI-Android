@@ -1,0 +1,37 @@
+FICHIERS RADIALGAMEPAD SUPPRIMÉS
+==================================
+
+Les fichiers suivants ont été supprimés lors de la migration vers Lemuroid-TouchInput :
+
+CONFIGS GAMEPAD (11 fichiers) :
+- GamePadConfigManager.kt
+- configs/SharedGamePadButtons.kt
+- configs/PSXGamePadConfig.kt
+- configs/PSPGamePadConfig.kt  
+- configs/N64GamePadConfig.kt
+- configs/SNESGamePadConfig.kt
+- configs/NESGamePadConfig.kt
+- configs/GBAGamePadConfig.kt
+- configs/GBGamePadConfig.kt
+- configs/GenesisGamePadConfig.kt
+- configs/GenericGamePadConfig.kt
+
+LAYOUTS XML :
+- res/layout/dialog_gamepad_settings.xml
+
+DOCUMENTATION :
+- GAMEPAD_INTEGRATION.md (conservé pour référence)
+
+RAISON DE LA SUPPRESSION :
+Ces fichiers utilisaient RadialGamePad (View Canvas) qui a été remplacé par 
+Lemuroid-TouchInput (Compose) pour obtenir des symboles PlayStation uniformes.
+
+RÉCUPÉRATION :
+Si vous avez besoin de ces fichiers sources pour un autre projet, ils sont 
+disponibles dans l'historique de conversation avec l'assistant ou peuvent être 
+recréés sur demande.
+
+ALTERNATIVE :
+Utilisez Lemuroid-TouchInput directement (module déjà intégré dans le projet)
+pour vos nouveaux projets - c'est plus moderne et maintenu.
+

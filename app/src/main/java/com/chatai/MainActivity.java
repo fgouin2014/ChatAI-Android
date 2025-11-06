@@ -39,7 +39,7 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
     private FileServer fileServer;
     private WebServer webServer;
     
-    // Interface KITT
+    // Interface KITT (version unique refactorisée)
     private FrameLayout kittFragmentContainer;
     private FrameLayout kittDrawerContainer;
     private KittFragment kittFragment;
@@ -75,7 +75,49 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
         setupKittButton();
         setupGamesButton();
         
+        // Vérifier si lancé depuis Quick Settings Tile
+        handleKittActivationIntent(getIntent());
+        
         Log.i(TAG, "MainActivity onCreate terminé");
+    }
+    
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        
+        Log.i(TAG, "📨 onNewIntent appelé");
+        Log.i(TAG, "   activate_kitt = " + intent.getBooleanExtra("activate_kitt", false));
+        
+        // Gérer l'activation KITT depuis Quick Settings Tile
+        handleKittActivationIntent(intent);
+    }
+    
+    /**
+     * Gère l'activation de KITT depuis la Quick Settings Tile
+     */
+    private void handleKittActivationIntent(Intent intent) {
+        if (intent != null && intent.getBooleanExtra("activate_kitt", false)) {
+            Log.i(TAG, "🚗 KITT activation requested from Quick Settings Tile");
+            
+            // Ouvrir KITT immédiatement
+            showKittInterface();
+            
+            // Attendre que le fragment s'initialise complètement (tous les managers)
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                if (kittFragment != null && kittFragment.isAdded()) {
+                    try {
+                        Log.i(TAG, "🎯 Activating KITT voice listening...");
+                        kittFragment.activateVoiceListening();
+                        Log.i(TAG, "✅ KITT voice listening activated from tile");
+                    } catch (Exception e) {
+                        Log.e(TAG, "❌ Erreur activation KITT depuis tile", e);
+                    }
+                } else {
+                    Log.e(TAG, "❌ Cannot activate voice: Fragment not ready");
+                }
+            }, 1000);
+        }
     }
 
     private void setupWebView() {
@@ -108,12 +150,12 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
         kittFragmentContainer = findViewById(R.id.kitt_fragment_container);
         kittDrawerContainer = findViewById(R.id.kitt_drawer_container);
         
-        // Créer le fragment KITT
-        kittFragment = new KittFragment();
+        // Créer le fragment KITT (version refactorisée unique)
+        kittFragment = new com.chatai.fragments.KittFragment();
         kittFragment.setFileServer(fileServer);
         kittFragment.setKittFragmentListener(this);
         
-        Log.i(TAG, "Interface KITT initialisée");
+        Log.i(TAG, "✅ Interface KITT (architecture modulaire) initialisée");
     }
     
     private void setupKittButton() {
@@ -397,25 +439,32 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
     }
     
     private void showKittInterface() {
-        if (kittFragmentContainer != null && kittFragment != null) {
-            // Masquer le WebView
-            webView.setVisibility(View.GONE);
-            
-            // Afficher le container KITT
-            kittFragmentContainer.setVisibility(View.VISIBLE);
-            
-            // Ajouter le fragment KITT si pas déjà ajouté
-            if (kittFragment.getParentFragmentManager() == null || 
-                getSupportFragmentManager().findFragmentByTag("kitt_fragment") == null) {
-                
-                FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-                transaction.replace(R.id.kitt_fragment_container, kittFragment, "kitt_fragment");
-                transaction.commit();
-            }
-            
-            isKittVisible = true;
-            Log.i(TAG, "Interface KITT affichée");
+        if (kittFragmentContainer == null || kittFragment == null) {
+            Log.e(TAG, "❌ KITT container or fragment is null");
+            return;
         }
+        
+        // Masquer le WebView
+        webView.setVisibility(View.GONE);
+        
+        // Masquer le bouton jeux (ne doit pas apparaître dans KITT)
+        if (fabGames != null) {
+            fabGames.setVisibility(View.GONE);
+        }
+        
+        // Afficher le container KITT
+        kittFragmentContainer.setVisibility(View.VISIBLE);
+        
+        // Ajouter le fragment KITT si pas déjà ajouté
+        if (!kittFragment.isAdded()) {
+            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+            transaction.replace(R.id.kitt_fragment_container, kittFragment, "kitt_fragment");
+            transaction.commit();
+            Log.i(TAG, "✅ KittFragment added to container");
+        }
+        
+        isKittVisible = true;
+        Log.i(TAG, "Interface KITT affichée");
     }
     
     public void hideKittInterface() {
@@ -425,6 +474,11 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
             
             // Afficher le WebView
             webView.setVisibility(View.VISIBLE);
+            
+            // Réafficher le bouton jeux
+            if (fabGames != null) {
+                fabGames.setVisibility(View.VISIBLE);
+            }
             
             isKittVisible = false;
             Log.i(TAG, "Interface KITT masquée");

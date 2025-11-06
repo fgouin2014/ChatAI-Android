@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Knight Rider NES - Plein écran</title>
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    touch-action: none; /* empêche scroll sur mobile */
+}
+
+#game {
+    width: 100vw;      /* plein écran largeur */
+    height: 100vh;     /* plein écran hauteur */
+    position: relative;
+}
+
+#loading {
+    position: absolute;
+    color: #0f0;
+    font-family: monospace;
+    font-size: 18px;
+    text-align: center;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+</style>
+
+<script src="data/loader.js"></script>
+
+</head>
+<body>
+<div id="game">
+    <div id="loading">Chargement du jeu...</div>
+</div>
+
+<script>
+EJS_player = "#game";
+EJS_core = "nes";
+EJS_gameUrl = "nes/Knight Rider (USA).nes";
+EJS_pathtodata = "data/";
+
+// Touch controls
+EJS_touchButtons = true;
+EJS_touchScale = 1.2;
+EJS_touchAlpha = 0.6;
+EJS_touchOffset = 10;
+EJS_touchLayout = "auto";
+EJS_disableDatabases = true;
+
+
+// Redimension automatique pour portrait/paysage
+function resizeCanvas() {
+    const gameDiv = document.getElementById("game");
+    gameDiv.style.width = window.innerWidth + "px";
+    gameDiv.style.height = window.innerHeight + "px";
+    
+    // Notifier l'émulateur du changement de taille
+    if (window.EJS && window.EJS.resize) {
+        window.EJS.resize();
+    }
+}
+
+// Gestion des changements d'orientation
+function handleOrientationChange() {
+    // Délai pour permettre à l'écran de se redimensionner
+    setTimeout(() => {
+        resizeCanvas();
+    }, 100);
+}
+
+window.addEventListener("resize", resizeCanvas);
+window.addEventListener("orientationchange", handleOrientationChange);
+resizeCanvas();
+
+// Supprimer le message de chargement
+window.addEventListener("load", function() {
+    const loading = document.getElementById("loading");
+    if (loading) loading.style.display = "none";
+});
+</script>
+</body>
+</html>

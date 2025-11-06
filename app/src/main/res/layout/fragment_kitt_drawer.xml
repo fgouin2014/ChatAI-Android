@@ -467,8 +467,8 @@
                 android:id="@+id/btnAIConfig"
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
-                android:layout_marginBottom="8dp"
-                android:text="CONFIGURATION AI"
+                android:layout_marginBottom="16dp"
+                android:text="CONFIGURATION IA"
                 android:textSize="10sp"
                 app:backgroundTint="@color/kitt_red_alpha"
                 app:cornerRadius="8dp"
@@ -477,6 +477,74 @@
                 android:textColor="@color/kitt_red"
                 android:fontFamily="monospace"
                 android:textStyle="bold" />
+
+            <!-- Section: Personnalité IA -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="PERSONNALITÉ IA"
+                android:textColor="@color/kitt_red"
+                android:textSize="12sp"
+                android:fontFamily="monospace"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/personalityKittButton"
+                    android:layout_width="0dp"
+                    android:layout_height="60dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="2dp"
+                    android:text="KITT\nPROFESSIONNEL"
+                    android:textSize="7sp"
+                    app:backgroundTint="@color/kitt_red"
+                    app:cornerRadius="8dp"
+                    app:strokeColor="@color/kitt_red"
+                    app:strokeWidth="2dp"
+                    android:textColor="@color/kitt_black"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/personalityGladosButton"
+                    android:layout_width="0dp"
+                    android:layout_height="60dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="2dp"
+                    android:layout_marginEnd="2dp"
+                    android:text="GLaDOS\nSARCASTIQUE"
+                    android:textSize="7sp"
+                    app:backgroundTint="@color/kitt_red_alpha"
+                    app:cornerRadius="8dp"
+                    app:strokeColor="@color/kitt_red"
+                    app:strokeWidth="2dp"
+                    android:textColor="@color/kitt_red"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/personalityKarrButton"
+                    android:layout_width="0dp"
+                    android:layout_height="60dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="2dp"
+                    android:text="KARR\nDOMINANT"
+                    android:textSize="7sp"
+                    app:backgroundTint="@color/kitt_red_alpha"
+                    app:cornerRadius="8dp"
+                    app:strokeColor="@color/kitt_red"
+                    app:strokeWidth="2dp"
+                    android:textColor="@color/kitt_red"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
 
             <!-- Section: Media -->
             <TextView

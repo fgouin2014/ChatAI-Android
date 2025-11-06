@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [ConversationEntity::class],
-    version = 1,
+    version = 3, // ⭐ v3: Ajout conversationId pour debugging/traçabilité
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -33,16 +33,16 @@ abstract class ChatAIDatabase : RoomDatabase() {
                     ChatAIDatabase::class.java,
                     "chatai_intelligence.db"
                 )
+                .setJournalMode(RoomDatabase.JournalMode.AUTOMATIC) // ⭐ FIX: Mode automatique (Room gère le WAL)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
-                        // Base de données créée
-                        android.util.Log.d("ChatAIDatabase", "Database created - ChatAI Intelligence System ready")
+                        android.util.Log.d("ChatAIDatabase", "✅ Database created - ChatAI Intelligence System ready")
                     }
                     
                     override fun onOpen(db: SupportSQLiteDatabase) {
                         super.onOpen(db)
-                        android.util.Log.d("ChatAIDatabase", "Database opened")
+                        android.util.Log.d("ChatAIDatabase", "✅ Database opened - Ready for conversations")
                     }
                 })
                 .fallbackToDestructiveMigration() // Pour le développement - À ENLEVER en production

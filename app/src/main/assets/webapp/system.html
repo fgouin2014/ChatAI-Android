@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatAI System - Raccourcis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #FF6B6B, #4ECDC4);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .section h2 {
+            color: #333;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #4ECDC4;
+            padding-bottom: 10px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 5px solid #4ECDC4;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .card h3 {
+            color: #333;
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        .card .url {
+            background: #e9ecef;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9em;
+            color: #495057;
+            word-break: break-all;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.online {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+        }
+        .btn {
+            display: inline-block;
+            background: #4ECDC4;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #45b7aa;
+            transform: translateY(-2px);
+        }
+        .btn.primary {
+            background: #FF6B6B;
+        }
+        .btn.primary:hover {
+            background: #ff5252;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 ChatAI System</h1>
+            <p>Centre de contrôle et raccourcis système</p>
+        </div>
+        
+        <div class="content">
+            <!-- Interface Web -->
+            <div class="section">
+                <h2>🌐 Interface Web</h2>
+                <div class="grid">
+                    <div class="card" onclick="window.open('/index.html', '_blank')">
+                        <h3>💬 Chat Principal</h3>
+                        <p>Interface de chat principal avec IA et plugins</p>
+                        <div class="url">/index.html</div>
+                    </div>
+                    <div class="card" onclick="window.open('/chat.js', '_blank')">
+                        <h3>⚙️ Code JavaScript</h3>
+                        <p>Code source de l'interface chat</p>
+                        <div class="url">/chat.js</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- API Services -->
+            <div class="section">
+                <h2>🔌 API Services</h2>
+                <div class="grid">
+                    <div class="card" onclick="window.open('http://localhost:8081/api/status', '_blank')">
+                        <h3>📊 Statut API ChatAI</h3>
+                        <p>Vérifier le statut de l'API ChatAI</p>
+                        <div class="url">http://localhost:8081/api/status</div>
+                    </div>
+                    <div class="card" onclick="window.open('http://localhost:8081/api/plugins', '_blank')">
+                        <h3>🔌 Plugins Disponibles</h3>
+                        <p>Liste des plugins et fonctionnalités</p>
+                        <div class="url">http://localhost:8081/api/plugins</div>
+                    </div>
+                    <div class="card" onclick="window.open('http://localhost:8081/api/health', '_blank')">
+                        <h3>🏥 Santé Système</h3>
+                        <p>Vérification de la santé du système</p>
+                        <div class="url">http://localhost:8081/api/health</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Plugins -->
+            <div class="section">
+                <h2>🧩 Plugins</h2>
+                <div class="grid">
+                    <div class="card" onclick="window.open('http://localhost:8081/api/weather/Paris', '_blank')">
+                        <h3>🌤️ Météo</h3>
+                        <p>Service météo pour n'importe quelle ville</p>
+                        <div class="url">http://localhost:8081/api/weather/[ville]</div>
+                    </div>
+                    <div class="card" onclick="window.open('http://localhost:8081/api/jokes', '_blank')">
+                        <h3>😄 Blagues</h3>
+                        <p>Service de blagues aléatoires</p>
+                        <div class="url">http://localhost:8081/api/jokes</div>
+                    </div>
+                    <div class="card" onclick="window.open('http://localhost:8081/api/tips/productivity', '_blank')">
+                        <h3>💡 Conseils</h3>
+                        <p>Conseils par catégorie</p>
+                        <div class="url">http://localhost:8081/api/tips/[catégorie]</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- KITT System -->
+            <div class="section">
+                <h2>🚗 KITT System</h2>
+                <div class="grid">
+                    <div class="card" onclick="window.open('http://localhost:8083/dashboard', '_blank')">
+                        <h3>📊 Dashboard KITT</h3>
+                        <p>Tableau de bord du système KITT</p>
+                        <div class="url">http://localhost:8083/dashboard</div>
+                    </div>
+                    <div class="card" onclick="window.open('http://localhost:8083/api/system', '_blank')">
+                        <h3>⚙️ API Système</h3>
+                        <p>API système KITT</p>
+                        <div class="url">http://localhost:8083/api/system</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- WebSocket -->
+            <div class="section">
+                <h2>🔌 WebSocket</h2>
+                <div class="grid">
+                    <div class="card" onclick="testWebSocket()">
+                        <h3>⚡ WebSocket ChatAI</h3>
+                        <p>Connexion temps réel pour le chat</p>
+                        <div class="url">ws://localhost:8082</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Actions Rapides -->
+            <div class="section">
+                <h2>⚡ Actions Rapides</h2>
+                <div style="text-align: center;">
+                    <a href="/index.html" class="btn primary">💬 Ouvrir Chat</a>
+                    <a href="http://localhost:8081/api/status" class="btn">📊 Statut API</a>
+                    <a href="http://localhost:8083/dashboard" class="btn">🚗 Dashboard KITT</a>
+                    <button onclick="testAllServices()" class="btn">🧪 Tester Services</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>ChatAI System v1.0 - Tous les services sur ports 8080-8083</p>
+        </div>
+    </div>
+    
+    <script>
+        function testWebSocket() {
+            try {
+                const ws = new WebSocket('ws://localhost:8082');
+                ws.onopen = () => {
+                    alert('✅ WebSocket connecté avec succès !');
+                    ws.close();
+                };
+                ws.onerror = () => {
+                    alert('❌ WebSocket non disponible');
+                };
+            } catch (e) {
+                alert('❌ Erreur WebSocket: ' + e.message);
+            }
+        }
+        
+        async function testAllServices() {
+            const services = [
+                { name: 'Web Server', url: 'http://localhost:8080' },
+                { name: 'ChatAI API', url: 'http://localhost:8081/api/status' },
+                { name: 'System API', url: 'http://localhost:8083/api/system' }
+            ];
+            
+            let results = [];
+            
+            for (const service of services) {
+                try {
+                    const response = await fetch(service.url);
+                    results.push(`✅ ${service.name}: OK`);
+                } catch (e) {
+                    results.push(`❌ ${service.name}: Erreur`);
+                }
+            }
+            
+            alert('🧪 Test des Services:\n\n' + results.join('\n'));
+        }
+        
+        // Auto-refresh status every 30 seconds
+        setInterval(async () => {
+            try {
+                const response = await fetch('http://localhost:8081/api/status');
+                if (response.ok) {
+                    document.title = '🚀 ChatAI System - En ligne';
+                }
+            } catch (e) {
+                document.title = '🚀 ChatAI System - Hors ligne';
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

@@ -96,8 +96,8 @@ public class WebAppInterface {
         Log.d(TAG, "Sauvegarde conversation: " + conversationJson);
         
         try {
-            // Sauvegarder dans SharedPreferences
-            SharedPreferences prefs = mContext.getSharedPreferences("ChatAI", Context.MODE_PRIVATE);
+            // Sauvegarder dans SharedPreferences (unifié avec le reste de l'app)
+            SharedPreferences prefs = mContext.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = prefs.edit();
             
             String timestamp = String.valueOf(System.currentTimeMillis());
@@ -127,7 +127,7 @@ public class WebAppInterface {
 
     @JavascriptInterface
     public String getLastConversation() {
-        SharedPreferences prefs = mContext.getSharedPreferences("ChatAI", Context.MODE_PRIVATE);
+        SharedPreferences prefs = mContext.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE);
         return prefs.getString("last_conversation", "[]");
     }
 
@@ -448,5 +448,165 @@ public class WebAppInterface {
                 Intent intent = new Intent(mContext, ServerActivity.class);
                 mContext.startActivity(intent);
                 Log.d(TAG, "Ouverture ServerActivity");
+            }
+            
+            // ========== THINKING MODE & BIDIRECTIONAL BRIDGE ==========
+            
+            /**
+             * Traite une requête utilisateur avec mode thinking
+             * Streame les chunks (thinking + réponse) vers l'interface web
+             */
+            @JavascriptInterface
+            public void processWithThinking(String userInput, String personality, boolean enableThinking) {
+                Log.i(TAG, "Processing with thinking: " + userInput + " (personality=" + personality + ", thinking=" + enableThinking + ")");
+                
+                // Vérifier que le contexte est bien MainActivity
+                if (!(mContext instanceof MainActivity)) {
+                    Log.e(TAG, "Context is not MainActivity, cannot process with thinking");
+                    return;
+                }
+                
+                MainActivity activity = (MainActivity) mContext;
+                
+                // Obtenir le bridge bidirectionnel
+                com.chatai.services.BidirectionalBridge bridge = 
+                    com.chatai.services.BidirectionalBridge.getInstance(mContext);
+                
+                // Générer un ID unique pour ce message
+                String messageId = "msg_" + System.currentTimeMillis();
+                
+                // Traiter avec thinking (méthode Async Java-friendly)
+                bridge.processWithThinkingAsync(
+                    userInput,
+                    personality,
+                    enableThinking,
+                    // onChunk callback (Consumer)
+                    chunk -> {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            String chunkType = chunk.getType().name().toLowerCase();
+                            String content = chunk.getContent();
+                            boolean isComplete = chunk.isComplete();
+                            
+                            String jsCode = String.format(
+                                "if (window.secureChatApp && window.secureChatApp.displayThinkingChunk) { " +
+                                "window.secureChatApp.displayThinkingChunk('%s', '%s', %s, %s); }",
+                                messageId,
+                                chunkType,
+                                escapeForJavaScript(content),
+                                isComplete
+                            );
+                            
+                            activity.getWebView().evaluateJavascript(jsCode, null);
+                            Log.d(TAG, "Chunk sent: type=" + chunkType + ", complete=" + isComplete);
+                        });
+                    },
+                    // onError callback (Consumer)
+                    error -> {
+                        Log.e(TAG, "Error processing with thinking", error);
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            String jsCode = "if (window.secureChatApp && window.secureChatApp.showSecureMessage) { " +
+                                "window.secureChatApp.showSecureMessage('ai', 'Erreur: " + error.getMessage() + "'); }";
+                            activity.getWebView().evaluateJavascript(jsCode, null);
+                        });
+                    },
+                    // onComplete callback (Runnable)
+                    () -> {
+                        Log.i(TAG, "Thinking stream completed");
+                    }
+                );
+            }
+            
+            /**
+             * Vérifie si le mode thinking est activé dans les paramètres
+             */
+            @JavascriptInterface
+            public boolean getThinkingModeEnabled() {
+                SharedPreferences prefs = mContext.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE);
+                boolean enabled = prefs.getBoolean("thinking_mode_enabled", true);
+                Log.d(TAG, "Thinking mode enabled: " + enabled);
+                return enabled;
+            }
+            
+            /**
+             * Active ou désactive le mode thinking
+             */
+            @JavascriptInterface
+            public void setThinkingModeEnabled(boolean enabled) {
+                SharedPreferences prefs = mContext.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE);
+                prefs.edit().putBoolean("thinking_mode_enabled", enabled).apply();
+                Log.i(TAG, "Thinking mode set to: " + enabled);
+                
+                // Notifier l'interface web
+                if (mContext instanceof MainActivity) {
+                    MainActivity activity = (MainActivity) mContext;
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        String jsCode = "if (window.secureChatApp && window.secureChatApp.showSecureMessage) { " +
+                            "window.secureChatApp.showSecureMessage('ai', 'Mode thinking " + 
+                            (enabled ? "activé" : "désactivé") + " 🧠'); }";
+                        activity.getWebView().evaluateJavascript(jsCode, null);
+                    });
+                }
+            }
+            
+            /**
+             * Envoie un message de KITT vers ChatAI via le bridge bidirectionnel
+             */
+            @JavascriptInterface
+            public void sendKittToChatAI(String message, String messageType) {
+                Log.i(TAG, "KITT → ChatAI: " + message + " (type=" + messageType + ")");
+                
+                try {
+                    com.chatai.services.BidirectionalBridge bridge = 
+                        com.chatai.services.BidirectionalBridge.getInstance(mContext);
+                    
+                    com.chatai.services.BidirectionalBridge.MessageType type = 
+                        com.chatai.services.BidirectionalBridge.MessageType.valueOf(messageType.toUpperCase());
+                    
+                    com.chatai.services.BidirectionalBridge.BridgeMessage bridgeMessage = 
+                        new com.chatai.services.BidirectionalBridge.BridgeMessage(
+                            type,
+                            com.chatai.services.BidirectionalBridge.Source.KITT_VOICE,
+                            message,
+                            new java.util.HashMap<>(),
+                            System.currentTimeMillis()
+                        );
+                    
+                    bridge.sendKittToWebAsync(bridgeMessage);
+                    Log.d(TAG, "Message sent via bridge");
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "Error sending message via bridge", e);
+                }
+            }
+            
+            /**
+             * Envoie un message de ChatAI vers KITT via le bridge bidirectionnel
+             */
+            @JavascriptInterface
+            public void sendChatAIToKitt(String message, String messageType) {
+                Log.i(TAG, "ChatAI → KITT: " + message + " (type=" + messageType + ")");
+                
+                try {
+                    com.chatai.services.BidirectionalBridge bridge = 
+                        com.chatai.services.BidirectionalBridge.getInstance(mContext);
+                    
+                    com.chatai.services.BidirectionalBridge.MessageType type = 
+                        com.chatai.services.BidirectionalBridge.MessageType.valueOf(messageType.toUpperCase());
+                    
+                    com.chatai.services.BidirectionalBridge.BridgeMessage bridgeMessage = 
+                        new com.chatai.services.BidirectionalBridge.BridgeMessage(
+                            type,
+                            com.chatai.services.BidirectionalBridge.Source.CHATAI_WEB,
+                            message,
+                            new java.util.HashMap<>(),
+                            System.currentTimeMillis()
+                        );
+                    
+                    bridge.sendWebToKittAsync(bridgeMessage);
+                    Log.d(TAG, "Message sent via bridge");
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "Error sending message via bridge", e);
+                }
             }
 }

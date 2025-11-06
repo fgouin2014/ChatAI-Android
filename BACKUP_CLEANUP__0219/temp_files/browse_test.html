@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Directory Listing</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #ff3333;
+            margin: 0;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, rgba(255, 51, 51, 0.1), rgba(255, 51, 51, 0.05));
+            border: 2px solid #ff3333;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            text-shadow: 0 0 10px #ff3333;
+        }
+        .file-list {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #ff3333;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            margin: 2px 0;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .file-item:hover {
+            background: rgba(255, 51, 51, 0.1);
+            transform: translateX(5px);
+        }
+        .file-icon {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+        .file-name {
+            flex: 1;
+            font-weight: bold;
+        }
+        .file-size {
+            margin-right: 10px;
+            color: #ff6666;
+            font-size: 12px;
+        }
+        .file-date {
+            color: #ff6666;
+            font-size: 12px;
+        }
+        a {
+            color: #ff3333;
+            text-decoration: none;
+        }
+        a:hover {
+            color: #ff6666;
+            text-shadow: 0 0 5px #ff3333;
+        }
+        .breadcrumb {
+            margin-bottom: 15px;
+            padding: 5px;
+            background: rgba(255, 51, 51, 0.05);
+            border-radius: 4px;
+        }
+        .stats {
+            background: rgba(255, 51, 51, 0.05);
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            color: #ff6666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚗 KITT File Explorer</h1>
+        <p>Directory: /</p>
+    </div>
+    <div id="fileList">
+        <div class="file-item">
+            <span class="file-icon">⏳</span>
+            <span class="file-name">Chargement des fichiers...</span>
+        </div>
+    </div>
+    <script>
+        const filesData = {"files":[{"name":"test.txt","size":16,"isDirectory":false,"lastModified":1759114882495,"path":"/storage/emulated/0/ChatAI-Files/test.txt"},{"name":"sites","size":3452,"isDirectory":true,"lastModified":1759121687863,"path":"/storage/emulated/0/ChatAI-Files/sites"},{"name":"test.html","size":38,"isDirectory":false,"lastModified":1759117074395,"path":"/storage/emulated/0/ChatAI-Files/test.html"}],"storagePath":"/storage/emulated/0/ChatAI-Files"};
+        const subPath = '';
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+        
+        function formatDate(timestamp) {
+            return new Date(timestamp).toLocaleDateString('fr-FR');
+        }
+        
+        function getFileIcon(fileName, isDirectory) {
+            if (isDirectory) return '📁';
+            const ext = fileName.split('.').pop().toLowerCase();
+            const icons = {
+                'html': '🌐', 'htm': '🌐', 'css': '🎨', 'js': '⚡', 'json': '📋',
+                'xml': '📄', 'txt': '📝', 'md': '📝', 'jpg': '🖼️', 'jpeg': '🖼️',
+                'png': '🖼️', 'gif': '🖼️', 'svg': '🖼️', 'mp4': '🎬', 'avi': '🎬',
+                'mkv': '🎬', 'mp3': '🎵', 'wav': '🎵', 'ogg': '🎵', 'zip': '📦',
+                'rar': '📦', '7z': '📦', 'pdf': '📕', 'doc': '📄', 'docx': '📄'
+            };
+            return icons[ext] || '📄';
+        }
+        
+        function displayFiles() {
+            const fileList = document.getElementById('fileList');
+            
+            if (!filesData.files || filesData.files.length === 0) {
+                fileList.innerHTML = '<div class="file-item"><span class="file-icon">📂</span><span class="file-name">Directory is empty</span></div>';
+                return;
+            }
+            
+            let html = '<div class="stats">📊 ' + filesData.files.length + ' éléments dans ' + filesData.storagePath + '</div>';
+            
+            filesData.files.forEach(file => {
+                const icon = getFileIcon(file.name, file.isDirectory);
+                const size = file.isDirectory ? '' : formatFileSize(file.size);
+                const date = formatDate(file.lastModified);
+                const relativePath = subPath.endsWith('/') ? subPath + file.name : subPath + '/' + file.name;
+                
+                html += '<div class="file-item" onclick="handleFileClick(\'' + file.name + '\', ' + file.isDirectory + ')">';
+                html += '<span class="file-icon">' + icon + '</span>';
+                html += '<a href="' + (file.isDirectory ? '/files/' + file.name : '/api/files/download/' + file.name) + '" class="file-name">' + file.name + '</a>';
+                if (size) html += '<span class="file-size">' + size + '</span>';
+                html += '<span class="file-date">' + date + '</span>';
+                html += '</div>';
+            });
+            
+            fileList.innerHTML = html;
+        }
+        
+        function handleFileClick(fileName, isDirectory) {
+            if (isDirectory) {
+                window.location.href = '/files/' + fileName;
+            } else {
+                window.open('/api/files/download/' + fileName, '_blank');
+            }
+        }
+        
+        // Afficher les fic

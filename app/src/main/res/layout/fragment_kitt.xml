@@ -106,7 +106,9 @@
                     android:textColor="@color/kitt_red_dark"
                     android:textSize="12sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="6dp" />
+                    android:layout_marginBottom="6dp"
+                    android:clickable="true"
+                    android:focusable="true" />
 
 
                 <com.google.android.material.textview.MaterialTextView
@@ -120,7 +122,9 @@
                     android:textColor="@color/kitt_red_dark"
                     android:textSize="12sp"
                     android:textStyle="bold" 
-                    android:layout_marginBottom="6dp" />
+                    android:layout_marginBottom="6dp"
+                    android:clickable="true"
+                    android:focusable="true" />
                 
 
             </LinearLayout>
@@ -176,7 +180,9 @@
                 android:textColor="@color/kitt_red_dark"
                 android:textSize="12sp"
                 android:textStyle="bold"
-                android:layout_marginBottom="6dp" />
+                android:layout_marginBottom="6dp"
+                android:clickable="true"
+                android:focusable="true" />
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/statusBarIndicatorMSQ"
@@ -189,7 +195,9 @@
                 android:textColor="@color/kitt_red_dark"
                 android:textSize="12sp"
                 android:textStyle="bold"
-                android:layout_marginBottom="6dp" />
+                android:layout_marginBottom="6dp"
+                android:clickable="true"
+                android:focusable="true" />
 
             </LinearLayout>
 
@@ -288,7 +296,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="match_parent"
                         android:layout_marginVertical="8dp"
-                        android:checked="false"
+                        android:checked="true"
                       />
 
                     <com.google.android.material.textview.MaterialTextView

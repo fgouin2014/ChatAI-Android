@@ -5,6 +5,7 @@ import androidx.room.PrimaryKey
 import androidx.room.TypeConverter
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import java.util.UUID
 
 /**
  * Entité de conversation pour la base de données
@@ -15,12 +16,18 @@ data class ConversationEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     
+    // 🆔 ID unique pour debugging et traçabilité
+    val conversationId: String = UUID.randomUUID().toString(),
+    
     // Timing
     val timestamp: Long = System.currentTimeMillis(),
     
     // Contenu
     val userMessage: String,
     val aiResponse: String,
+    
+    // ⭐ THINKING TRACE pour apprentissage (Phase 2)
+    val thinkingTrace: String? = null, // Processus de raisonnement de l'IA
     
     // Contexte
     val personality: String = "KITT", // "KITT" ou "GLaDOS"

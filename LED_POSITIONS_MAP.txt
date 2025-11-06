@@ -1,0 +1,97 @@
+🎯 CARTE DES POSITIONS DES LEDs - VU-METER
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📊 STRUCTURE : 3 COLONNES VERTICALES × 20 LEDs = 60 LEDs TOTAL
+
+Colonne 0 (Gauche)    Colonne 1 (Centre)    Colonne 2 (Droite)
+═══════════════════    ═══════════════════    ════════════════════
+LED 0  ← Position 0    LED 20 ← Position 0    LED 40 ← Position 0
+LED 1  ← Position 1    LED 21 ← Position 1    LED 41 ← Position 1
+LED 2  ← Position 2    LED 22 ← Position 2    LED 42 ← Position 2
+LED 3  ← Position 3    LED 23 ← Position 3    LED 43 ← Position 3
+LED 4  ← Position 4    LED 24 ← Position 4    LED 44 ← Position 4
+LED 5  ← Position 5    LED 25 ← Position 5    LED 45 ← Position 5
+LED 6  ← Position 6    LED 26 ← Position 6    LED 46 ← Position 6
+LED 7  ← Position 7    LED 27 ← Position 7    LED 47 ← Position 7
+LED 8  ← Position 8    LED 28 ← Position 8    LED 48 ← Position 8
+LED 9  ← Position 9    LED 29 ← Position 9    LED 49 ← Position 9
+LED 10 ← Position 10   LED 30 ← Position 10   LED 50 ← Position 10
+LED 11 ← Position 11   LED 31 ← Position 11   LED 51 ← Position 11
+LED 12 ← Position 12   LED 32 ← Position 12   LED 52 ← Position 12
+LED 13 ← Position 13   LED 33 ← Position 13   LED 53 ← Position 13
+LED 14 ← Position 14   LED 34 ← Position 14   LED 54 ← Position 14
+LED 15 ← Position 15   LED 35 ← Position 15   LED 55 ← Position 15
+LED 16 ← Position 16   LED 36 ← Position 16   LED 56 ← Position 16
+LED 17 ← Position 17   LED 37 ← Position 17   LED 57 ← Position 17
+LED 18 ← Position 18   LED 38 ← Position 18   LED 58 ← Position 18
+LED 19 ← Position 19   LED 39 ← Position 19   LED 59 ← Position 19
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🎨 COULEURS ACTUELLES :
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 ANIMATION ORIGINAL (Du milieu vers le bas ET vers le haut) :
+
+🔴 ROUGE (kitt_vu_led_active) :
+   - Colonne centrale (1) : TOUTES les positions
+   - Colonnes latérales (0,2) : Positions 6, 7, 8, 9, 10, 11, 12, 13
+
+🟡 AMBRE (kitt_vu_led_warning) :
+   - Colonnes latérales (0,2) : Positions 0, 1, 2, 3, 4, 5, 14, 15, 16, 17, 18, 19
+
+🟢 VERT (kitt_vu_led_green) :
+   - Colonnes latérales (0,2) : Position 3 SEULEMENT (test)
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 ANIMATION DUAL (De bas en haut ET de haut en bas vers le centre) :
+
+🔴 ROUGE (kitt_vu_led_active) :
+   - Colonne centrale (1) : TOUTES les positions
+   - Colonnes latérales (0,2) : Positions 0, 1, 2, 3, 4, 5, 14, 15, 16, 17, 18, 19 (extrémités)
+
+🟡 AMBRE (kitt_vu_led_warning) :
+   - Colonnes latérales (0,2) : Positions 6, 7, 8, 9, 10, 11, 12, 13 (centre)
+
+🟢 VERT (kitt_vu_led_green) :
+   - Colonnes latérales (0,2) : Position 3 SEULEMENT (test)
+
+═══════════════════════════════════════════════════════════════════════════════
+⚫ NOIR (kitt_vu_led_off) :
+   - Toutes les positions : Éteintes quand niveau audio bas
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📍 RÉFÉRENCES POUR LES DEMANDES :
+
+🔽 "BAS" = Positions 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+🔼 "HAUT" = Positions 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+🎯 "CENTRE" = Positions 9, 10 (milieu de la colonne)
+🔸 "EXTREMITES" = Positions 0, 1, 2, 3, 4, 5, 14, 15, 16, 17, 18, 19
+
+═══════════════════════════════════════════════════════════════════════════════
+
+💡 EXEMPLES DE DEMANDES :
+
+✅ "Changer les couleurs du bas" → Positions 0-9
+✅ "Changer les couleurs du haut" → Positions 10-19
+✅ "Changer la position 3" → LED 3, 23, 43
+✅ "Changer les extrémités" → Positions 0,1,2,3,4,5,14,15,16,17,18,19
+✅ "Changer le centre" → Positions 6,7,8,9,10,11,12,13
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 ANIMATIONS DISPONIBLES :
+
+📊 ORIGINAL : Du milieu vers le bas ET vers le haut
+   - Extrémités AMBRE, centre ROUGE
+   - Commandes vocales : "animation originale", "mode original"
+
+📊 DUAL : De bas en haut ET de haut en bas vers le centre  
+   - Extrémités ROUGE, centre AMBRE
+   - Commandes vocales : "animation dual", "mode dual"
+
+🔄 BASCULER : "basculer animation", "changer animation", "toggle animation"
+
+═══════════════════════════════════════════════════════════════════════════════

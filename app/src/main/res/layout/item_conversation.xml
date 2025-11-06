@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/conversationCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="4dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
     app:cardBackgroundColor="@color/kitt_black"
     app:cardCornerRadius="8dp"
     app:strokeColor="@color/kitt_red"
@@ -77,6 +81,71 @@
             android:textSize="9sp"
             android:fontFamily="monospace"
             android:alpha="0.7" />
+        
+        <!-- ID de conversation (cliquable pour copier) -->
+        <TextView
+            android:id="@+id/conversationIdText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ID: 123e4567-e89b-12d3-a456-426614174000"
+            android:textColor="@color/kitt_red_light"
+            android:textSize="8sp"
+            android:fontFamily="monospace"
+            android:alpha="0.5"
+            android:layout_marginTop="4dp"
+            android:padding="4dp"
+            android:background="?attr/selectableItemBackground" />
+        
+        <!-- Boutons actions -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+            
+            <!-- ⭐ Bouton pour voir le raisonnement -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/viewThinkingButton"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="32dp"
+                android:text="Voir raisonnement"
+                android:textSize="9sp"
+                android:fontFamily="monospace"
+                android:textColor="@color/kitt_red"
+                android:backgroundTint="@android:color/transparent"
+                app:strokeColor="@color/kitt_red"
+                app:strokeWidth="1dp"
+                app:cornerRadius="4dp"
+                android:visibility="gone"
+                android:layout_marginEnd="4dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:minHeight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
+            
+            <!-- Bouton pour exporter cette conversation -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/exportThisButton"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="32dp"
+                android:text="Exporter"
+                android:textSize="9sp"
+                android:fontFamily="monospace"
+                android:textColor="@color/kitt_red"
+                android:backgroundTint="@android:color/transparent"
+                app:strokeColor="@color/kitt_red"
+                app:strokeWidth="1dp"
+                app:cornerRadius="4dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:minHeight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
+                
+        </LinearLayout>
 
     </LinearLayout>
 
