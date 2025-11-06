@@ -99,7 +99,7 @@
                     android:layout_height="60dp"
                     android:layout_weight="1"
                     android:layout_marginHorizontal="4dp"
-                    android:text="STATUT\nSYSTÈME"
+                    android:text="INFOS\nSYSTÈME"
                     android:textSize="9sp"
                     app:backgroundTint="@color/kitt_red_alpha"
                     app:cornerRadius="8dp"

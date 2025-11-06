@@ -1,17 +1,25 @@
 package com.chatai.fragments
 
+import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.os.BatteryManager
 import android.os.Bundle
+import android.os.Environment
+import android.os.StatFs
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.button.MaterialButton
 import com.chatai.R
+import java.text.DecimalFormat
 
 /**
  * Fragment drawer pour le menu des commandes KITT
@@ -127,8 +135,8 @@ class KittDrawerFragment : Fragment() {
         }
         
         view.findViewById<MaterialButton>(R.id.systemStatusButton).setOnClickListener {
-            commandListener?.onButtonPressed("Statut du système")
-            commandListener?.onCommandSelected("SYSTEM_STATUS")
+            commandListener?.onButtonPressed("Informations système")
+            showSystemInfoDialog()
         }
         
         view.findViewById<MaterialButton>(R.id.activateScannerButton).setOnClickListener {
@@ -501,5 +509,61 @@ class KittDrawerFragment : Fragment() {
         updateThemeButtons(view)
         // Mettre à jour les boutons de mode d'affichage avec le nouveau thème
         updateAnimationModeButtons(true) // ORIGINAL par défaut
+    }
+    
+    /**
+     * Affiche un dialog avec les vraies informations système du device
+     */
+    private fun showSystemInfoDialog() {
+        val context = requireContext()
+        
+        // Batterie
+        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val batteryLevel = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
+            context.registerReceiver(null, ifilter)
+        }
+        val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || 
+                        status == BatteryManager.BATTERY_STATUS_FULL
+        val chargingText = if (isCharging) "EN CHARGE" else "SUR BATTERIE"
+        
+        // RAM
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memInfo = ActivityManager.MemoryInfo()
+        activityManager.getMemoryInfo(memInfo)
+        val totalRam = memInfo.totalMem / (1024 * 1024) // MB
+        val availRam = memInfo.availMem / (1024 * 1024) // MB
+        val usedRam = totalRam - availRam
+        
+        // Stockage
+        val statFs = StatFs(Environment.getDataDirectory().path)
+        val totalStorage = statFs.blockCountLong * statFs.blockSizeLong / (1024 * 1024 * 1024) // GB
+        val availStorage = statFs.availableBlocksLong * statFs.blockSizeLong / (1024 * 1024 * 1024) // GB
+        val usedStorage = totalStorage - availStorage
+        
+        // Format
+        val df = DecimalFormat("#.##")
+        
+        // Build message
+        val message = """
+            BATTERIE:
+            Niveau: $batteryLevel%
+            État: $chargingText
+            
+            MÉMOIRE RAM:
+            Utilisée: ${usedRam}MB / ${totalRam}MB
+            Disponible: ${availRam}MB
+            
+            STOCKAGE:
+            Utilisé: ${df.format(usedStorage)}GB / ${df.format(totalStorage)}GB
+            Disponible: ${df.format(availStorage)}GB
+        """.trimIndent()
+        
+        AlertDialog.Builder(context)
+            .setTitle("INFORMATIONS SYSTÈME")
+            .setMessage(message)
+            .setPositiveButton("FERMER") { dialog, _ -> dialog.dismiss() }
+            .show()
     }
 }
