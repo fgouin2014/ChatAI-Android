@@ -363,19 +363,154 @@ public class HttpServer {
     private String handleWeatherRequest(String city) {
         try {
             String safeCity = SecurityUtils.sanitizeInput(city);
-            int temp = (int)(Math.random() * 25) + 5;
-            String[] conditions = {"Ensoleillé ☀️", "Nuageux ☁️", "Pluvieux 🌧️", "Partiellement nuageux ⛅"};
-            String condition = conditions[(int)(Math.random() * conditions.length)];
             
-            String response = String.format(
-                "{\"city\":\"%s\",\"temperature\":%d,\"condition\":\"%s\",\"humidity\":%d,\"wind\":\"%d km/h\"}",
-                safeCity, temp, condition, (int)(Math.random() * 40) + 40, (int)(Math.random() * 20) + 5
-            );
+            // Récupérer clé API Ollama depuis SharedPreferences
+            android.content.SharedPreferences prefs = context.getSharedPreferences("ChatAI_Prefs", android.content.Context.MODE_PRIVATE);
+            String ollamaApiKey = prefs.getString("ollama_cloud_api_key", "");
+            
+            if (ollamaApiKey == null || ollamaApiKey.trim().isEmpty()) {
+                Log.w(TAG, "Ollama API key not configured - Using fallback data");
+                return handleWeatherFallback(safeCity);
+            }
+            
+            // Appeler Ollama web_search pour météo réelle
+            String query = "météo " + safeCity + " température actuelle conditions";
+            String searchResults = callOllamaWebSearch(query, ollamaApiKey);
+            
+            if (searchResults == null || searchResults.isEmpty()) {
+                Log.w(TAG, "Web search returned no results - Using fallback");
+                return handleWeatherFallback(safeCity);
+            }
+            
+            // Parser résultats pour extraire météo (simple extraction pour l'instant)
+            // Format: température, condition, humidité, vent
+            String response = parseWeatherFromSearch(safeCity, searchResults);
             
             return createApiResponse(response);
         } catch (Exception e) {
             Log.e(TAG, "Erreur météo", e);
             return createHttpErrorResponse(500, "Weather service error");
+        }
+    }
+    
+    /**
+     * Fallback si web_search échoue - données simulées
+     */
+    private String handleWeatherFallback(String city) {
+        int temp = (int)(Math.random() * 25) + 5;
+        String[] conditions = {"Ensoleillé ☀️", "Nuageux ☁️", "Pluvieux 🌧️", "Partiellement nuageux ⛅"};
+        String condition = conditions[(int)(Math.random() * conditions.length)];
+        
+        String response = String.format(
+            "{\"city\":\"%s\",\"temperature\":%d,\"condition\":\"%s\",\"humidity\":%d,\"wind\":\"%d km/h\",\"source\":\"simulated\"}",
+            city, temp, condition, (int)(Math.random() * 40) + 40, (int)(Math.random() * 20) + 5
+        );
+        
+        return createApiResponse(response);
+    }
+    
+    /**
+     * Appelle Ollama web_search API
+     * Référence: https://docs.ollama.com/capabilities/web-search
+     */
+    private String callOllamaWebSearch(String query, String apiKey) {
+        try {
+            okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .build();
+            
+            // Construire request JSON
+            org.json.JSONObject requestBody = new org.json.JSONObject();
+            requestBody.put("query", query);
+            requestBody.put("max_results", 3); // Juste 3 résultats pour météo
+            
+            okhttp3.RequestBody body = okhttp3.RequestBody.create(
+                requestBody.toString(),
+                okhttp3.MediaType.parse("application/json")
+            );
+            
+            okhttp3.Request request = new okhttp3.Request.Builder()
+                .url("https://ollama.com/api/web_search")
+                .addHeader("Authorization", "Bearer " + apiKey)
+                .addHeader("Content-Type", "application/json")
+                .post(body)
+                .build();
+            
+            Log.d(TAG, "Calling Ollama web_search: query=" + query);
+            
+            okhttp3.Response response = client.newCall(request).execute();
+            
+            if (!response.isSuccessful()) {
+                Log.e(TAG, "Web search API error: HTTP " + response.code());
+                return null;
+            }
+            
+            String responseBody = response.body().string();
+            
+            // Parser résultats
+            org.json.JSONObject jsonResponse = new org.json.JSONObject(responseBody);
+            org.json.JSONArray results = jsonResponse.getJSONArray("results");
+            
+            // Formater résultats
+            StringBuilder formatted = new StringBuilder();
+            for (int i = 0; i < results.length(); i++) {
+                org.json.JSONObject result = results.getJSONObject(i);
+                String content = result.getString("content");
+                formatted.append(content).append(" ");
+            }
+            
+            Log.d(TAG, "Web search results: " + formatted.length() + " chars");
+            return formatted.toString();
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Web search exception: " + e.getMessage(), e);
+            return null;
+        }
+    }
+    
+    /**
+     * Parse résultats web_search pour extraire infos météo
+     */
+    private String parseWeatherFromSearch(String city, String searchResults) {
+        try {
+            String lowerResults = searchResults.toLowerCase();
+            
+            // Extraire température (chercher patterns: "15°C", "15 degrés", etc.)
+            int temperature = 15; // Défaut
+            java.util.regex.Pattern tempPattern = java.util.regex.Pattern.compile("(\\d+)\\s*°?\\s*c");
+            java.util.regex.Matcher tempMatcher = tempPattern.matcher(lowerResults);
+            if (tempMatcher.find()) {
+                temperature = Integer.parseInt(tempMatcher.group(1));
+            }
+            
+            // Extraire condition (chercher mots-clés)
+            String condition = "Partiellement nuageux";
+            if (lowerResults.contains("ensoleillé") || lowerResults.contains("sunny")) {
+                condition = "Ensoleillé ☀️";
+            } else if (lowerResults.contains("nuageux") || lowerResults.contains("cloudy")) {
+                condition = "Nuageux ☁️";
+            } else if (lowerResults.contains("pluie") || lowerResults.contains("rain")) {
+                condition = "Pluvieux 🌧️";
+            } else if (lowerResults.contains("neige") || lowerResults.contains("snow")) {
+                condition = "Neige ❄️";
+            }
+            
+            // JSON response
+            String response = String.format(
+                "{\"city\":\"%s\",\"temperature\":%d,\"condition\":\"%s\",\"humidity\":65,\"wind\":\"15 km/h\",\"source\":\"web_search\"}",
+                city, temperature, condition
+            );
+            
+            return response;
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Parse weather error: " + e.getMessage());
+            // Fallback: retourner données basiques
+            return String.format(
+                "{\"city\":\"%s\",\"temperature\":15,\"condition\":\"Conditions inconnues\",\"source\":\"web_search_fallback\"}",
+                city
+            );
         }
     }
     
