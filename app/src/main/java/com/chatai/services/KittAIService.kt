@@ -409,6 +409,60 @@ class KittAIService(
     }
     
     /**
+     * ⭐ WEB SEARCH API - Appelle l'API web_search d'Ollama Cloud
+     * Référence: https://docs.ollama.com/capabilities/web-search
+     */
+    private fun callWebSearchAPI(query: String, apiKey: String): String {
+        try {
+            // Construire request
+            val requestBody = JSONObject().apply {
+                put("query", query)
+                put("max_results", 5) // Max 10, on prend 5 pour rester compact
+            }
+            
+            val request = Request.Builder()
+                .url("https://ollama.com/api/web_search")
+                .addHeader("Authorization", "Bearer $apiKey")
+                .addHeader("Content-Type", "application/json")
+                .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            
+            Log.d(TAG, "🌐 Calling web_search API: query='$query'")
+            
+            val response = httpClient.newCall(request).execute()
+            
+            if (!response.isSuccessful) {
+                Log.e(TAG, "❌ Web Search API error: HTTP ${response.code}")
+                return ""
+            }
+            
+            val responseBody = response.body?.string() ?: return ""
+            val jsonResponse = JSONObject(responseBody)
+            val resultsArray = jsonResponse.getJSONArray("results")
+            
+            // Formater résultats pour le contexte
+            val formattedResults = StringBuilder()
+            for (i in 0 until resultsArray.length()) {
+                val result = resultsArray.getJSONObject(i)
+                val title = result.getString("title")
+                val url = result.getString("url")
+                val content = result.getString("content")
+                
+                formattedResults.append("Source ${i + 1}: $title\n")
+                formattedResults.append("URL: $url\n")
+                formattedResults.append("Contenu: ${content.take(200)}...\n\n")
+            }
+            
+            Log.i(TAG, "✅ Web Search: ${resultsArray.length()} results formatted")
+            return formattedResults.toString()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Web Search API exception: ${e.message}", e)
+            return ""
+        }
+    }
+    
+    /**
      * ⭐ WEB SEARCH - Détecte si la question nécessite une recherche web
      * Utilise Ollama Web Search pour des informations en temps réel
      */
@@ -1193,6 +1247,28 @@ class KittAIService(
             
             Log.d(TAG, "Trying Ollama Cloud API...")
             
+            // ⭐ WEB SEARCH - Appeler API séparée si nécessaire
+            var searchContext = ""
+            if (needsWebSearch(userInput)) {
+                Log.i(TAG, "🌐 Calling Web Search API before chat...")
+                addDiagnosticLog("    - 🌐 Web Search: Calling API...")
+                
+                try {
+                    val searchResults = callWebSearchAPI(userInput, ollamaCloudApiKey)
+                    if (searchResults.isNotEmpty()) {
+                        searchContext = "\n\n[CONTEXTE WEB SEARCH]\n$searchResults\n[FIN CONTEXTE]"
+                        Log.i(TAG, "✅ Web Search results added to context (${searchResults.length} chars)")
+                        addDiagnosticLog("    - ✅ Web Search: ${searchResults.length} chars added to context")
+                    } else {
+                        Log.w(TAG, "⚠️ Web Search returned no results")
+                        addDiagnosticLog("    - ⚠️ Web Search: No results")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Web Search failed: ${e.message}")
+                    addDiagnosticLog("    - ❌ Web Search error: ${e.message}")
+                }
+            }
+            
             // Construire les messages (format OpenAI-compatible)
             val messages = JSONArray()
             
@@ -1218,10 +1294,10 @@ class KittAIService(
                 }
             }
             
-            // Message actuel
+            // Message actuel (avec contexte web search si disponible)
             messages.put(JSONObject().apply {
                 put("role", "user")
-                put("content", userInput)
+                put("content", userInput + searchContext)
             })
             
             // Format natif Ollama (pas OpenAI)
@@ -1231,17 +1307,6 @@ class KittAIService(
                 put("messages", messages)
                 put("stream", false) // Pas de streaming pour l'instant
                 put("think", true) // ⭐ ACTIVER THINKING pour apprentissage
-                
-                // ⭐ ACTIVER WEB SEARCH si nécessaire
-                if (needsWebSearch(userInput)) {
-                    val tools = JSONArray()
-                    tools.put(JSONObject().apply {
-                        put("type", "web_search")
-                    })
-                    put("tools", tools)
-                    Log.i(TAG, "🌐 Web Search ENABLED for this query")
-                    addDiagnosticLog("    - 🌐 Web Search: ENABLED")
-                }
             }
             
             Log.i(TAG, "Request to Ollama Cloud: model=$ollamaCloudModel")
