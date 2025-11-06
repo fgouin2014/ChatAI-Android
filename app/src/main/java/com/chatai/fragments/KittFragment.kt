@@ -1438,8 +1438,9 @@ class KittFragment : Fragment(),
      * Setup click listener pour toggle thinking trace
      */
     private fun setupThinkingTraceToggle() {
-        // Long click sur thinking card pour toggle mode debug
-        thinkingCard.setOnLongClickListener {
+        // Long click sur STATUS card pour toggle mode debug (thinking card est cachée par défaut)
+        val statusCard = view?.findViewById<com.google.android.material.card.MaterialCardView>(R.id.statusCard)
+        statusCard?.setOnLongClickListener {
             val currentMode = sharedPrefs.getBoolean("show_thinking_trace", false)
             val newMode = !currentMode
             
