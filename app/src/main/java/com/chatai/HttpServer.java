@@ -426,12 +426,12 @@ public class HttpServer {
             String searchResults = callOllamaWebSearch(safeQuery, ollamaApiKey);
             
             if (searchResults == null || searchResults.isEmpty()) {
-                return createApiResponse("{\"query\":\"" + safeQuery + "\",\"results\":[],\"status\":\"no_results\"}");
+                return createApiResponse("{\"query\":\"" + escapeJson(safeQuery) + "\",\"results\":\"\",\"status\":\"no_results\"}");
             }
             
-            // Retourner résultats bruts (pour réutilisation générique)
-            String response = "{\"query\":\"" + safeQuery + "\",\"results\":\"" + 
-                SecurityUtils.sanitizeInput(searchResults.replace("\"", "\\\"")) + 
+            // Retourner résultats bruts avec ÉCHAPPEMENT JSON COMPLET
+            String response = "{\"query\":\"" + escapeJson(safeQuery) + "\",\"results\":\"" + 
+                escapeJson(searchResults) + 
                 "\",\"status\":\"success\"}";
             
             return createApiResponse(response);
@@ -440,6 +440,38 @@ public class HttpServer {
             Log.e(TAG, "Generic search error", e);
             return createHttpErrorResponse(500, "Search service error: " + e.getMessage());
         }
+    }
+    
+    /**
+     * Échappe correctement TOUS les caractères spéciaux JSON
+     * (guillemets, newlines, tabs, backslashes, etc.)
+     */
+    private String escapeJson(String text) {
+        if (text == null) {
+            return "";
+        }
+        
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            switch (c) {
+                case '"':  sb.append("\\\""); break;
+                case '\\': sb.append("\\\\"); break;
+                case '\b': sb.append("\\b");  break;
+                case '\f': sb.append("\\f");  break;
+                case '\n': sb.append("\\n");  break;
+                case '\r': sb.append("\\r");  break;
+                case '\t': sb.append("\\t");  break;
+                default:
+                    // Échapper les caractères de contrôle (< 0x20)
+                    if (c < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+            }
+        }
+        return sb.toString();
     }
     
     /**

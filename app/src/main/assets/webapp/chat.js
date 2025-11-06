@@ -909,9 +909,21 @@ function performWebSearch() {
     searchResults.innerHTML = '<div style="text-align: center; padding: 20px;">🔄 Recherche en cours...</div>';
     searchResults.style.display = 'block';
     
-    // Appeler nouvelle API web_search
-    fetch(`/api/search?q=${encodeURIComponent(safeQuery)}`)
-        .then(response => response.json())
+    // Déterminer l'URL de base (Android WebView ou navigateur externe)
+    let baseUrl = '';
+    if (window.secureChatApp && window.secureChatApp.androidInterface && 
+        typeof window.secureChatApp.androidInterface.getHttpServerUrl === 'function') {
+        baseUrl = window.secureChatApp.androidInterface.getHttpServerUrl();
+    }
+    // Sinon utiliser chemin relatif (fonctionne depuis Chrome externe)
+    
+    fetch(`${baseUrl}/api/search?q=${encodeURIComponent(safeQuery)}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.status === 'success') {
                 searchResults.innerHTML = `
@@ -924,7 +936,7 @@ function performWebSearch() {
         })
         .catch(error => {
             console.error('Erreur recherche web:', error);
-            searchResults.innerHTML = `<p style="color: #ff4757;">❌ Erreur: ${error.message}</p>`;
+            searchResults.innerHTML = `<p style="color: #ff4757;">❌ Erreur: ${error.message}<br><small>Vérifiez que l'API Ollama est configurée dans l'app</small></p>`;
         });
 }
 
