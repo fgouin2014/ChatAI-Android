@@ -1,11 +1,13 @@
 package com.chatai.fragments
 
 import android.Manifest
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.media.AudioManager
+import androidx.appcompat.app.AlertDialog
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -90,6 +92,8 @@ class KittFragment : Fragment(),
     
     // Views principales
     private lateinit var statusText: TextView
+    private lateinit var thinkingCard: com.google.android.material.card.MaterialCardView
+    private lateinit var thinkingText: TextView
     private lateinit var powerSwitch: MaterialSwitch
     private lateinit var switchStatus: TextView
     private lateinit var statusBarIndicatorBSY: MaterialTextView
@@ -232,6 +236,8 @@ class KittFragment : Fragment(),
     
     private fun initializeViews(view: View) {
         statusText = view.findViewById(R.id.statusText)
+        thinkingCard = view.findViewById(R.id.thinkingCard)
+        thinkingText = view.findViewById(R.id.thinkingText)
         powerSwitch = view.findViewById(R.id.powerSwitch)
         switchStatus = view.findViewById(R.id.switchStatus)
         
@@ -332,6 +338,9 @@ class KittFragment : Fragment(),
             processText()
             true
         }
+        
+        // Thinking Trace Toggle (Debug Mode)
+        setupThinkingTraceToggle()
         
         // Status Indicators cliquables
         statusBarIndicatorRDY.setOnClickListener {
@@ -599,6 +608,9 @@ class KittFragment : Fragment(),
                 // Arrêter thinking animation
                 animationManager.stopThinkingAnimation { updateStatusIndicators() }
                 stateManager.isThinking = false
+                
+                // Afficher thinking trace si debug mode activé
+                displayThinkingTraceIfEnabled()
                 
                 // Parler réponse
                 ttsManager.speakAIResponse(response)
@@ -869,6 +881,9 @@ class KittFragment : Fragment(),
                 
                 animationManager.stopThinkingAnimation { updateStatusIndicators() }
                 stateManager.isThinking = false
+                
+                // Afficher thinking trace si debug mode activé
+                displayThinkingTraceIfEnabled()
                 
                 showStatusMessageInternal("KITT: '$response'", 4000, MessageType.AI)
                 ttsManager.speakAIResponse(response)
@@ -1391,6 +1406,85 @@ class KittFragment : Fragment(),
     
     override fun speakAIResponse(response: String) {
         ttsManager.speakAIResponse(response)
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // THINKING TRACE UI (Debug Mode)
+    // ═══════════════════════════════════════════════════════════════════════════════
+    
+    /**
+     * Affiche le thinking trace si debug mode activé
+     */
+    private fun displayThinkingTraceIfEnabled() {
+        val debugModeEnabled = sharedPrefs.getBoolean("show_thinking_trace", false)
+        
+        if (!debugModeEnabled) {
+            thinkingCard.visibility = View.GONE
+            return
+        }
+        
+        val thinking = kittAIService.getLastThinkingTrace()
+        
+        if (thinking.isNotEmpty()) {
+            thinkingText.text = thinking
+            thinkingCard.visibility = View.VISIBLE
+            android.util.Log.d(TAG, "🧠 Thinking trace displayed (${thinking.length} chars)")
+        } else {
+            thinkingCard.visibility = View.GONE
+        }
+    }
+    
+    /**
+     * Setup click listener pour toggle thinking trace
+     */
+    private fun setupThinkingTraceToggle() {
+        // Long click sur thinking card pour toggle mode debug
+        thinkingCard.setOnLongClickListener {
+            val currentMode = sharedPrefs.getBoolean("show_thinking_trace", false)
+            val newMode = !currentMode
+            
+            sharedPrefs.edit()
+                .putBoolean("show_thinking_trace", newMode)
+                .apply()
+            
+            if (newMode) {
+                showStatusMessageInternal("Debug Mode: Thinking Trace ACTIVÉ", 2000, MessageType.STATUS)
+                displayThinkingTraceIfEnabled()
+            } else {
+                showStatusMessageInternal("Debug Mode: Thinking Trace DÉSACTIVÉ", 2000, MessageType.STATUS)
+                thinkingCard.visibility = View.GONE
+            }
+            
+            android.util.Log.i(TAG, "🧠 Thinking trace mode: ${if (newMode) "ENABLED" else "DISABLED"}")
+            true
+        }
+        
+        // Click normal pour ouvrir dialog avec thinking complet
+        thinkingCard.setOnClickListener {
+            val thinking = kittAIService.getLastThinkingTrace()
+            if (thinking.isNotEmpty()) {
+                showThinkingDialog(thinking)
+            }
+        }
+    }
+    
+    /**
+     * Affiche dialog avec thinking trace complet
+     */
+    private fun showThinkingDialog(thinking: String) {
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("🧠 THINKING TRACE")
+            .setMessage(thinking)
+            .setPositiveButton("OK", null)
+            .setNeutralButton("Copier") { _: android.content.DialogInterface, _: Int ->
+                val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = ClipData.newPlainText("Thinking Trace", thinking)
+                clipboard.setPrimaryClip(clip)
+                showStatusMessageInternal("Thinking copié", 1500, MessageType.STATUS)
+            }
+            .create()
+        
+        dialog.show()
     }
     
     override fun toggleMusic() {

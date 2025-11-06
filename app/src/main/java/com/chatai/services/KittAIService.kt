@@ -433,6 +433,14 @@ class KittAIService(
     }
     
     /**
+     * Récupérer le dernier thinking trace (pour UI debug)
+     * Note: Réinitialisé après chaque requête
+     */
+    fun getLastThinkingTrace(): String {
+        return lastThinkingTrace
+    }
+    
+    /**
      * ⭐ SYSTEM CONTEXT - Construit le contexte système temps réel
      * Donne à l'IA accès aux infos device Android
      */
@@ -447,19 +455,56 @@ class KittAIService(
             // Batterie
             val batteryManager = context.getSystemService(android.content.Context.BATTERY_SERVICE) as android.os.BatteryManager
             val batteryLevel = batteryManager.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            val isCharging = batteryManager.isCharging
             
-            // Réseau
-            val hasInternet = hasInternet()
+            // Réseau détaillé
+            val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            val network = connectivityManager.activeNetwork
+            val capabilities = connectivityManager.getNetworkCapabilities(network)
+            
+            val hasInternet = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+            val networkType = when {
+                capabilities == null -> "Aucun"
+                capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "WiFi"
+                capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "Cellulaire"
+                capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+                else -> "Autre"
+            }
+            
+            // Stockage
+            val statFs = android.os.StatFs(android.os.Environment.getDataDirectory().path)
+            val availableBytes = statFs.availableBytes
+            val availableGB = availableBytes / (1024 * 1024 * 1024)
+            val totalBytes = statFs.totalBytes
+            val totalGB = totalBytes / (1024 * 1024 * 1024)
+            
+            // Info device
+            val deviceModel = android.os.Build.MODEL
+            val androidVersion = android.os.Build.VERSION.RELEASE
+            val sdkInt = android.os.Build.VERSION.SDK_INT
             
             return """
 [CONTEXTE SYSTÈME DEVICE - Temps réel]
 Date et heure: $dateTimeString (EST/EDT - Montréal)
 Jour de la semaine: $dayOfWeek
-Batterie: $batteryLevel%
-Internet: ${if (hasInternet) "Disponible" else "Indisponible"}
+
+BATTERIE:
+- Niveau: $batteryLevel%
+- En charge: ${if (isCharging) "Oui" else "Non"}
+
+RÉSEAU:
+- Type: $networkType
+- Internet: ${if (hasInternet) "Disponible" else "Indisponible"}
+
+STOCKAGE:
+- Disponible: ${availableGB}GB / ${totalGB}GB
+
+DEVICE:
+- Modèle: $deviceModel
+- Android: $androidVersion (SDK $sdkInt)
 
 Note: Ces informations sont en TEMPS RÉEL depuis le device Android.
-Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état du système, etc.
+Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état du système, la batterie, le réseau, l'espace disque, etc.
 [FIN CONTEXTE SYSTÈME]
             """.trimIndent()
             
@@ -532,14 +577,50 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
         
         // Mots-clés déclencheurs de web search
         val webSearchKeywords = listOf(
-            "recherche", "search", "trouve", "cherche",
-            "actualité", "news", "dernière", "dernier",
-            "météo", "weather", "température",
-            "prix", "price", "coûte", "cost",
-            "où acheter", "where to buy",
-            "résultat", "score", "match",
-            "bourse", "stock", "action",
-            "bitcoin", "crypto"
+            // Recherche générale
+            "recherche", "search", "trouve", "cherche", "google",
+            
+            // Actualités
+            "actualité", "actualités", "news", "dernière", "dernier", "récent", "nouveau",
+            "aujourd'hui", "ce matin", "cette semaine",
+            
+            // Météo
+            "météo", "weather", "température", "climat", "prévision", "forecast",
+            "pluie", "neige", "soleil", "vent",
+            
+            // Prix et achats
+            "prix", "price", "coûte", "cost", "combien coûte", "how much",
+            "où acheter", "where to buy", "acheter", "buy", "vendre", "sell",
+            "pas cher", "cheap", "promo", "rabais", "discount",
+            
+            // Finance
+            "bourse", "stock", "action", "actions", "marché", "market",
+            "bitcoin", "crypto", "ethereum", "btc", "eth",
+            "dollar", "euro", "taux de change", "exchange rate",
+            
+            // Sports
+            "résultat", "score", "match", "game", "sport",
+            "hockey", "football", "soccer", "baseball", "basketball",
+            "canadiens", "nhl", "nba", "mlb",
+            
+            // Lieux et trajets
+            "restaurant", "hôtel", "hotel", "proche", "near", "à côté",
+            "itinéraire", "route", "chemin", "trajet", "directions",
+            "ouvert", "open", "fermé", "closed", "heures d'ouverture",
+            
+            // Événements
+            "événement", "event", "concert", "spectacle", "show",
+            "festival", "exposition", "conférence",
+            
+            // Santé et science
+            "symptôme", "maladie", "santé", "health", "covid",
+            "vaccin", "médicament", "traitement",
+            "étude", "recherche scientifique", "study",
+            
+            // Tech et produits
+            "review", "avis", "test", "comparaison", "versus", "vs",
+            "meilleur", "best", "top", "recommandation",
+            "spécification", "specs", "caractéristique"
         )
         
         // Si un mot-clé est détecté

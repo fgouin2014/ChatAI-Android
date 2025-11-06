@@ -45,6 +45,53 @@
 
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Thinking Trace (Debug Mode) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/thinkingCard"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="8dp"
+            android:visibility="gone"
+            app:cardBackgroundColor="#1A00FF00"
+            app:cardCornerRadius="6dp"
+            app:cardElevation="4dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/statusCard"
+            app:strokeColor="#00FF00"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🧠 THINKING TRACE"
+                    android:textColor="#00FF00"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:paddingBottom="4dp" />
+
+                <TextView
+                    android:id="@+id/thinkingText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#88FF88"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:maxLines="8"
+                    android:ellipsize="end"
+                    android:scrollbars="vertical" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Horizontal Scanner (KITT Eye) -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/scannerCard"
@@ -57,7 +104,7 @@
             app:cardElevation="12dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/statusCard"
+            app:layout_constraintTop_toBottomOf="@id/thinkingCard"
             app:strokeColor="@color/kitt_red"
             app:strokeWidth="3dp">
 

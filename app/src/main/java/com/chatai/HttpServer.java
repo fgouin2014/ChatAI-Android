@@ -259,6 +259,12 @@ public class HttpServer {
             String city = cleanPath.substring("/api/weather/".length());
             return handleWeatherRequest(city);
         }
+        else if (cleanPath.equals("/api/search")) {
+            // Generic web search endpoint: GET /api/search?q=bitcoin
+            String queryString = getQueryString(path);
+            String query = getQueryParameter(queryString, "q");
+            return handleGenericSearchRequest(query);
+        }
         else if (cleanPath.equals("/api/jokes/random")) {
             return handleRandomJokeRequest();
         }
@@ -391,6 +397,86 @@ public class HttpServer {
             Log.e(TAG, "Erreur météo", e);
             return createHttpErrorResponse(500, "Weather service error");
         }
+    }
+    
+    /**
+     * Generic web search endpoint - returns raw search results
+     * GET /api/search?q=bitcoin price
+     */
+    private String handleGenericSearchRequest(String query) {
+        try {
+            if (query == null || query.trim().isEmpty()) {
+                return createHttpErrorResponse(400, "Missing query parameter 'q'");
+            }
+            
+            String safeQuery = SecurityUtils.sanitizeInput(query);
+            
+            // Récupérer clé API Ollama
+            android.content.SharedPreferences prefs = context.getSharedPreferences("ChatAI_Prefs", android.content.Context.MODE_PRIVATE);
+            String ollamaApiKey = prefs.getString("ollama_cloud_api_key", "");
+            
+            if (ollamaApiKey == null || ollamaApiKey.trim().isEmpty()) {
+                Log.w(TAG, "Ollama API key not configured for generic search");
+                return createHttpErrorResponse(503, "Web search service not configured");
+            }
+            
+            // Appeler Ollama web_search
+            String searchResults = callOllamaWebSearch(safeQuery, ollamaApiKey);
+            
+            if (searchResults == null || searchResults.isEmpty()) {
+                return createApiResponse("{\"query\":\"" + safeQuery + "\",\"results\":[],\"status\":\"no_results\"}");
+            }
+            
+            // Retourner résultats bruts (pour réutilisation générique)
+            String response = "{\"query\":\"" + safeQuery + "\",\"results\":\"" + 
+                SecurityUtils.sanitizeInput(searchResults.replace("\"", "\\\"")) + 
+                "\",\"status\":\"success\"}";
+            
+            return createApiResponse(response);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Generic search error", e);
+            return createHttpErrorResponse(500, "Search service error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Extract query string from path
+     * Example: /api/search?q=test → "q=test"
+     */
+    private String getQueryString(String path) {
+        int queryIndex = path.indexOf('?');
+        if (queryIndex == -1) {
+            return "";
+        }
+        return path.substring(queryIndex + 1);
+    }
+    
+    /**
+     * Extract parameter value from query string
+     * Example: "q=test&lang=fr" → getQueryParameter("q") → "test"
+     */
+    private String getQueryParameter(String queryString, String paramName) {
+        if (queryString == null || queryString.isEmpty()) {
+            return null;
+        }
+        
+        try {
+            String[] params = queryString.split("&");
+            for (String param : params) {
+                String[] keyValue = param.split("=", 2);
+                if (keyValue.length == 2 && keyValue[0].equals(paramName)) {
+                    // URL decode (remplacer + par espace, %20, etc.)
+                    String value = keyValue[1].replace("+", " ");
+                    value = java.net.URLDecoder.decode(value, "UTF-8");
+                    return value;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error parsing query parameter: " + e.getMessage());
+        }
+        
+        return null;
     }
     
     /**
