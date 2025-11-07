@@ -1424,13 +1424,14 @@ class KittFragment : Fragment(),
         }
         
         val thinking = kittAIService.getLastThinkingTrace()
+        thinkingCard.visibility = View.VISIBLE
         
         if (thinking.isNotEmpty()) {
             thinkingText.text = thinking
-            thinkingCard.visibility = View.VISIBLE
             android.util.Log.d(TAG, "🧠 Thinking trace displayed (${thinking.length} chars)")
         } else {
-            thinkingCard.visibility = View.GONE
+            thinkingText.text = "Debug mode active.\nNo thinking trace received from model.\nMake sure the response contains a \"thinking\" field."
+            android.util.Log.w(TAG, "🧠 Thinking trace mode actif mais aucune donnée reçue.")
         }
     }
     
