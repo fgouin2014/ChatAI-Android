@@ -4,6 +4,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.webkit.JavascriptInterface;
 import android.widget.Toast;
+import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.NotificationManager;
 import android.app.NotificationChannel;
 import android.app.PendingIntent;
@@ -123,6 +125,46 @@ public class WebAppInterface {
         } catch (Exception e) {
             Log.e(TAG, "Erreur lancement KITT depuis WebView: ", e);
         }
+    }
+
+    @JavascriptInterface
+    public void openGameLibrary() {
+        Log.i(TAG, "Demande d’ouverture GameLibrary depuis le WebApp");
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                if (mContext instanceof Activity) {
+                    Activity activity = (Activity) mContext;
+                    CharSequence[] options = new CharSequence[]{
+                        "🎮 Bibliothèque locale",
+                        "🌐 Interface web (EmulatorJS)"
+                    };
+                    new AlertDialog.Builder(activity)
+                        .setTitle("GameLibrary")
+                        .setItems(options, (dialog, which) -> {
+                            if (which == 0) {
+                                Intent intent = new Intent(activity, com.chatai.GameListActivity.class);
+                                activity.startActivity(intent);
+                                Log.i(TAG, "GameListActivity lancée");
+                            } else {
+                                Intent intent = new Intent(activity, com.chatai.activities.GameLibraryWebViewActivity.class);
+                                activity.startActivity(intent);
+                                Log.i(TAG, "GameLibraryWebViewActivity lancée");
+                            }
+                        })
+                        .setNegativeButton("Annuler", null)
+                        .show();
+                } else {
+                    // Contexte non-Activity : fallback direct vers la bibliothèque locale
+                    Intent intent = new Intent(mContext, com.chatai.GameListActivity.class);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    mContext.startActivity(intent);
+                    Log.w(TAG, "Contexte non-Activity, lancement direct de GameListActivity");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Erreur lancement GameLibrary", e);
+                Toast.makeText(mContext, "Erreur ouverture GameLibrary: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     @JavascriptInterface

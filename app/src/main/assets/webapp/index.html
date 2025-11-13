@@ -27,7 +27,7 @@
         .chat-header {
             background: linear-gradient(135deg, #FF6B6B, #4ECDC4);
             color: white;
-            padding: 12px;
+            padding: 12px 16px 16px;
             position: relative;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             overflow: hidden;
@@ -36,9 +36,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
             min-height: 40px;
-            overflow: hidden;
         }
         .chat-title {
             font-size: 18px;
@@ -49,14 +47,20 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        .header-controls-row {
+            margin-top: 8px;
+            display: flex;
+            justify-content: flex-end;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .header-controls-row::-webkit-scrollbar {
+            display: none;
+        }
         .header-controls {
             display: flex;
             gap: 6px;
             flex-wrap: nowrap;
-            max-width: 60%;
-            justify-content: flex-end;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
         }
         .header-btn {
             background: rgba(255,255,255,0.2);
@@ -83,6 +87,10 @@
             gap: 5px;
             overflow-x: auto;
             padding-bottom: 5px;
+            margin-top: 12px;
+        }
+        .personality-selector::-webkit-scrollbar {
+            display: none;
         }
         .personality-btn {
             padding: 5px 12px;
@@ -97,6 +105,50 @@
         }
         .personality-btn.active {
             background: rgba(255,255,255,0.3);
+        }
+        .main-nav {
+            display: flex;
+            gap: 8px;
+            padding: 12px 16px;
+            background: #f5f7fb;
+            border-bottom: 1px solid #e0e0e0;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .main-nav::-webkit-scrollbar {
+            display: none;
+        }
+        .main-nav-btn {
+            padding: 6px 12px;
+            border: 1px solid #c7cffb;
+            background: #eef1ff;
+            color: #2c2d33;
+            border-radius: 999px;
+            font-size: 12px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.3s, color 0.3s;
+        }
+        .main-nav-btn.active {
+            background: #2f3fbb;
+            color: #ffffff;
+            border-color: #2f3fbb;
+            box-shadow: 0 6px 16px rgba(47,63,187,0.25);
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .view {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .view.active {
+            display: flex;
         }
         .chat-messages {
             flex: 1;
@@ -195,6 +247,9 @@
             margin-bottom: 10px;
             overflow-x: auto;
         }
+        .plugins-bar::-webkit-scrollbar {
+            display: none;
+        }
         .plugin-btn {
             padding: 6px 12px;
             background: #f0f0f0;
@@ -255,6 +310,90 @@
         }
         .control-btn:active {
             transform: scale(0.9);
+        }
+        .panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: #f7f8fb;
+        }
+        .panel-section {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 10px 28px rgba(15,23,42,0.08);
+            border: 1px solid rgba(226,232,240,0.6);
+        }
+        .panel-section h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #1f1f1f;
+        }
+        .panel-section h4 {
+            font-size: 15px;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+        .panel-placeholder {
+            color: #475569;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .panel-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .panel-button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .panel-button.secondary {
+            background: linear-gradient(135deg, #4ECDC4, #36CFC9);
+        }
+        .panel-button:active {
+            transform: scale(0.96);
+        }
+        .panel-button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .panel-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .panel-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(148,163,184,0.25);
+            font-size: 13px;
+            color: #1e293b;
+        }
+        .panel-list li:last-child {
+            border-bottom: none;
+        }
+        .panel-status {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 13px;
+            color: #1e293b;
+        }
+        .status-item span {
+            color: #64748b;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            margin-right: 8px;
         }
         .plugin-modal {
             position: fixed;
@@ -335,7 +474,10 @@
         <div class="chat-header">
             <div class="header-top">
                 <div class="chat-title">🤖 Assistant IA</div>
+            </div>
+            <div class="header-controls-row">
                 <div class="header-controls">
+                    <button class="header-btn" id="gamesBtn" title="Jeux">🎮</button>
                     <button class="header-btn" id="settingsBtn" title="Paramètres">⚙️</button>
                     <button class="header-btn" id="databaseBtn" title="Base de données">💾</button>
                     <button class="header-btn" id="serverBtn" title="Serveurs">🌐</button>
@@ -360,41 +502,101 @@
             <button class="lang-btn" data-lang="auto">🔄 Auto</button>
         </div>
 
-        <div class="chat-messages" id="chatMessages">
-            <div class="message ai">
-                <div class="message-avatar">🤖</div>
-                <div class="message-bubble">
-                    Salut ! Je suis ton assistant IA décontracté ! 😊 Comment ça va aujourd'hui ?
-                    <div class="message-actions">
-                        <button class="message-btn" title="Écouter" onclick="speakText(this)">🔊</button>
+        <div class="main-nav" id="mainNav">
+            <button class="main-nav-btn active" data-view="view-chat">💬 Chat</button>
+            <button class="main-nav-btn" data-view="view-config">⚙️ Configuration</button>
+            <button class="main-nav-btn" data-view="view-diagnostics">📊 Diagnostics</button>
+        </div>
+
+        <div class="main-content">
+            <div class="view active" id="view-chat">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message ai">
+                        <div class="message-avatar">🤖</div>
+                        <div class="message-bubble">
+                            Salut ! Je suis ton assistant IA décontracté ! 😊 Comment ça va aujourd'hui ?
+                            <div class="message-actions">
+                                <button class="message-btn" title="Écouter" onclick="speakText(this)">🔊</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="message ai">
+                        <div class="message-avatar">🤖</div>
+                        <div class="message-bubble">
+                            Je réfléchis <div class="typing-dots"><span></span><span></span><span></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-container">
+                    <div class="plugins-bar">
+                        <button class="plugin-btn" onclick="openPlugin('websearch')">🔍 Recherche</button>
+                        <button class="plugin-btn" onclick="openPlugin('calculator')">🔢 Calculette</button>
+                        <button class="plugin-btn" onclick="openPlugin('weather')">🌤️ Météo</button>
+                        <button class="plugin-btn" onclick="openPlugin('jokes')">😂 Blagues</button>
+                        <button class="plugin-btn" onclick="openPlugin('tips')">💡 Conseils</button>
+                    </div>
+                    
+                    <div class="input-row">
+                        <textarea class="input-field" id="messageInput" placeholder="Tape ton message ici..." rows="1"></textarea>
+                        <div class="input-controls">
+                            <button class="control-btn voice-btn" id="voiceBtn" title="Message vocal">🎤</button>
+                            <button class="control-btn send-btn" id="sendBtn" title="Envoyer">📤</button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="typing-indicator" id="typingIndicator">
-            <div class="message ai">
-                <div class="message-avatar">🤖</div>
-                <div class="message-bubble">
-                    Je réfléchis <div class="typing-dots"><span></span><span></span><span></span></div>
+            <div class="view" id="view-config">
+                <div class="panel">
+                    <div class="panel-section">
+                        <h3>Configuration rapide</h3>
+                        <p class="panel-placeholder">
+                            Accédez aux réglages détaillés depuis l'application Android. Cette vue offre un aperçu rapide des services essentiels.
+                        </p>
+                    </div>
+                    <div class="panel-section">
+                        <h4>Serveurs locaux</h4>
+                        <div class="panel-status">
+                            <div class="status-item"><span>HTTP</span><strong>Port 8080 (index & webapp)</strong></div>
+                            <div class="status-item"><span>Fichiers</span><strong>/sites/ & /user-sites/</strong></div>
+                            <div class="status-item"><span>Dash</span><strong>/sites/webapp/index.html</strong></div>
+                        </div>
+                    </div>
+                    <div class="panel-section">
+                        <h4>Intégrations disponibles</h4>
+                        <ul class="panel-list">
+                            <li>Interface KITT accessible via la notification rapide</li>
+                            <li>Plugins intégrés : Recherche, Calculette, Météo, Blagues, Conseils</li>
+                            <li>Connexion aux services IA via le bridge Android</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="chat-input-container">
-            <div class="plugins-bar">
-                <button class="plugin-btn" onclick="openPlugin('websearch')">🔍 Recherche</button>
-                <button class="plugin-btn" onclick="openPlugin('calculator')">🔢 Calculette</button>
-                <button class="plugin-btn" onclick="openPlugin('weather')">🌤️ Météo</button>
-                <button class="plugin-btn" onclick="openPlugin('jokes')">😂 Blagues</button>
-                <button class="plugin-btn" onclick="openPlugin('tips')">💡 Conseils</button>
-            </div>
-            
-            <div class="input-row">
-                <textarea class="input-field" id="messageInput" placeholder="Tape ton message ici..." rows="1"></textarea>
-                <div class="input-controls">
-                    <button class="control-btn voice-btn" id="voiceBtn" title="Message vocal">🎤</button>
-                    <button class="control-btn send-btn" id="sendBtn" title="Envoyer">📤</button>
+            <div class="view" id="view-diagnostics">
+                <div class="panel">
+                    <div class="panel-section">
+                        <h3>Diagnostics</h3>
+                        <p class="panel-placeholder">
+                            Les tests avancés (logs, état des services, réseau) sont disponibles dans l'application principale. Cette vue résume l'état général.
+                        </p>
+                        <div class="panel-actions">
+                            <button class="panel-button" id="diagnosticsRefreshBtn" disabled>Rafraîchir</button>
+                            <button class="panel-button secondary" id="diagnosticsLogsBtn" disabled>Voir les logs</button>
+                        </div>
+                    </div>
+                    <div class="panel-section">
+                        <h4>Statut rapide</h4>
+                        <div class="panel-status">
+                            <div class="status-item"><span>Services IA</span><strong>Actifs via l'application</strong></div>
+                            <div class="status-item"><span>WebSocket</span><strong>Bridge Android natif</strong></div>
+                            <div class="status-item"><span>Hotword</span><strong>Détection locale (Porcupine)</strong></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -410,7 +612,6 @@
         </div>
     </div>
 
-    <!-- Modal d'informations -->
     <div class="plugin-modal" id="infoModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -420,7 +621,7 @@
             <div id="infoContent">
                 <div style="padding: 20px; text-align: center;">
                     <h4>📱 Application ChatAI-Android</h4>
-                    <p>Version complète avec toutes les fonctionnalités</p>
+                    <p>Version complète avec toutes les fonctionnalités principales.</p>
                     
                     <div style="margin: 20px 0; text-align: left;">
                         <h5>🌐 Serveurs Locaux :</h5>
@@ -437,9 +638,9 @@
                     
                     <div style="margin: 20px 0; text-align: left;">
                         <h5>🔒 Sécurité :</h5>
-                        <p>✅ Chiffrement AES-256</p>
                         <p>✅ Validation XSS</p>
                         <p>✅ Cache sécurisé</p>
+                        <p>✅ Gestion des permissions Android</p>
                     </div>
                     
                     <button onclick="testServers()" style="width: 100%; padding: 10px; background: #4ECDC4; color: white; border: none; border-radius: 8px; margin-top: 10px;">🧪 Tester les Serveurs</button>

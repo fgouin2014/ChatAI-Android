@@ -22,6 +22,7 @@ class SecureMobileAIChat {
         this.initializeSpeech();
         this.adjustTextareaHeight();
         this.connectWebSocket();
+        this.setupNavigation();
     }
 
     /**
@@ -55,6 +56,9 @@ class SecureMobileAIChat {
         this.kittBtn = document.getElementById('kittBtn');
         this.personalityBtns = document.querySelectorAll('.personality-btn');
         this.pluginModal = document.getElementById('pluginModal');
+        this.navButtons = document.querySelectorAll('.main-nav-btn');
+        this.views = document.querySelectorAll('.view');
+        this.gamesBtn = document.getElementById('gamesBtn');
     }
 
     attachEventListeners() {
@@ -101,6 +105,19 @@ class SecureMobileAIChat {
                 closePlugin();
             }
         });
+
+        if (this.gamesBtn) {
+            this.gamesBtn.addEventListener('click', () => this.handleGamesButton());
+        }
+
+        if (this.navButtons && this.navButtons.length > 0) {
+            this.navButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetView = btn.dataset.view;
+                    this.switchView(targetView);
+                });
+            });
+        }
     }
 
     initializeSpeech() {
@@ -539,6 +556,59 @@ class SecureMobileAIChat {
         // Afficher la réponse IA dans l'interface
         this.showSecureMessage('ai', message);
         console.log('✅ Réponse IA affichée:', message);
+    }
+
+    setupNavigation() {
+        this.currentView = 'view-chat';
+        if (this.navButtons && this.navButtons.length > 0) {
+            this.navButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.view === this.currentView);
+            });
+        }
+        this.switchView(this.currentView);
+    }
+
+    switchView(viewId) {
+        if (!viewId) {
+            viewId = 'view-chat';
+        }
+
+        if (this.views && this.views.length > 0) {
+            this.views.forEach(view => {
+                const isActive = view.id === viewId;
+                if (isActive) {
+                    view.classList.add('active');
+                } else {
+                    view.classList.remove('active');
+                }
+            });
+        }
+
+        if (this.navButtons && this.navButtons.length > 0) {
+            this.navButtons.forEach(btn => {
+                const isActive = btn.dataset.view === viewId;
+                btn.classList.toggle('active', isActive);
+            });
+        }
+
+        this.currentView = viewId;
+    }
+
+    handleGamesButton() {
+        try {
+            if (this.androidInterface && typeof this.androidInterface.openGameLibrary === 'function') {
+                this.androidInterface.openGameLibrary();
+            } else {
+                const origin = window.location.origin || '';
+                const target = origin ? origin.replace(/\/$/, '') + '/gamelibrary/' : '/gamelibrary/';
+                window.open(target, '_blank');
+            }
+        } catch (error) {
+            console.warn('Erreur ouverture jeux', error);
+            const origin = window.location.origin || '';
+            const fallback = origin ? origin.replace(/\/$/, '') + '/gamelibrary/' : '/gamelibrary/';
+            window.open(fallback, '_blank');
+        }
     }
     
     // ========== THINKING MODE ==========
@@ -1144,6 +1214,14 @@ function testServers() {
 }
 
 // ========== FONCTIONS DE NAVIGATION ==========
+
+function openGames() {
+    if (window.secureChatApp && typeof window.secureChatApp.handleGamesButton === 'function') {
+        window.secureChatApp.handleGamesButton();
+    } else {
+        alert('🎮 Jeux\n🚧 Fonctionnalité en développement');
+    }
+}
 
 function openSettings() {
     if (window.secureChatApp && window.secureChatApp.androidInterface && 

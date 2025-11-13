@@ -6,6 +6,7 @@ import android.util.Log;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -25,6 +26,7 @@ public class HttpServer {
     private static final String TAG = "HttpServer";
     private static final int HTTP_PORT = 8080;
     private static final int BUFFER_SIZE = 4096;
+    private static final boolean VERBOSE_HTTP_LOGS = false;
     
     private Context context;
     private ServerSocketChannel serverChannel;
@@ -40,6 +42,12 @@ public class HttpServer {
         this.secureConfig = new SecureConfig(context);
         this.chatDatabase = new ChatDatabase(context);
         this.executor = Executors.newFixedThreadPool(4);
+    }
+    
+    private static void logVerbose(String message) {
+        if (VERBOSE_HTTP_LOGS) {
+            Log.d(TAG, message);
+        }
     }
     
     /**
@@ -133,7 +141,7 @@ public class HttpServer {
         SocketChannel clientChannel = server.accept();
         clientChannel.configureBlocking(false);
         clientChannel.register(selector, SelectionKey.OP_READ);
-        Log.d(TAG, "Nouvelle connexion HTTP: " + clientChannel.getRemoteAddress());
+        logVerbose("Nouvelle connexion HTTP: " + clientChannel.getRemoteAddress());
     }
     
     private void handleRead(SelectionKey key) throws IOException {
@@ -153,7 +161,7 @@ public class HttpServer {
             buffer.get(data);
             String request = new String(data, "UTF-8");
             
-            Log.d(TAG, "Requête HTTP reçue: " + request.substring(0, Math.min(100, request.length())));
+            logVerbose("Requête HTTP reçue: " + request.substring(0, Math.min(100, request.length())));
             
             String response = processHttpRequest(request);
             sendHttpResponse(clientChannel, response);
@@ -182,7 +190,7 @@ public class HttpServer {
             String method = parts[0];
             String path = parts[1];
             
-            Log.d(TAG, "Requête: " + method + " " + path);
+            logVerbose("Requête: " + method + " " + path);
             
             // Router les requêtes
             if (method.equals("GET")) {
@@ -227,13 +235,13 @@ public class HttpServer {
             cleanPath = cleanPath.startsWith("/sites/") ? 
                 "/sites/" + resolvedSitePath : 
                 "/user-sites/" + resolvedSitePath;
-            Log.d(TAG, "Path résolu pour site: " + sitePath + " -> " + resolvedSitePath);
+            logVerbose("Path résolu pour site: " + sitePath + " -> " + resolvedSitePath);
         }
         
         // Sécurité : vérifier le path pour éviter directory traversal
-        Log.d(TAG, "Path original: " + path);
-        Log.d(TAG, "Path décodé: " + decodedPath);
-        Log.d(TAG, "Path nettoyé: " + cleanPath);
+        logVerbose("Path original: " + path);
+        logVerbose("Path décodé: " + decodedPath);
+        logVerbose("Path nettoyé: " + cleanPath);
         if (!isValidPath(cleanPath)) {
             Log.w(TAG, "Tentative d'accès non autorisé: " + cleanPath);
             return createHttpErrorResponse(403, "Forbidden");
@@ -297,30 +305,44 @@ public class HttpServer {
             String subPath = cleanPath.substring("/files/".length());
             return handleDirectoryListing(subPath);
         }
-        // Sites utilisateur - REDIRECTION VERS WEBSERVER
-        else if (cleanPath.equals("/sites") || cleanPath.equals("/sites/") || cleanPath.equals("/user-sites") || cleanPath.equals("/user-sites/")) {
-            return createWebServerRedirect("");
+        // Sites utilisateur - Index façon Apache
+        else if (cleanPath.equals("/") || cleanPath.equals("/index.html") ||
+                cleanPath.equals("/sites") || cleanPath.equals("/sites/") ||
+                cleanPath.equals("/user-sites") || cleanPath.equals("/user-sites/")) {
+            return createSitesRootIndex();
         }
         else if (cleanPath.startsWith("/sites/")) {
             String sitePath = cleanPath.substring("/sites/".length());
-            return createWebServerRedirect(sitePath);
+            return handleUserSite(sitePath);
         }
         else if (cleanPath.startsWith("/user-sites/")) {
             String sitePath = cleanPath.substring("/user-sites/".length());
-            return createWebServerRedirect(sitePath);
+            return handleUserSite(sitePath);
+        }
+        // Alias direct /gamelibrary pour compatibilité
+        else if (cleanPath.equals("/gamelibrary") || cleanPath.equals("/gamelibrary/")) {
+            return handleUserSite("gamelibrary");
+        }
+        else if (cleanPath.startsWith("/gamelibrary/")) {
+            String relativePath = cleanPath.substring("/gamelibrary/".length());
+            if (relativePath.isEmpty()) {
+                return handleUserSite("gamelibrary");
+            }
+            return handleUserSite("gamelibrary/" + relativePath);
         }
         // Fichiers statiques (interface web)
-        else if (cleanPath.equals("/") || cleanPath.equals("/index.html")) {
+        else if (cleanPath.equals("/dashboard") || cleanPath.equals("/dashboard/")) {
             return handleStaticFile("/webapp/index.html");
-        }
-        else if (cleanPath.startsWith("/webapp/")) {
-            return handleStaticFile(cleanPath);
         }
         else if (cleanPath.equals("/system.html")) {
             return handleStaticFile("/webapp/system.html");
         }
         else if (cleanPath.equals("/chat.js")) {
             return handleStaticFile("/webapp/chat.js");
+        }
+        else if (isUserSiteRequest(cleanPath)) {
+            String sitePath = cleanPath.substring(1); // remove leading "/"
+            return handleUserSite(sitePath);
         }
         else {
             return createHttpErrorResponse(404, "Not Found");
@@ -415,7 +437,7 @@ public class HttpServer {
             android.content.SharedPreferences prefs = context.getSharedPreferences("chatai_ai_config", android.content.Context.MODE_PRIVATE);
             String ollamaApiKey = prefs.getString("ollama_cloud_api_key", "");
             
-            Log.d(TAG, "Generic search - Checking API key in 'chatai_ai_config': " + (ollamaApiKey != null && !ollamaApiKey.isEmpty() ? "FOUND (" + ollamaApiKey.length() + " chars)" : "EMPTY/NULL"));
+            logVerbose("Generic search - Checking API key in 'chatai_ai_config': " + (ollamaApiKey != null && !ollamaApiKey.isEmpty() ? "FOUND (" + ollamaApiKey.length() + " chars)" : "EMPTY/NULL"));
             
             if (ollamaApiKey == null || ollamaApiKey.trim().isEmpty()) {
                 Log.w(TAG, "Ollama API key not configured for generic search");
@@ -557,7 +579,7 @@ public class HttpServer {
                 .post(body)
                 .build();
             
-            Log.d(TAG, "Calling Ollama web_search: query=" + query);
+            logVerbose("Calling Ollama web_search: query=" + query);
             
             okhttp3.Response response = client.newCall(request).execute();
             
@@ -580,7 +602,7 @@ public class HttpServer {
                 formatted.append(content).append(" ");
             }
             
-            Log.d(TAG, "Web search results: " + formatted.length() + " chars");
+            logVerbose("Web search results: " + formatted.length() + " chars");
             return formatted.toString();
             
         } catch (Exception e) {
@@ -1323,7 +1345,7 @@ public class HttpServer {
             html.append("        <div class=\"site-card\">\n");
             html.append("            <div class=\"site-icon\">📂</div>\n");
             html.append("            <div class=\"site-name\">Aucun site trouvé</div>\n");
-            html.append("            <div class=\"site-info\">Créez votre premier site dans le dossier sites/</div>\n");
+            html.append("            <div class=\"site-info\">Créez votre premier site dans \"/storage/emulated/0/ChatAI-Files/sites/\"</div>\n");
             html.append("        </div>\n");
         } else {
             for (java.io.File site : sites) {
@@ -1349,7 +1371,9 @@ public class HttpServer {
         html.append("    </div>\n");
         html.append("    <script>\n");
         html.append("        function openSite(siteName) {\n");
-        html.append("            window.location.href = '/sites/' + siteName;\n");
+        html.append("            const isFile = siteName.includes('.') && !siteName.endsWith('/');\n");
+        html.append("            const target = isFile ? ('/' + siteName) : ('/' + (siteName.endsWith('/') ? siteName : siteName + '/'));\n");
+        html.append("            window.location.href = target;\n");
         html.append("        }\n");
         html.append("    </script>\n");
         html.append("</body>\n");
@@ -1367,14 +1391,27 @@ public class HttpServer {
     /**
      * Crée un directory listing standard comme Apache/Nginx
      */
-    private String createStandardDirectoryListing(String title, java.io.File[] sites) {
+    private String createStandardDirectoryListing(String title, java.io.File[] entries) {
+        return createStandardDirectoryListing(title, entries, "");
+    }
+
+    private String createStandardDirectoryListing(String title, java.io.File[] entries, String basePath) {
         StringBuilder html = new StringBuilder();
-        
+
+        String baseTemp = "";
+        if (basePath != null && !basePath.isEmpty()) {
+            baseTemp = basePath.startsWith("/") ? basePath : "/" + basePath;
+            if (baseTemp.endsWith("/") && baseTemp.length() > 1) {
+                baseTemp = baseTemp.substring(0, baseTemp.length() - 1);
+            }
+        }
+        final String normalizedBase = baseTemp;
+
         html.append("<!DOCTYPE html>\n");
         html.append("<html>\n");
         html.append("<head>\n");
         html.append("    <meta charset=\"utf-8\">\n");
-        html.append("    <title>Index of /sites</title>\n");
+        html.append("    <title>").append(title).append("</title>\n");
         html.append("    <style>\n");
         html.append("        body { font-family: Arial, sans-serif; margin: 20px; }\n");
         html.append("        h1 { color: #333; }\n");
@@ -1390,132 +1427,83 @@ public class HttpServer {
         html.append("    </style>\n");
         html.append("</head>\n");
         html.append("<body>\n");
-        html.append("<h1>Index of /sites</h1>\n");
+        html.append("<h1>").append(title).append("</h1>\n");
         html.append("<table>\n");
         html.append("<tr><th>Name</th><th>Last modified</th><th>Size</th><th>Description</th></tr>\n");
-        
-        if (sites != null && sites.length > 0) {
-            // Séparer les fichiers HTML, répertoires et autres fichiers
+
+        if (entries != null && entries.length > 0) {
             java.util.List<java.io.File> htmlFiles = new java.util.ArrayList<>();
             java.util.List<java.io.File> directories = new java.util.ArrayList<>();
             java.util.List<java.io.File> otherFiles = new java.util.ArrayList<>();
-            
-            for (java.io.File site : sites) {
-                if (site.isDirectory()) {
-                    directories.add(site);
-                } else if (site.getName().endsWith(".html")) {
-                    htmlFiles.add(site);
+
+            for (java.io.File entry : entries) {
+                if (entry.isDirectory()) {
+                    directories.add(entry);
+                } else if (entry.getName().endsWith(".html")) {
+                    htmlFiles.add(entry);
                 } else {
-                    otherFiles.add(site);
+                    otherFiles.add(entry);
                 }
             }
-            
-            // Header pour les fichiers HTML
+
             if (!htmlFiles.isEmpty()) {
                 html.append("<tr><td colspan=\"4\" style=\"background-color: #f0f8ff; font-weight: bold; padding: 10px; border-top: 2px solid #0066cc;\">📄 Pages HTML</td></tr>\n");
             }
-            
-            // Lister les fichiers HTML
-            for (java.io.File site : htmlFiles) {
-                String name = site.getName();
-                boolean isDirectory = site.isDirectory();
-                String link = isDirectory ? name + "/" : name;
-                String size = isDirectory ? "-" : formatFileSize(site.length());
-                String cssClass = isDirectory ? "dir" : "html";
-                
-                // Date de modification
-                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
-                String mtime = sdf.format(new java.util.Date(site.lastModified()));
-                
-                // Encoder l'URL pour les espaces et caractères spéciaux, mais préserver le / final des répertoires
+
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
+
+            java.util.function.BiConsumer<java.io.File, String> appendRow = (file, cssClass) -> {
+                String name = file.getName();
+                String link = file.isDirectory() ? name + "/" : name;
+                String size = file.isDirectory() ? "-" : formatFileSize(file.length());
+                String mtime = sdf.format(new java.util.Date(file.lastModified()));
                 String encodedLink;
                 try {
-                    if (isDirectory && link.endsWith("/")) {
-                        // Pour les répertoires, encoder tout sauf le / final
+                    if (file.isDirectory() && link.endsWith("/")) {
                         String nameToEncode = link.substring(0, link.length() - 1);
                         encodedLink = java.net.URLEncoder.encode(nameToEncode, "UTF-8") + "/";
                     } else {
                         encodedLink = java.net.URLEncoder.encode(link, "UTF-8");
                     }
                 } catch (java.io.UnsupportedEncodingException e) {
-                    encodedLink = link; // Fallback si UTF-8 n'est pas supporté
+                    encodedLink = link;
                 }
-                html.append("<tr><td><a href=\"").append(encodedLink).append("\" class=\"").append(cssClass).append("\">").append(name).append("</a></td><td>").append(mtime).append("</td><td>").append(size).append("</td><td></td></tr>\n");
+
+                String href;
+                if (normalizedBase.isEmpty() || "/".equals(normalizedBase)) {
+                    href = "/" + encodedLink;
+                } else {
+                    href = normalizedBase + "/" + encodedLink;
+                }
+
+                html.append("<tr><td><a href=\"").append(href).append("\" class=\"").append(cssClass).append("\">").append(name).append("</a></td><td>").append(mtime).append("</td><td>").append(size).append("</td><td></td></tr>\n");
+            };
+
+            for (java.io.File file : htmlFiles) {
+                appendRow.accept(file, "html");
             }
-            
-            // Header pour les répertoires
+
             if (!directories.isEmpty()) {
                 html.append("<tr><td colspan=\"4\" style=\"background-color: #e8f5e8; font-weight: bold; padding: 10px; border-top: 2px solid #28a745;\">📁 Répertoires</td></tr>\n");
             }
-            
-            // Lister les répertoires
-            for (java.io.File site : directories) {
-                String name = site.getName();
-                boolean isDirectory = site.isDirectory();
-                String link = isDirectory ? name + "/" : name;
-                String size = isDirectory ? "-" : formatFileSize(site.length());
-                String cssClass = isDirectory ? "dir" : "file";
-                
-                // Date de modification
-                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
-                String mtime = sdf.format(new java.util.Date(site.lastModified()));
-                
-                // Encoder l'URL pour les espaces et caractères spéciaux, mais préserver le / final des répertoires
-                String encodedLink;
-                try {
-                    if (isDirectory && link.endsWith("/")) {
-                        // Pour les répertoires, encoder tout sauf le / final
-                        String nameToEncode = link.substring(0, link.length() - 1);
-                        encodedLink = java.net.URLEncoder.encode(nameToEncode, "UTF-8") + "/";
-                    } else {
-                        encodedLink = java.net.URLEncoder.encode(link, "UTF-8");
-                    }
-                } catch (java.io.UnsupportedEncodingException e) {
-                    encodedLink = link; // Fallback si UTF-8 n'est pas supporté
-                }
-                html.append("<tr><td><a href=\"").append(encodedLink).append("\" class=\"").append(cssClass).append("\">").append(name).append("</a></td><td>").append(mtime).append("</td><td>").append(size).append("</td><td></td></tr>\n");
+            for (java.io.File file : directories) {
+                appendRow.accept(file, "dir");
             }
-            
-            // Header pour les autres fichiers
+
             if (!otherFiles.isEmpty()) {
-                html.append("<tr><td colspan=\"4\" style=\"background-color: #f8f8f8; font-weight: bold; padding: 10px; border-top: 2px solid #666;\">📁 Autres fichiers</td></tr>\n");
+                html.append("<tr><td colspan=\"4\" style=\"background-color: #f8f8f8; font-weight: bold; padding: 10px; border-top: 2px solid #666;\">📄 Fichiers</td></tr>\n");
             }
-            
-            // Lister les autres fichiers
-            for (java.io.File site : otherFiles) {
-                String name = site.getName();
-                boolean isDirectory = site.isDirectory();
-                String link = isDirectory ? name + "/" : name;
-                String size = isDirectory ? "-" : formatFileSize(site.length());
-                String cssClass = isDirectory ? "dir" : "file";
-                
-                // Date de modification
-                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
-                String mtime = sdf.format(new java.util.Date(site.lastModified()));
-                
-                // Encoder l'URL pour les espaces et caractères spéciaux, mais préserver le / final des répertoires
-                String encodedLink;
-                try {
-                    if (isDirectory && link.endsWith("/")) {
-                        // Pour les répertoires, encoder tout sauf le / final
-                        String nameToEncode = link.substring(0, link.length() - 1);
-                        encodedLink = java.net.URLEncoder.encode(nameToEncode, "UTF-8") + "/";
-                    } else {
-                        encodedLink = java.net.URLEncoder.encode(link, "UTF-8");
-                    }
-                } catch (java.io.UnsupportedEncodingException e) {
-                    encodedLink = link; // Fallback si UTF-8 n'est pas supporté
-                }
-                html.append("<tr><td><a href=\"").append(encodedLink).append("\" class=\"").append(cssClass).append("\">").append(name).append("</a></td><td>").append(mtime).append("</td><td>").append(size).append("</td><td></td></tr>\n");
+            for (java.io.File file : otherFiles) {
+                appendRow.accept(file, "file");
             }
         } else {
             html.append("<tr><td colspan=\"4\">Aucun fichier trouvé</td></tr>\n");
         }
-        
+
         html.append("</table>\n");
         html.append("</body>\n");
         html.append("</html>\n");
-        
+
         return "HTTP/1.1 200 OK\r\n" +
                "Content-Type: text/html; charset=utf-8\r\n" +
                "Access-Control-Allow-Origin: *\r\n" +
@@ -1565,16 +1553,16 @@ public class HttpServer {
         try {
             // Résoudre les chemins relatifs avec ../
             String resolvedPath = resolveRelativePath(sitePath);
-            Log.d(TAG, "handleUserSite - original: " + sitePath + ", resolved: " + resolvedPath);
+            logVerbose("handleUserSite - original: " + sitePath + ", resolved: " + resolvedPath);
             
             String sitesDir = getSitesDirectory();
             java.io.File siteFile = new java.io.File(sitesDir, resolvedPath);
             
-            Log.d(TAG, "handleUserSite - sitesDir: " + sitesDir);
-            Log.d(TAG, "handleUserSite - sitePath: " + sitePath);
-            Log.d(TAG, "handleUserSite - resolvedPath: " + resolvedPath);
-            Log.d(TAG, "handleUserSite - siteFile: " + siteFile.getAbsolutePath());
-            Log.d(TAG, "handleUserSite - exists: " + siteFile.exists());
+            logVerbose("handleUserSite - sitesDir: " + sitesDir);
+            logVerbose("handleUserSite - sitePath: " + sitePath);
+            logVerbose("handleUserSite - resolvedPath: " + resolvedPath);
+            logVerbose("handleUserSite - siteFile: " + siteFile.getAbsolutePath());
+            logVerbose("handleUserSite - exists: " + siteFile.exists());
             
             if (!siteFile.exists()) {
                 Log.w(TAG, "Fichier non trouvé: " + siteFile.getAbsolutePath());
@@ -1605,6 +1593,52 @@ public class HttpServer {
             Log.e(TAG, "Erreur accès site utilisateur: " + sitePath, e);
             return "HTTP/1.1 500 Internal Server Error\r\n\r\n";
         }
+    }
+
+    private boolean isUserSiteRequest(String cleanPath) {
+        if (cleanPath == null || cleanPath.length() <= 1) {
+            return false;
+        }
+
+        // Exclure les préfixes réservés
+        if (cleanPath.startsWith("/api/")
+                || cleanPath.startsWith("/files")
+                || cleanPath.startsWith("/browse")
+                || cleanPath.startsWith("/sites/")
+                || cleanPath.startsWith("/user-sites/")
+                || cleanPath.startsWith("/gamedata/")
+                || cleanPath.startsWith("/static/")
+                || cleanPath.startsWith("/assets/")
+                || cleanPath.startsWith("/ws")
+                || cleanPath.startsWith("/websocket")) {
+            return false;
+        }
+
+        if (cleanPath.equals("/dashboard") || cleanPath.equals("/dashboard/")
+                || cleanPath.equals("/system.html") || cleanPath.equals("/chat.js")) {
+            return false;
+        }
+
+        String sitePath = cleanPath.substring(1); // remove leading slash
+        if (sitePath.isEmpty()) {
+            return false;
+        }
+
+        java.io.File candidate = new java.io.File(getSitesDirectory(), sitePath);
+        if (candidate.exists()) {
+            return true;
+        }
+
+        // Essayer avec index.html pour les dossiers
+        if (!sitePath.endsWith("index.html")) {
+            String basePath = sitePath.endsWith("/") ? sitePath : sitePath + "/";
+            java.io.File indexCandidate = new java.io.File(getSitesDirectory(), basePath + "index.html");
+            if (indexCandidate.exists()) {
+                return true;
+            }
+        }
+
+        return false;
     }
     
     /**
@@ -1746,31 +1780,70 @@ public class HttpServer {
     /**
      * Crée une redirection vers WebServer pour les sites
      */
-    private String createWebServerRedirect(String sitePath) {
-        // Obtenir l'IP dynamique du device
-        String deviceIP = getDeviceIP();
-        if (deviceIP.equals("NO_NETWORK")) {
-            deviceIP = "localhost"; // Fallback si pas de réseau
+    private String createSitesRootIndex() {
+        try {
+            String sitesPath = getSitesDirectory();
+            java.io.File sitesDir = new java.io.File(sitesPath);
+            if (!sitesDir.exists()) {
+                sitesDir.mkdirs();
+            }
+            
+            java.io.File[] entries = sitesDir.listFiles();
+            if (entries == null) {
+                entries = new java.io.File[0];
+            }
+            
+            java.util.Arrays.sort(entries, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+            
+            StringBuilder html = new StringBuilder();
+            html.append("<!DOCTYPE html>");
+            html.append("<html><head><meta charset=\"utf-8\"><title>Index of /</title>");
+            html.append("<style>");
+            html.append("body{font-family:Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:24px;}");
+            html.append("a{color:#38bdf8;text-decoration:none;}a:hover{text-decoration:underline;}");
+            html.append(".container{max-width:960px;margin:0 auto;}");
+            html.append("table{width:100%;border-collapse:collapse;margin-top:16px;background:#111c3a;border-radius:12px;overflow:hidden;}");
+            html.append("th,td{padding:12px 16px;text-align:left;border-bottom:1px solid rgba(148, 163, 184, 0.1);}");
+            html.append("th{background:rgba(148,163,184,0.15);text-transform:uppercase;letter-spacing:0.05em;font-size:12px;color:#94a3b8;}");
+            html.append("tr:hover td{background:rgba(56,189,248,0.08);}");
+            html.append(".dash-link{margin-top:12px;font-size:13px;color:#94a3b8;}");
+            html.append(".dash-link a{color:#cbd5f5;}");
+            html.append("</style></head><body>");
+            html.append("<div class=\"container\">");
+            html.append("<h2>Index of /</h2>");
+            html.append("<div class=\"dash-link\">→ <a href=\"/webapp/index.html\">ChatAI Dashboard</a></div>");
+            html.append("<table><thead><tr><th>Name</th><th>Last modified</th><th>Size</th></tr></thead><tbody>");
+            
+            java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
+            
+            for (java.io.File entry : entries) {
+                String name = entry.getName();
+                String displayName = entry.isDirectory() ? name + "/" : name;
+                String hrefName = "/" + (entry.isDirectory() ? name + "/" : name);
+                String lastModified = dateFormat.format(new java.util.Date(entry.lastModified()));
+                String size = entry.isDirectory() ? "-" : formatFileSize(entry.length());
+                
+                html.append("<tr><td><a href=\"").append(hrefName).append("\">").append(displayName)
+                    .append("</a></td><td>").append(lastModified).append("</td><td>").append(size).append("</td></tr>");
+            }
+            
+            if (entries.length == 0) {
+                html.append("<tr><td colspan=\"3\">No entries</td></tr>");
+            }
+            
+            html.append("</tbody></table></div></body></html>");
+            
+            byte[] bytes = html.toString().getBytes(StandardCharsets.UTF_8);
+            return "HTTP/1.1 200 OK\r\n" +
+                    "Content-Type: text/html; charset=utf-8\r\n" +
+                    "Access-Control-Allow-Origin: *\r\n" +
+                    "Content-Length: " + bytes.length + "\r\n" +
+                    "\r\n" +
+                    html.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur génération index sites", e);
+            return createHttpErrorResponse(500, "Error generating sites index");
         }
-        
-        StringBuilder html = new StringBuilder();
-        html.append("HTTP/1.1 302 Found\r\n");
-        html.append("Location: http://").append(deviceIP).append(":8888/").append(sitePath).append("\r\n");
-        html.append("Content-Type: text/html; charset=utf-8\r\n");
-        html.append("Access-Control-Allow-Origin: *\r\n");
-        html.append("\r\n");
-        
-        html.append("<!DOCTYPE html>\n");
-        html.append("<html><head><title>Redirection vers WebServer</title></head>\n");
-        html.append("<body style=\"font-family: Arial, sans-serif; text-align: center; padding: 50px;\">\n");
-        html.append("    <h2>🔄 Redirection vers WebServer</h2>\n");
-        html.append("    <p>Les sites web sont maintenant servis par <strong>WebServer (port 8888)</strong></p>\n");
-        html.append("    <p>Redirection automatique dans 3 secondes...</p>\n");
-        html.append("    <p><a href=\"http://").append(deviceIP).append(":8888/").append(sitePath).append("\">Cliquez ici si la redirection ne fonctionne pas</a></p>\n");
-        html.append("    <script>setTimeout(function(){ window.location.href='http://").append(deviceIP).append(":8888/").append(sitePath).append("'; }, 3000);</script>\n");
-        html.append("</body></html>\n");
-        
-        return html.toString();
     }
     
     /**
@@ -1806,7 +1879,7 @@ public class HttpServer {
                         if (!address.isLoopbackAddress() && address.isSiteLocalAddress()) {
                             String ip = address.getHostAddress();
                             if (ip != null && isValidIP(ip)) {
-                                Log.d(TAG, "IP détectée via " + networkInterface.getName() + ": " + ip);
+                    logVerbose("IP détectée via " + networkInterface.getName() + ": " + ip);
                                 return ip;
                             }
                         }
@@ -1918,7 +1991,7 @@ public class HttpServer {
             
             // Note: Cette méthode retourne seulement les headers
             // Le contenu binaire sera géré par le serveur HTTP directement
-            Log.d(TAG, "Serving static file: " + file.getName() + " (" + fileBytes.length + " bytes)");
+            logVerbose("Serving static file: " + file.getName() + " (" + fileBytes.length + " bytes)");
             
             // Pour les fichiers binaires, on ne peut pas les ajouter à une String
             // Cette méthode retourne seulement les headers, le contenu binaire
@@ -1952,7 +2025,7 @@ public class HttpServer {
             // Pour les fichiers binaires, on ne peut pas les ajouter à une String
             // Cette méthode retourne seulement les headers, le contenu binaire
             // sera géré par le serveur HTTP directement
-            Log.d(TAG, "Serving binary file: " + file.getName() + " (" + fileBytes.length + " bytes)");
+            logVerbose("Serving binary file: " + file.getName() + " (" + fileBytes.length + " bytes)");
             
             // Note: Cette méthode ne peut pas retourner le contenu binaire dans une String
             // Il faudrait modifier l'architecture pour gérer les bytes directement
@@ -2011,10 +2084,10 @@ public class HttpServer {
         try {
             java.io.File[] files = directory.listFiles();
             if (files == null || files.length == 0) {
-                return createStandardDirectoryListing("Dossier vide: " + sitePath, new java.io.File[0]);
+                return createStandardDirectoryListing("Dossier vide: " + sitePath, new java.io.File[0], sitePath);
             }
             
-            return createStandardDirectoryListing("Contenu: " + sitePath, files);
+            return createStandardDirectoryListing("Contenu: " + sitePath, files, sitePath);
             
         } catch (Exception e) {
             Log.e(TAG, "Erreur listing dossier site: " + sitePath, e);
@@ -2088,7 +2161,8 @@ public class HttpServer {
             }
             
             // Utiliser le nouveau format standard
-            return createStandardDirectoryListing("Directory: " + subPath, files);
+                String base = (subPath == null || subPath.isEmpty()) ? "files" : "files/" + subPath;
+                return createStandardDirectoryListing("Directory: " + (subPath.isEmpty() ? "/" : subPath), files, base);
             
         } catch (Exception e) {
             Log.e(TAG, "Erreur simple directory listing", e);

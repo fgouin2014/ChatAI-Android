@@ -14,7 +14,6 @@ import androidx.fragment.app.FragmentTransaction;
 import android.Manifest;
 import android.widget.Toast;
 import android.util.Log;
-import android.widget.Button;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.net.Uri;
@@ -46,9 +45,6 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
     private boolean isKittVisible = false;
     private boolean isKittPersistent = false;
     
-    // Bouton pour accéder aux jeux
-    private Button fabGames;
-    
     // Permissions
     private static final int PERMISSION_REQUEST_CODE = 1001;
     private boolean hasRequestedPermissions = false;
@@ -73,7 +69,6 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
         setupWebView();
         setupKittInterface();
         setupKittButton();
-        setupGamesButton();
         
         // Vérifier si lancé depuis Quick Settings Tile
         handleKittActivationIntent(getIntent());
@@ -164,31 +159,6 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
         Log.i(TAG, "Bouton KITT intégré dans l'interface web");
     }
     
-    private void setupGamesButton() {
-        Log.i(TAG, "setupGamesButton démarré");
-        fabGames = findViewById(R.id.fab_games);
-        Log.i(TAG, "findViewById(R.id.fab_games) = " + fabGames);
-        
-        if (fabGames != null) {
-            Log.i(TAG, "Bouton trouvé, configuration du listener");
-            fabGames.setOnClickListener(v -> {
-                Log.i(TAG, "Bouton jeux cliqué - Ouverture de la liste des jeux");
-                try {
-                    Intent intent = new Intent(this, GameListActivity.class);
-                    startActivity(intent);
-                    Log.i(TAG, "GameListActivity lancée avec succès");
-                } catch (Exception e) {
-                    Log.e(TAG, "Erreur lancement GameListActivity", e);
-                    Toast.makeText(this, "Erreur: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                }
-            });
-            Log.i(TAG, "Bouton jeux configuré avec succès");
-        } else {
-            Log.e(TAG, "ERREUR: fab_games non trouvé dans le layout");
-            Log.e(TAG, "Vérifiez que le layout activity_main.xml contient android:id=\"@+id/fab_games\"");
-        }
-    }
-
     /**
      * Obtenir les permissions requises selon la version d'Android
      */
@@ -251,7 +221,6 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
             setupWebView();
             setupKittInterface();
             setupKittButton();
-            setupGamesButton();
             return;
         }
         
@@ -307,7 +276,6 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
             setupWebView();
             setupKittInterface();
             setupKittButton();
-            setupGamesButton();
         }
     }
     
@@ -447,11 +415,6 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
         // Masquer le WebView
         webView.setVisibility(View.GONE);
         
-        // Masquer le bouton jeux (ne doit pas apparaître dans KITT)
-        if (fabGames != null) {
-            fabGames.setVisibility(View.GONE);
-        }
-        
         // Afficher le container KITT
         kittFragmentContainer.setVisibility(View.VISIBLE);
         
@@ -474,11 +437,6 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
             
             // Afficher le WebView
             webView.setVisibility(View.VISIBLE);
-            
-            // Réafficher le bouton jeux
-            if (fabGames != null) {
-                fabGames.setVisibility(View.VISIBLE);
-            }
             
             isKittVisible = false;
             Log.i(TAG, "Interface KITT masquée");
