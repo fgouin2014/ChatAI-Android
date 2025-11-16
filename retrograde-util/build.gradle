@@ -54,5 +54,8 @@ dependencies {
     // Paging
     implementation 'androidx.paging:paging-common:3.2.1'
     implementation 'androidx.paging:paging-runtime:3.2.1'
+
+    // Kotlinx datetime (évite le fallback ThreeTen dans ce module)
+    implementation "org.jetbrains.kotlinx:kotlinx-datetime:0.6.0"
 }
 

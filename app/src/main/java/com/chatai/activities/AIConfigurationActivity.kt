@@ -15,6 +15,7 @@ import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.chatai.R
+import com.chatai.AiConfigManager
 import com.chatai.services.KittAIService
 import kotlinx.coroutines.launch
 import androidx.appcompat.app.AlertDialog
@@ -93,6 +94,9 @@ class AIConfigurationActivity : AppCompatActivity() {
         
         // Configurer les listeners
         setupListeners()
+        
+        // Configurer le bouton JSON editor
+        setupJsonEditorButton()
     }
     
     private fun initializeViews() {
@@ -274,6 +278,36 @@ class AIConfigurationActivity : AppCompatActivity() {
             resetAIToDefaults()
         }
         
+        // === Contrôles Services ===
+        findViewById<MaterialButton>(R.id.btnHotwordStart).setOnClickListener {
+            val intent = Intent(this, com.chatai.BackgroundService::class.java).apply {
+                action = com.chatai.BackgroundService.ACTION_HOTWORD_START
+            }
+            startForegroundServiceCompat(intent)
+            Toast.makeText(this, "Hotword START demandé", Toast.LENGTH_SHORT).show()
+        }
+        findViewById<MaterialButton>(R.id.btnHotwordStop).setOnClickListener {
+            val intent = Intent(this, com.chatai.BackgroundService::class.java).apply {
+                action = com.chatai.BackgroundService.ACTION_HOTWORD_STOP
+            }
+            startForegroundServiceCompat(intent)
+            Toast.makeText(this, "Hotword STOP demandé", Toast.LENGTH_SHORT).show()
+        }
+        findViewById<MaterialButton>(R.id.btnHotwordRestart).setOnClickListener {
+            val intent = Intent(this, com.chatai.BackgroundService::class.java).apply {
+                action = com.chatai.BackgroundService.ACTION_HOTWORD_RESTART
+            }
+            startForegroundServiceCompat(intent)
+            Toast.makeText(this, "Hotword RESTART demandé", Toast.LENGTH_SHORT).show()
+        }
+        findViewById<MaterialButton>(R.id.btnServersRestart).setOnClickListener {
+            val intent = Intent(this, com.chatai.BackgroundService::class.java).apply {
+                action = com.chatai.BackgroundService.ACTION_SERVERS_RESTART
+            }
+            startForegroundServiceCompat(intent)
+            Toast.makeText(this, "Restart SERVERS demandé", Toast.LENGTH_SHORT).show()
+        }
+
         // Bouton historique des conversations
         findViewById<MaterialButton>(R.id.viewHistoryButton).setOnClickListener {
             startActivity(android.content.Intent(this, ConversationHistoryActivity::class.java))
@@ -303,6 +337,19 @@ class AIConfigurationActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
         })
+    }
+
+    private fun startForegroundServiceCompat(intent: Intent) {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AIConfig", "Error starting foreground service: ${e.message}", e)
+            Toast.makeText(this, "Erreur démarrage service: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
     
     private fun saveAISettings() {
@@ -889,4 +936,92 @@ class AIConfigurationActivity : AppCompatActivity() {
         if (key.length <= 8) return "*".repeat(key.length)
         return key.substring(0, 4) + "*".repeat(key.length - 8) + key.substring(key.length - 4)
     }
+    
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // ÉDITEUR JSON
+    // ═══════════════════════════════════════════════════════════════════════════════
+    
+    private fun setupJsonEditorButton() {
+        val editJsonButton = findViewById<com.google.android.material.button.MaterialButton>(R.id.editJsonButton)
+        editJsonButton?.setOnClickListener {
+            showJsonEditorDialog()
+        }
+    }
+    
+    private fun showJsonEditorDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_ai_config_editor, null)
+        val jsonEditor = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.jsonEditor)
+        val btnCancel = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnCancel)
+        val btnValidate = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnValidate)
+        val btnSave = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnSave)
+        
+        // Charger le contenu actuel de ai_config.json
+        val currentContent = try {
+            AiConfigManager.readConfigJson(this)
+        } catch (e: Exception) {
+            android.util.Log.e("AIConfig", "Error reading config: ${e.message}")
+            Toast.makeText(this, "Erreur lecture fichier: ${e.message}", Toast.LENGTH_SHORT).show()
+            "{}"
+        }
+        
+        jsonEditor.setText(currentContent)
+        
+        // Dialog
+        val dialog = AlertDialog.Builder(this, R.style.KittDialogTheme)
+            .setView(dialogView)
+            .setCancelable(true)
+            .create()
+        
+        // Bouton Annuler
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        // Bouton Valider JSON
+        btnValidate.setOnClickListener {
+            val jsonText = jsonEditor.text?.toString() ?: ""
+            if (validateJson(jsonText)) {
+                Toast.makeText(this, "✅ JSON valide", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "❌ JSON invalide - Vérifiez la syntaxe", Toast.LENGTH_LONG).show()
+            }
+        }
+        
+        // Bouton Sauvegarder
+        btnSave.setOnClickListener {
+            val jsonText = jsonEditor.text?.toString() ?: ""
+            
+            if (!validateJson(jsonText)) {
+                Toast.makeText(this, "❌ JSON invalide - Impossible de sauvegarder", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            
+            try {
+                AiConfigManager.writeConfigJson(this, jsonText)
+                Toast.makeText(this, "✅ ai_config.json sauvegardé", Toast.LENGTH_SHORT).show()
+                
+                // Recharger les settings depuis les SharedPreferences synchronisées
+                loadCurrentSettings()
+                
+                dialog.dismiss()
+                
+            } catch (e: Exception) {
+                android.util.Log.e("AIConfig", "Error saving ai_config.json: ${e.message}")
+                Toast.makeText(this, "Erreur sauvegarde: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+        
+        dialog.show()
+    }
+    
+    private fun validateJson(jsonText: String): Boolean {
+        return try {
+            org.json.JSONObject(jsonText)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("AIConfig", "JSON validation error: ${e.message}")
+            false
+        }
+    }
 }
+

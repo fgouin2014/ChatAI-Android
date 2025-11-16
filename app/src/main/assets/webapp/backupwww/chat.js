@@ -16,10 +16,6 @@ class SecureMobileAIChat {
         this.websocket = null;
         this.lastAIResponse = null;
         this.aiConfigCache = '';
-        this.aiConfigObject = null;
-        this.configInputs = {};
-        this.hotwordModels = [];
-        this.customSelects = [];
         
         // Cache pour optimisation
         this.messageCache = new Map();
@@ -40,13 +36,11 @@ class SecureMobileAIChat {
     async initialize() {
         try {
             await this.initializeSecureConfig();
-        this.initializeElements();
-        this.attachEventListeners();
-            this.setupConfigFormListeners();
-            this.initCustomSelects();
-        this.initializeSpeech();
-        this.adjustTextareaHeight();
-        this.connectWebSocket();
+            this.initializeElements();
+            this.attachEventListeners();
+            this.initializeSpeech();
+            this.adjustTextareaHeight();
+            this.connectWebSocket();
             this.setupNavigation();
             this.setupServiceWorker();
             this.loadConversationHistory();
@@ -108,60 +102,7 @@ class SecureMobileAIChat {
             aiConfigEditor: 'aiConfigEditor',
             aiConfigSaveBtn: 'aiConfigSaveBtn',
             aiConfigEditorReloadBtn: 'aiConfigEditorReloadBtn',
-            aiConfigFeedback: 'aiConfigFeedback',
-            configModeSelect: 'configModeSelect',
-            configSelectedModel: 'configSelectedModel',
-            configSelectedModelCustom: 'configSelectedModelCustom',
-            saveModeConfigBtn: 'saveModeConfigBtn',
-            configCloudProvider: 'configCloudProvider',
-            configCloudProviderCustom: 'configCloudProviderCustom',
-            configCloudApiKey: 'configCloudApiKey',
-            configCloudModel: 'configCloudModel',
-            configCloudModelCustom: 'configCloudModelCustom',
-            saveCloudConfigBtn: 'saveCloudConfigBtn',
-            configLocalUrl: 'configLocalUrl',
-            configLocalModel: 'configLocalModel',
-            configLocalModelCustom: 'configLocalModelCustom',
-            saveLocalConfigBtn: 'saveLocalConfigBtn',
-            configWebSearchEnabled: 'configWebSearchEnabled',
-            configWebSearchProvider: 'configWebSearchProvider',
-            configThinkingEnabled: 'configThinkingEnabled',
-            configThinkingLast: 'configThinkingLast',
-            saveWebThinkingBtn: 'saveWebThinkingBtn',
-            configVisionEnabled: 'configVisionEnabled',
-            configVisionModel: 'configVisionModel',
-            configVisionModelCustom: 'configVisionModelCustom',
-            configAudioEnabled: 'configAudioEnabled',
-            configAudioEngine: 'configAudioEngine',
-            configAudioModel: 'configAudioModel',
-            configAudioModelCustom: 'configAudioModelCustom',
-            configAudioEndpoint: 'configAudioEndpoint',
-            configAudioTimeout: 'configAudioTimeout',
-            configAudioSilenceDb: 'configAudioSilenceDb',
-            configAudioSilenceMs: 'configAudioSilenceMs',
-            saveVisionAudioBtn: 'saveVisionAudioBtn',
-            configHotwordEnabled: 'configHotwordEnabled',
-            configHotwordEngine: 'configHotwordEngine',
-            configHotwordAccessKey: 'configHotwordAccessKey',
-            configHotwordKeyword: 'configHotwordKeyword',
-            hotwordModelsTable: 'hotwordModelsTable',
-            hotwordNewName: 'hotwordNewName',
-            hotwordNewAsset: 'hotwordNewAsset',
-            hotwordNewThreshold: 'hotwordNewThreshold',
-            addHotwordModelBtn: 'addHotwordModelBtn',
-            importHotwordAssetsBtn: 'importHotwordAssetsBtn',
-            saveHotwordBtn: 'saveHotwordBtn',
-            configTtsMode: 'configTtsMode',
-            configTtsVoice: 'configTtsVoice',
-            configTtsVoiceCustom: 'configTtsVoiceCustom',
-            saveTtsBtn: 'saveTtsBtn',
-            configPromptKitt: 'configPromptKitt',
-            configPromptGlados: 'configPromptGlados',
-            configPromptKarr: 'configPromptKarr',
-            savePromptsBtn: 'savePromptsBtn',
-            configMaxContext: 'configMaxContext',
-            configMaxResponse: 'configMaxResponse',
-            saveConstraintsBtn: 'saveConstraintsBtn'
+            aiConfigFeedback: 'aiConfigFeedback'
         };
 
         for (const [key, id] of Object.entries(elements)) {
@@ -171,54 +112,9 @@ class SecureMobileAIChat {
             }
         }
 
-        this.configInputs = {
-            modeSelect: this.configModeSelect,
-            selectedModel: this.configSelectedModel,
-            selectedModelCustom: this.configSelectedModelCustom,
-            cloudProvider: this.configCloudProvider,
-            cloudProviderCustom: this.configCloudProviderCustom,
-            cloudApiKey: this.configCloudApiKey,
-            cloudModel: this.configCloudModel,
-            cloudModelCustom: this.configCloudModelCustom,
-            localUrl: this.configLocalUrl,
-            localModel: this.configLocalModel,
-            localModelCustom: this.configLocalModelCustom,
-            webSearchEnabled: this.configWebSearchEnabled,
-            webSearchProvider: this.configWebSearchProvider,
-            thinkingEnabled: this.configThinkingEnabled,
-            thinkingLast: this.configThinkingLast,
-            visionEnabled: this.configVisionEnabled,
-            visionModel: this.configVisionModel,
-            visionModelCustom: this.configVisionModelCustom,
-            audioEnabled: this.configAudioEnabled,
-            audioEngine: this.configAudioEngine,
-            audioModel: this.configAudioModel,
-            audioModelCustom: this.configAudioModelCustom,
-            audioEndpoint: this.configAudioEndpoint,
-            audioTimeout: this.configAudioTimeout,
-            audioSilenceDb: this.configAudioSilenceDb,
-            audioSilenceMs: this.configAudioSilenceMs,
-            hotwordEnabled: this.configHotwordEnabled,
-            hotwordEngine: this.configHotwordEngine,
-            hotwordAccessKey: this.configHotwordAccessKey,
-            hotwordKeyword: this.configHotwordKeyword,
-            hotwordNewName: this.hotwordNewName,
-            hotwordNewAsset: this.hotwordNewAsset,
-            hotwordNewThreshold: this.hotwordNewThreshold,
-            ttsMode: this.configTtsMode,
-            ttsVoice: this.configTtsVoice,
-            ttsVoiceCustom: this.configTtsVoiceCustom,
-            promptKitt: this.configPromptKitt,
-            promptGlados: this.configPromptGlados,
-            promptKarr: this.configPromptKarr,
-            maxContext: this.configMaxContext,
-            maxResponse: this.configMaxResponse
-        };
-
         this.personalityBtns = document.querySelectorAll('.personality-btn');
         this.navButtons = document.querySelectorAll('.main-nav-btn');
         this.views = document.querySelectorAll('.view');
-        this.porcupineFields = document.querySelectorAll('.porcupine-only');
     }
 
     /**
@@ -294,539 +190,6 @@ class SecureMobileAIChat {
         // Scroll optimisé
         if (this.chatMessages) {
             this.chatMessages.addEventListener('scroll', this.scrollThrottle);
-        }
-    }
-
-    setupConfigFormListeners() {
-        const buttonBindings = [
-            { element: this.saveModeConfigBtn, section: 'mode' },
-            { element: this.saveCloudConfigBtn, section: 'cloud' },
-            { element: this.saveLocalConfigBtn, section: 'local' },
-            { element: this.saveWebThinkingBtn, section: 'thinking' },
-            { element: this.saveVisionAudioBtn, section: 'sensors' },
-            { element: this.saveHotwordBtn, section: 'hotword' },
-            { element: this.saveTtsBtn, section: 'tts' },
-            { element: this.savePromptsBtn, section: 'prompts' },
-            { element: this.saveConstraintsBtn, section: 'constraints' }
-        ];
-
-        buttonBindings.forEach(({ element, section }) => {
-            if (element) {
-                this.addListener(element, 'click', () => this.saveConfigSection(section));
-            }
-        });
-
-        // Boutons contrôle Hotword
-        const hotwordStartBtn = document.getElementById('hotwordStartBtn');
-        const hotwordStopBtn = document.getElementById('hotwordStopBtn');
-        const hotwordRestartBtn = document.getElementById('hotwordRestartBtn');
-        if (hotwordStartBtn) {
-            this.addListener(hotwordStartBtn, 'click', () => this.hotwordStart());
-        }
-        if (hotwordStopBtn) {
-            this.addListener(hotwordStopBtn, 'click', () => this.hotwordStop());
-        }
-        if (hotwordRestartBtn) {
-            this.addListener(hotwordRestartBtn, 'click', () => this.hotwordRestart());
-        }
-
-        if (this.addHotwordModelBtn) {
-            this.addListener(this.addHotwordModelBtn, 'click', () => this.handleAddHotwordModel());
-        }
-        if (this.importHotwordAssetsBtn) {
-            this.addListener(this.importHotwordAssetsBtn, 'click', () => this.importHotwordAssets());
-        }
-
-        if (this.hotwordModelsTable) {
-            this.hotwordModelsTable.addEventListener('click', (event) => {
-                const btn = event.target;
-                if (btn && btn.matches('button.hotword-remove')) {
-                    const index = Number(btn.dataset.index);
-                    this.removeHotwordModel(index);
-                }
-                if (btn && btn.matches('input.hw-enabled')) {
-                    const index = Number(btn.dataset.index);
-                    this.toggleHotwordEnabled(index, btn.checked);
-                }
-            });
-        }
-
-        if (this.configHotwordEngine) {
-            this.addListener(this.configHotwordEngine, 'change', () => this.updateHotwordEngineView());
-        }
-
-        this.updateHotwordEngineView();
-
-        if (this.configAudioEngine) {
-            this.addListener(this.configAudioEngine, 'change', () => this.updateAudioEngineView());
-        }
-        this.updateAudioEngineView();
-    }
-
-    hotwordStart() {
-        try {
-            if (this.androidInterface?.hotwordStart) {
-                this.androidInterface.hotwordStart();
-                this.showConfigFeedback('Hotword: démarrage demandé.');
-            } else {
-                this.showConfigFeedback('Interface Android indisponible', true);
-            }
-        } catch (e) {
-            console.error('hotwordStart error', e);
-            this.showConfigFeedback('Erreur démarrage hotword', true);
-        }
-    }
-
-    hotwordStop() {
-        try {
-            if (this.androidInterface?.hotwordStop) {
-                this.androidInterface.hotwordStop();
-                this.showConfigFeedback('Hotword: arrêt demandé.');
-            } else {
-                this.showConfigFeedback('Interface Android indisponible', true);
-            }
-        } catch (e) {
-            console.error('hotwordStop error', e);
-            this.showConfigFeedback('Erreur arrêt hotword', true);
-        }
-    }
-
-    hotwordRestart() {
-        try {
-            if (this.androidInterface?.hotwordRestart) {
-                this.androidInterface.hotwordRestart();
-                this.showConfigFeedback('Hotword: redémarrage demandé.');
-            } else {
-                this.showConfigFeedback('Interface Android indisponible', true);
-            }
-        } catch (e) {
-            console.error('hotwordRestart error', e);
-            this.showConfigFeedback('Erreur redémarrage hotword', true);
-        }
-    }
-
-    initCustomSelects() {
-        this.customSelects = [
-            { select: this.configSelectedModel, custom: this.configSelectedModelCustom },
-            { select: this.configCloudProvider, custom: this.configCloudProviderCustom },
-            { select: this.configCloudModel, custom: this.configCloudModelCustom },
-            { select: this.configLocalModel, custom: this.configLocalModelCustom },
-            { select: this.configVisionModel, custom: this.configVisionModelCustom },
-            { select: this.configAudioModel, custom: this.configAudioModelCustom },
-            { select: this.configTtsVoice, custom: this.configTtsVoiceCustom }
-        ];
-
-        this.customSelects.forEach(({ select, custom }) => {
-            if (!select || !custom) return;
-            this.addListener(select, 'change', () => this.toggleCustomInput(select, custom));
-            this.toggleCustomInput(select, custom);
-        });
-    }
-
-    toggleCustomInput(select, customInput) {
-        if (!select || !customInput) return;
-        if (select.value === 'custom') {
-            customInput.classList.remove('hidden');
-        } else {
-            customInput.classList.add('hidden');
-        }
-    }
-
-    setSelectValue(select, customInput, value) {
-        if (!select) return;
-        const valueStr = value ?? '';
-        const option = Array.from(select.options || []).find(opt => opt.value === valueStr);
-        if (option || valueStr === '') {
-            select.value = valueStr;
-            if (customInput) {
-                customInput.classList.add('hidden');
-                if (select.value !== 'custom') {
-                    customInput.value = '';
-                }
-            }
-        } else {
-            select.value = 'custom';
-            if (customInput) {
-                customInput.classList.remove('hidden');
-                customInput.value = valueStr;
-            }
-        }
-    }
-
-    getSelectValue(select, customInput) {
-        if (!select) return '';
-        if (select.value === 'custom') {
-            return (customInput?.value || '').trim();
-        }
-        return select.value || '';
-    }
-
-    renderConfigForms() {
-        if (!this.aiConfigObject || !this.configModeSelect) return;
-        const cfg = this.aiConfigObject;
-        const hotword = cfg.hotword || {};
-
-        this.configModeSelect.value = cfg.mode || 'cloud';
-        this.setSelectValue(this.configSelectedModel, this.configSelectedModelCustom, cfg.selectedModel || '');
-
-        if (cfg.cloud) {
-            this.setSelectValue(this.configCloudProvider, this.configCloudProviderCustom, cfg.cloud.provider || '');
-            this.configCloudApiKey.value = cfg.cloud.apiKey || '';
-            this.setSelectValue(this.configCloudModel, this.configCloudModelCustom, cfg.cloud.selectedModel || cfg.selectedModel || '');
-        }
-
-        const local = cfg.local_server || cfg.localServer;
-        if (local) {
-            this.configLocalUrl.value = local.url || '';
-            this.setSelectValue(this.configLocalModel, this.configLocalModelCustom, local.model || '');
-        }
-
-        if (cfg.webSearch) {
-            this.configWebSearchEnabled.checked = !!cfg.webSearch.enabled;
-            this.configWebSearchProvider.value = cfg.webSearch.provider || '';
-        }
-
-        if (cfg.thinkingTrace) {
-            this.configThinkingEnabled.checked = !!cfg.thinkingTrace.enabled;
-            this.configThinkingLast.value = cfg.thinkingTrace.lastMessage || '';
-        }
-
-        if (cfg.vision) {
-            this.configVisionEnabled.checked = !!cfg.vision.enabled;
-            this.setSelectValue(this.configVisionModel, this.configVisionModelCustom, cfg.vision.preferredModel || '');
-        }
-
-        if (cfg.audio) {
-            this.configAudioEnabled.checked = !!cfg.audio.enabled;
-            if (this.configAudioEngine) {
-                this.configAudioEngine.value = cfg.audio.engine || 'whisper_server';
-            }
-            this.setSelectValue(this.configAudioModel, this.configAudioModelCustom, cfg.audio.preferredModel || '');
-            this.configAudioEndpoint.value = cfg.audio.endpoint || '';
-            this.configAudioTimeout.value = cfg.audio.captureTimeoutMs ?? '';
-            this.configAudioSilenceDb.value = cfg.audio.silenceThresholdDb ?? '';
-            this.configAudioSilenceMs.value = cfg.audio.silenceDurationMs ?? '';
-        }
-        this.updateAudioEngineView();
-
-        this.configHotwordEnabled.checked = !!hotword.enabled;
-        this.configHotwordEngine.value = hotword.engine || 'porcupine';
-        this.configHotwordAccessKey.value = hotword.accessKey || '';
-        if (this.configHotwordKeyword) {
-            this.configHotwordKeyword.value = hotword.keywordFile || 'hotwords/kit-kat_fr_android_v3_0_0.ppn';
-        }
-
-        this.hotwordModels = Array.isArray(hotword.models) ? [...hotword.models] : [];
-        this.renderHotwordModelsTable();
-        this.updateHotwordEngineView();
-
-        if (cfg.tts) {
-            this.configTtsMode.value = cfg.tts.mode || '';
-            this.setSelectValue(this.configTtsVoice, this.configTtsVoiceCustom, cfg.tts.voice || '');
-        }
-
-        if (cfg.systemPromptOverrides) {
-            this.configPromptKitt.value = cfg.systemPromptOverrides.kitt || '';
-            this.configPromptGlados.value = cfg.systemPromptOverrides.glados || '';
-            this.configPromptKarr.value = cfg.systemPromptOverrides.karr || '';
-        }
-
-        if (cfg.constraints) {
-            this.configMaxContext.value = cfg.constraints.maxContextTokens ?? '';
-            this.configMaxResponse.value = cfg.constraints.maxResponseTokens ?? '';
-        }
-    }
-
-    renderHotwordModelsTable() {
-        if (!this.hotwordModelsTable) return;
-        const models = this.hotwordModels || [];
-        this.hotwordModelsTable.innerHTML = '';
-
-        if (!models.length) {
-            const empty = document.createElement('tr');
-            empty.innerHTML = '<td colspan="5">Aucun modèle</td>';
-            this.hotwordModelsTable.appendChild(empty);
-            return;
-        }
-
-        models.forEach((model, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td style="text-align:center">
-                    <input type="checkbox" class="hw-enabled" data-index="${index}" ${model.enabled !== false ? 'checked' : ''}>
-                </td>
-                <td>${model.name || '-'}</td>
-                <td>${model.asset || model.file || '-'}</td>
-                <td>${model.threshold ?? 0.5}</td>
-                <td><button class="panel-button secondary hotword-remove" data-index="${index}">Supprimer</button></td>
-            `;
-            this.hotwordModelsTable.appendChild(row);
-        });
-    }
-
-    toggleHotwordEnabled(index, enabled) {
-        if (!this.hotwordModels || index < 0 || index >= this.hotwordModels.length) return;
-        this.hotwordModels[index].enabled = !!enabled;
-        this.showConfigFeedback(`Modèle '${this.hotwordModels[index].name}' ${enabled ? 'activé' : 'désactivé'} (non sauvegardé).`);
-    }
-
-    updateHotwordEngineView() {
-        const isPorcupine = (this.configHotwordEngine?.value === 'porcupine');
-        if (this.porcupineFields) {
-            this.porcupineFields.forEach(field => {
-                if (!field) return;
-                if (isPorcupine) {
-                    field.classList.remove('hidden');
-                } else {
-                    field.classList.add('hidden');
-                }
-            });
-        }
-    }
-
-    updateAudioEngineView() {
-        const engine = this.configAudioEngine?.value || 'whisper_server';
-        const whisperOnlyElements = document.querySelectorAll('.engine-whisper-only');
-        const legacyOnlyElements = document.querySelectorAll('.engine-legacy-only');
-
-        whisperOnlyElements.forEach(el => {
-            if (engine === 'whisper_server') {
-                el.classList.remove('hidden');
-            } else {
-                el.classList.add('hidden');
-            }
-        });
-
-        legacyOnlyElements.forEach(el => {
-            if (engine !== 'whisper_server') {
-                el.classList.remove('hidden');
-            } else {
-                el.classList.add('hidden');
-            }
-        });
-    }
-
-    handleAddHotwordModel() {
-        if (!this.hotwordModels) this.hotwordModels = [];
-        const name = (this.hotwordNewName?.value || '').trim();
-        const asset = (this.hotwordNewAsset?.value || '').trim();
-        const threshold = parseFloat(this.hotwordNewThreshold?.value || '0.5');
-
-        if (!name || !asset) {
-            this.showConfigFeedback('Veuillez remplir Nom et Asset.', true);
-            return;
-        }
-
-        this.hotwordModels.push({
-            name,
-            asset,
-            threshold: isNaN(threshold) ? 0.5 : threshold,
-            enabled: true
-        });
-        if (this.hotwordNewName) this.hotwordNewName.value = '';
-        if (this.hotwordNewAsset) this.hotwordNewAsset.value = '';
-        if (this.hotwordNewThreshold) this.hotwordNewThreshold.value = '';
-        this.renderHotwordModelsTable();
-        this.showConfigFeedback(`Modèle '${name}' ajouté (non sauvegardé).`);
-    }
-
-    removeHotwordModel(index) {
-        if (!this.hotwordModels || index < 0 || index >= this.hotwordModels.length) return;
-        const removed = this.hotwordModels.splice(index, 1);
-        this.renderHotwordModelsTable();
-        if (removed[0]) {
-            this.showConfigFeedback(`Modèle '${removed[0].name}' retiré (non sauvegardé).`);
-        }
-    }
-
-    async importHotwordAssets() {
-        try {
-            let payload = null;
-            if (this.androidInterface?.listHotwordAssets) {
-                const response = this.androidInterface.listHotwordAssets();
-                payload = typeof response === 'string' ? JSON.parse(response) : response;
-            } else {
-                const res = await fetch(this.getApiUrl('/api/hotword/assets'));
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}`);
-                }
-                payload = await res.json();
-            }
-
-            const assets = payload?.assets || [];
-            if (!assets.length) {
-                this.showConfigFeedback('Aucun modèle détecté dans assets.', true);
-                return;
-            }
-
-            if (!this.hotwordModels) this.hotwordModels = [];
-            const existing = new Set(this.hotwordModels.map(model => model.asset));
-            let added = 0;
-            assets.forEach(asset => {
-                if (!asset || !asset.asset || existing.has(asset.asset)) {
-                    return;
-                }
-                this.hotwordModels.push({
-                    name: asset.name || asset.asset,
-                    asset: asset.asset,
-                    threshold: asset.threshold ?? 0.55,
-                    enabled: true
-                });
-                existing.add(asset.asset);
-                added++;
-            });
-
-            this.renderHotwordModelsTable();
-            if (added > 0) {
-                this.showConfigFeedback(`${added} modèle(s) importé(s). Sauvegardez pour appliquer.`);
-            } else {
-                this.showConfigFeedback('Tous les modèles sont déjà dans la liste.');
-            }
-        } catch (error) {
-            console.error('importHotwordAssets error', error);
-            this.showConfigFeedback(`Erreur import: ${error.message}`, true);
-        }
-    }
-
-    showConfigFeedback(message, isError = false) {
-        if (!this.aiConfigFeedback) return;
-        this.aiConfigFeedback.textContent = message;
-        this.aiConfigFeedback.style.color = isError ? '#f87171' : '#94a3b8';
-    }
-
-    async saveConfigSection(section) {
-        if (!this.aiConfigObject) {
-            this.showConfigFeedback('Configuration non chargée', true);
-            return;
-        }
-        const cfg = this.aiConfigObject;
-
-        switch (section) {
-            case 'mode':
-                cfg.mode = this.configModeSelect.value || 'cloud';
-                cfg.selectedModel = this.getSelectValue(this.configSelectedModel, this.configSelectedModelCustom);
-                break;
-            case 'cloud':
-                cfg.cloud = cfg.cloud || {};
-                cfg.cloud.provider = this.getSelectValue(this.configCloudProvider, this.configCloudProviderCustom);
-                cfg.cloud.apiKey = this.configCloudApiKey.value || '';
-                cfg.cloud.selectedModel = this.getSelectValue(this.configCloudModel, this.configCloudModelCustom);
-                break;
-            case 'local':
-                cfg.local_server = cfg.local_server || {};
-                cfg.local_server.url = this.configLocalUrl.value || '';
-                cfg.local_server.model = this.getSelectValue(this.configLocalModel, this.configLocalModelCustom);
-                break;
-            case 'thinking':
-                cfg.webSearch = cfg.webSearch || {};
-                cfg.webSearch.enabled = this.configWebSearchEnabled.checked;
-                cfg.webSearch.provider = this.configWebSearchProvider.value || '';
-                cfg.thinkingTrace = cfg.thinkingTrace || {};
-                cfg.thinkingTrace.enabled = this.configThinkingEnabled.checked;
-                cfg.thinkingTrace.lastMessage = this.configThinkingLast.value || '';
-                break;
-            case 'sensors':
-                cfg.vision = cfg.vision || {};
-                cfg.vision.enabled = this.configVisionEnabled.checked;
-                cfg.vision.preferredModel = this.getSelectValue(this.configVisionModel, this.configVisionModelCustom);
-                cfg.audio = cfg.audio || {};
-                cfg.audio.enabled = this.configAudioEnabled.checked;
-                cfg.audio.engine = this.configAudioEngine?.value || 'whisper_server';
-                cfg.audio.preferredModel = this.getSelectValue(this.configAudioModel, this.configAudioModelCustom);
-                if (cfg.audio.engine === 'whisper_server') {
-                    cfg.audio.endpoint = this.configAudioEndpoint.value || 'http://127.0.0.1:11400/inference';
-                } else {
-                    cfg.audio.endpoint = '';
-                }
-                cfg.audio.captureTimeoutMs = parseInt(this.configAudioTimeout.value || '8000', 10);
-                cfg.audio.silenceThresholdDb = parseFloat(this.configAudioSilenceDb.value || '-45');
-                cfg.audio.silenceDurationMs = parseInt(this.configAudioSilenceMs.value || '1200', 10);
-                break;
-            case 'hotword':
-                cfg.hotword = cfg.hotword || {};
-                cfg.hotword.enabled = this.configHotwordEnabled.checked;
-                cfg.hotword.engine = this.configHotwordEngine.value || 'openwakeword';
-                cfg.hotword.accessKey = this.configHotwordAccessKey.value || '';
-                if (this.configHotwordKeyword) {
-                    cfg.hotword.keywordFile = this.configHotwordKeyword.value || 'hotwords/kit-kat_fr_android_v3_0_0.ppn';
-                }
-                cfg.hotword.models = this.hotwordModels || [];
-                break;
-            case 'tts':
-                cfg.tts = cfg.tts || {};
-                cfg.tts.mode = this.configTtsMode.value || '';
-                cfg.tts.voice = this.getSelectValue(this.configTtsVoice, this.configTtsVoiceCustom);
-                break;
-            case 'prompts':
-                cfg.systemPromptOverrides = cfg.systemPromptOverrides || {};
-                cfg.systemPromptOverrides.kitt = this.configPromptKitt.value || '';
-                cfg.systemPromptOverrides.glados = this.configPromptGlados.value || '';
-                cfg.systemPromptOverrides.karr = this.configPromptKarr.value || '';
-                break;
-            case 'constraints':
-                cfg.constraints = cfg.constraints || {};
-                cfg.constraints.maxContextTokens = parseInt(this.configMaxContext.value || '8192', 10);
-                cfg.constraints.maxResponseTokens = parseInt(this.configMaxResponse.value || '2048', 10);
-                break;
-            default:
-                this.showConfigFeedback('Section inconnue', true);
-                return;
-        }
-
-        await this.persistAiConfig('Section sauvegardée');
-    }
-
-    async persistAiConfig(successMessage = 'Configuration sauvegardée') {
-        try {
-            const content = JSON.stringify(this.aiConfigObject, null, 2);
-            const result = await this.pushAiConfigContent(content);
-            if (result === true || result === 'OK') {
-                this.aiConfigCache = content;
-                this.renderAiConfigPreview();
-                this.showConfigFeedback(successMessage, false);
-            } else {
-                this.showConfigFeedback(result || 'Erreur de sauvegarde', true);
-            }
-        } catch (error) {
-            console.error('persistAiConfig error', error);
-            this.showConfigFeedback(error.message, true);
-        }
-    }
-
-    renderAiConfigPreview() {
-        if (!this.aiConfigPreview) return;
-        if (this.aiConfigObject) {
-            this.aiConfigPreview.textContent = JSON.stringify(this.aiConfigObject, null, 2);
-        } else if (this.aiConfigCache) {
-            this.aiConfigPreview.textContent = this.aiConfigCache;
-        } else {
-            this.aiConfigPreview.textContent = 'Aucune configuration chargée.';
-        }
-    }
-
-    async pushAiConfigContent(content) {
-        if (this.androidInterface?.writeAiConfigJson) {
-            try {
-                return this.androidInterface.writeAiConfigJson(content);
-            } catch (error) {
-                return `Erreur Android: ${error.message}`;
-            }
-        }
-
-        try {
-            const response = await fetch(this.getApiUrl('/api/config/ai'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content })
-            });
-            if (!response.ok) {
-                return `HTTP ${response.status}`;
-            }
-            const data = await response.json();
-            return data?.status === 'ok' ? true : (data?.message || 'Erreur inconnue');
-        } catch (error) {
-            console.error('pushAiConfigContent', error);
-            return error.message;
         }
     }
 
@@ -1078,10 +441,10 @@ class SecureMobileAIChat {
             this.isRecording = false;
         } else {
             try {
-            this.recognition.lang = this.language === 'fr' ? 'fr-FR' : 'en-US';
-            this.recognition.start();
+                this.recognition.lang = this.language === 'fr' ? 'fr-FR' : 'en-US';
+                this.recognition.start();
                 this.voiceBtn?.classList.add('recording');
-            this.isRecording = true;
+                this.isRecording = true;
             } catch (error) {
                 console.error('Erreur démarrage reconnaissance:', error);
                 this.showSecureMessage('ai', 'Impossible de démarrer la reconnaissance vocale.');
@@ -1193,9 +556,9 @@ class SecureMobileAIChat {
             }
             // Fallback API
             else {
-            const enhancedMessage = this.enhanceMessageWithPersonality(message);
-            const response = await this.queryHuggingFaceSecure(enhancedMessage);
-            this.showSecureMessage('ai', response);
+                const enhancedMessage = this.enhanceMessageWithPersonality(message);
+                const response = await this.queryHuggingFaceSecure(enhancedMessage);
+                this.showSecureMessage('ai', response);
             }
         } catch (error) {
             console.error('Erreur traitement message:', error);
@@ -1262,17 +625,17 @@ class SecureMobileAIChat {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-            inputs: message,
-            parameters: {
-                max_length: 150,
-                temperature: 0.8,
-                top_p: 0.9,
-                do_sample: true
-            }
+                    inputs: message,
+                    parameters: {
+                        max_length: 150,
+                        temperature: 0.8,
+                        top_p: 0.9,
+                        do_sample: true
+                    }
                 })
-        });
+            });
 
-        if (!response.ok) {
+            if (!response.ok) {
                 if (response.status === 503 && retryCount < maxRetries) {
                     // Retry avec backoff exponentiel
                     const delay = Math.pow(2, retryCount) * 1000;
@@ -1280,13 +643,13 @@ class SecureMobileAIChat {
                     return this.queryHuggingFaceSecure(message, retryCount + 1);
                 }
                 throw new Error(`Erreur API: ${response.status}`);
-        }
+            }
 
-        const data = await response.json();
-        
-        if (data.error) {
-            throw new Error(data.error);
-        }
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
 
             let botResponse = Array.isArray(data) && data[0] 
                 ? data[0].generated_text 
@@ -1300,9 +663,9 @@ class SecureMobileAIChat {
             
             if (botResponse.length === 0) {
                 return this.getDefaultResponse();
-        }
+            }
 
-        return this.sanitizeInput(botResponse);
+            return this.sanitizeInput(botResponse);
         } catch (error) {
             if (retryCount < maxRetries) {
                 const delay = Math.pow(2, retryCount) * 1000;
@@ -1527,8 +890,8 @@ class SecureMobileAIChat {
      */
     showTypingIndicator() {
         if (this.typingIndicator) {
-        this.typingIndicator.style.display = 'block';
-        this.scrollToBottom();
+            this.typingIndicator.style.display = 'block';
+            this.scrollToBottom();
         }
     }
 
@@ -1537,7 +900,7 @@ class SecureMobileAIChat {
      */
     hideTypingIndicator() {
         if (this.typingIndicator) {
-        this.typingIndicator.style.display = 'none';
+            this.typingIndicator.style.display = 'none';
         }
     }
 
@@ -1594,8 +957,8 @@ class SecureMobileAIChat {
         imageDiv.appendChild(bubble);
         
         if (this.chatMessages) {
-        this.chatMessages.appendChild(imageDiv);
-        this.scrollToBottom();
+            this.chatMessages.appendChild(imageDiv);
+            this.scrollToBottom();
         }
         
         this.analyzeImage(imageBase64);
@@ -1665,7 +1028,7 @@ class SecureMobileAIChat {
         this.showSecureMessage('ai', message);
         console.log('✅ Réponse IA affichée:', message);
     }
-    
+
     /**
      * Configuration de la navigation
      */
@@ -1752,18 +1115,19 @@ class SecureMobileAIChat {
             }
 
             this.aiConfigCache = content || '';
-            if (content && content.trim().length > 0) {
-                try {
-                    this.aiConfigObject = JSON.parse(content);
-                    this.renderConfigForms();
-                } catch (parseError) {
-                    console.warn('JSON invalide détecté, affichage brut.', parseError);
-                    this.aiConfigObject = null;
-                }
-            } else {
-                this.aiConfigObject = null;
+
+            if (!content || content.trim().length === 0) {
+                this.aiConfigPreview.textContent = 'Fichier vide ou introuvable. Utilisez "Modifier JSON" pour le créer.';
+                return;
             }
-            this.renderAiConfigPreview();
+
+            try {
+                const parsed = JSON.parse(content);
+                this.aiConfigPreview.textContent = JSON.stringify(parsed, null, 2);
+            } catch (parseError) {
+                console.warn('JSON invalide détecté, affichage brut.', parseError);
+                this.aiConfigPreview.textContent = content;
+            }
         } catch (error) {
             console.error('Erreur lecture ai_config.json', error);
             this.aiConfigPreview.textContent = `Erreur lecture ai_config: ${error.message}`;
@@ -1811,7 +1175,7 @@ class SecureMobileAIChat {
         
         // Validation JSON
         try {
-            this.aiConfigObject = JSON.parse(content);
+            JSON.parse(content);
         } catch (error) {
             if (this.aiConfigFeedback) {
                 this.aiConfigFeedback.textContent = `JSON invalide: ${error.message}`;
@@ -1819,19 +1183,71 @@ class SecureMobileAIChat {
             }
             return;
         }
-        const result = await this.pushAiConfigContent(content);
-        if (result === true || result === 'OK') {
-            this.aiConfigCache = content;
-            this.renderConfigForms();
-            this.renderAiConfigPreview();
-            if (this.aiConfigFeedback) {
-                this.aiConfigFeedback.textContent = 'Configuration sauvegardée avec succès.';
-                this.aiConfigFeedback.style.color = '#4ade80';
+
+        // Sauvegarde via Android
+        if (this.androidInterface?.writeAiConfigJson) {
+            try {
+                const result = this.androidInterface.writeAiConfigJson(content);
+                if (result === 'OK') {
+                    this.aiConfigCache = content;
+                    await this.loadAiConfigPreview(true);
+                    if (this.aiConfigFeedback) {
+                        this.aiConfigFeedback.textContent = 'Configuration sauvegardée avec succès.';
+                        this.aiConfigFeedback.style.color = '#4ade80';
+                    }
+                    setTimeout(() => this.closeAiConfigEditor(), 500);
+                } else if (this.aiConfigFeedback) {
+                    this.aiConfigFeedback.textContent = result || 'Erreur inconnue lors de la sauvegarde.';
+                    this.aiConfigFeedback.style.color = '#f87171';
+                }
+            } catch (error) {
+                console.error('Erreur sauvegarde ai_config.json', error);
+                if (this.aiConfigFeedback) {
+                    this.aiConfigFeedback.textContent = `Erreur: ${error.message}`;
+                    this.aiConfigFeedback.style.color = '#f87171';
+                }
             }
-            setTimeout(() => this.closeAiConfigEditor(), 500);
-        } else if (this.aiConfigFeedback) {
-            this.aiConfigFeedback.textContent = result || 'Erreur inconnue lors de la sauvegarde.';
-            this.aiConfigFeedback.style.color = '#f87171';
+            return;
+        }
+
+        // Sauvegarde via HTTP
+        try {
+            const response = await fetch(this.getApiUrl('/api/config/ai'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ content }),
+            });
+
+            const text = await response.text();
+            let data = null;
+            try {
+                data = JSON.parse(text);
+            } catch (parseError) {
+                console.warn('Réponse non JSON lors de la sauvegarde du fichier', parseError);
+            }
+
+            if (response.ok && data?.status === 'ok') {
+                this.aiConfigCache = content;
+                await this.loadAiConfigPreview(true);
+                if (this.aiConfigFeedback) {
+                    this.aiConfigFeedback.textContent = 'Configuration sauvegardée avec succès.';
+                    this.aiConfigFeedback.style.color = '#4ade80';
+                }
+                setTimeout(() => this.closeAiConfigEditor(), 500);
+            } else if (this.aiConfigFeedback) {
+                const fallbackMessage = text && !text.trim().startsWith('<') ? text : `HTTP ${response.status}`;
+                const message = data?.message || fallbackMessage;
+                this.aiConfigFeedback.textContent = message;
+                this.aiConfigFeedback.style.color = '#f87171';
+            }
+        } catch (error) {
+            console.error('Erreur sauvegarde ai_config.json (HTTP)', error);
+            if (this.aiConfigFeedback) {
+                this.aiConfigFeedback.textContent = `Erreur: ${error.message}`;
+                this.aiConfigFeedback.style.color = '#f87171';
+            }
         }
     }
 
@@ -1959,8 +1375,8 @@ class SecureMobileAIChat {
         messageDiv.appendChild(bubble);
         
         if (this.chatMessages) {
-        this.chatMessages.appendChild(messageDiv);
-        this.scrollToBottom();
+            this.chatMessages.appendChild(messageDiv);
+            this.scrollToBottom();
         }
         
         this.saveConversationToApp();
@@ -2028,7 +1444,7 @@ class SecureMobileAIChat {
             messageDiv.appendChild(bubble);
             
             if (this.chatMessages) {
-            this.chatMessages.appendChild(messageDiv);
+                this.chatMessages.appendChild(messageDiv);
             }
         }
         

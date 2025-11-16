@@ -59,5 +59,8 @@ dependencies {
 
     // Kotlin stdlib
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+
+    // Kotlinx datetime (évite le fallback ThreeTen dans ce module)
+    implementation "org.jetbrains.kotlinx:kotlinx-datetime:0.6.0"
 }
 

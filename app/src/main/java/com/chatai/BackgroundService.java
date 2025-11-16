@@ -22,6 +22,11 @@ public class BackgroundService extends Service {
     private static final String TAG = "BackgroundService";
     private static final int NOTIFICATION_ID = 1;
     private static final String CHANNEL_ID = "ChatAI_Background_Service";
+    // Actions pour contrôle via Intent
+    public static final String ACTION_HOTWORD_START = "com.chatai.action.HOTWORD_START";
+    public static final String ACTION_HOTWORD_STOP = "com.chatai.action.HOTWORD_STOP";
+    public static final String ACTION_HOTWORD_RESTART = "com.chatai.action.HOTWORD_RESTART";
+    public static final String ACTION_SERVERS_RESTART = "com.chatai.action.SERVERS_RESTART";
     
     private final IBinder binder = new LocalBinder();
     private boolean isRunning = false;
@@ -32,6 +37,9 @@ public class BackgroundService extends Service {
     private FileServer fileServer;
     private RealtimeAIService aiService;
     private WebServer webServer;
+    
+    // Hotword Detection (Porcupine)
+    private com.chatai.hotword.HotwordDetectionManager hotwordManager;
     
     public class LocalBinder extends Binder {
         public BackgroundService getService() {
@@ -53,10 +61,34 @@ public class BackgroundService extends Service {
         // Créer la notification
         Notification notification = createNotification();
         startForeground(NOTIFICATION_ID, notification);
-        
-        // Démarrer les serveurs
-        startServers();
-        
+
+        // Gestion des actions explicites
+        if (intent != null && intent.getAction() != null) {
+            String action = intent.getAction();
+            Log.i(TAG, "Action reçue: " + action);
+            switch (action) {
+                case ACTION_HOTWORD_START:
+                    startHotword();
+                    break;
+                case ACTION_HOTWORD_STOP:
+                    stopHotword();
+                    break;
+                case ACTION_HOTWORD_RESTART:
+                    restartHotword();
+                    break;
+                case ACTION_SERVERS_RESTART:
+                    restartServers();
+                    break;
+                default:
+                    // Démarrage normal des serveurs
+                    startServers();
+                    break;
+            }
+        } else {
+            // Démarrage normal des serveurs
+            startServers();
+        }
+
         isRunning = true;
         return START_STICKY;
     }
@@ -144,6 +176,14 @@ public class BackgroundService extends Service {
             fileServer.start();
             webServer.start();
             
+            // Démarrer Hotword Detection (Porcupine)
+            hotwordManager = new com.chatai.hotword.HotwordDetectionManager(this);
+            hotwordManager.setStateListener(newState -> {
+                Log.i(TAG, "Hotword state changed: " + newState);
+            });
+            hotwordManager.start();
+            Log.i(TAG, "Hotword service started");
+            
             Log.i(TAG, "Tous les serveurs démarrés avec succès");
             
         } catch (Exception e) {
@@ -170,6 +210,10 @@ public class BackgroundService extends Service {
             if (aiService != null) {
                 // aiService.shutdown(); // Méthode non disponible
             }
+            if (hotwordManager != null) {
+                hotwordManager.stop();
+                hotwordManager = null;
+            }
             
             Log.i(TAG, "Tous les serveurs arrêtés");
             
@@ -182,6 +226,42 @@ public class BackgroundService extends Service {
         Log.i(TAG, "Redémarrage des serveurs...");
         stopServers();
         startServers();
+    }
+
+    private void startHotword() {
+        try {
+            if (hotwordManager == null) {
+                hotwordManager = new com.chatai.hotword.HotwordDetectionManager(this);
+                hotwordManager.setStateListener(newState -> Log.i(TAG, "Hotword state changed: " + newState));
+            }
+            hotwordManager.start();
+            Log.i(TAG, "Hotword START demandé");
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur startHotword", e);
+        }
+    }
+
+    private void stopHotword() {
+        try {
+            if (hotwordManager != null) {
+                hotwordManager.stop();
+                Log.i(TAG, "Hotword STOP demandé");
+            } else {
+                Log.w(TAG, "stopHotword: manager nul");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur stopHotword", e);
+        }
+    }
+
+    private void restartHotword() {
+        try {
+            stopHotword();
+            startHotword();
+            Log.i(TAG, "Hotword RESTART demandé");
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur restartHotword", e);
+        }
     }
     
     public boolean areServersRunning() {

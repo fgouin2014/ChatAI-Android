@@ -92,6 +92,14 @@ dependencies {
     // Apache Commons Compress pour extraction .7z (comme Lemuroid)
     implementation 'org.apache.commons:commons-compress:1.25.0'
     implementation 'org.tukaani:xz:1.9'  // Dépendance pour .7z
+
+    // TensorFlow Lite pour openWakeWord (versions plus tolérantes pour modèles OWW)
+    implementation 'org.tensorflow:tensorflow-lite:2.12.0'
+    implementation 'org.tensorflow:tensorflow-lite-support:0.4.4'
+    implementation 'org.tensorflow:tensorflow-lite-select-tf-ops:2.12.0'
+    
+    // Kotlinx datetime (corrige NoClassDefFoundError: kotlinx.datetime.TimeZone)
+    implementation "org.jetbrains.kotlinx:kotlinx-datetime:0.6.0"
     
     // === JETPACK COMPOSE (pour ComposeEmulatorActivity expérimentale) ===
     implementation platform('androidx.compose:compose-bom:2024.02.02')
@@ -115,4 +123,8 @@ dependencies {
     // Dépendances supplémentaires pour lemuroid-touchinput
     implementation 'io.github.swordfish90:padkit:1.0.0-beta1'
     implementation 'com.fredporciuncula:flow-preferences:1.8.0'
+    
+    // === PORCUPINE HOTWORD DETECTION ===
+    // Porcupine Android SDK
+    implementation 'ai.picovoice:porcupine-android:3.0.0'
 }

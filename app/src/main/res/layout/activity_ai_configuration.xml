@@ -803,6 +803,25 @@
                 android:layout_marginBottom="16dp" />
                 
             <!-- ═══════════════════════════════════════════════════════════ -->
+            <!-- 📝 ÉDITEUR JSON (ACCÈS DIRECT AU FICHIER)                    -->
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/editJsonButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📝 Modifier ai_config.json"
+                android:textSize="12sp"
+                app:backgroundTint="@color/kitt_dark_red"
+                app:cornerRadius="8dp"
+                app:strokeColor="@color/kitt_red"
+                app:strokeWidth="2dp"
+                android:textColor="@color/kitt_red"
+                android:fontFamily="monospace"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp" />
+            
+            <!-- ═══════════════════════════════════════════════════════════ -->
             <!-- 💾 SAUVEGARDE (À LA FIN POUR CLARTÉ)                        -->
             <!-- ═══════════════════════════════════════════════════════════ -->
             
@@ -862,6 +881,103 @@
             </LinearLayout>
 
         </LinearLayout>
+
+        <!-- Section: Services (Hotword / Serveurs) -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/kitt_black"
+            app:cardCornerRadius="12dp"
+            app:strokeColor="@color/kitt_red"
+            app:strokeWidth="2dp"
+            android:layout_marginTop="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🛠️ SERVICES (Hotword / Serveurs)"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="14sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnHotwordStart"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="▶ Hotword START"
+                        android:textSize="10sp"
+                        app:backgroundTint="@color/kitt_red_dark"
+                        app:cornerRadius="8dp"
+                        app:strokeColor="@color/kitt_red"
+                        app:strokeWidth="1dp"
+                        android:textColor="@color/kitt_red" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnHotwordStop"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="⏹ Hotword STOP"
+                        android:textSize="10sp"
+                        app:backgroundTint="@color/dark_gray_medium"
+                        app:cornerRadius="8dp"
+                        app:strokeColor="@color/dark_gray_light"
+                        app:strokeWidth="1dp"
+                        android:textColor="@color/dark_white"
+                        android:layout_marginStart="8dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnHotwordRestart"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="🔄 Hotword RESTART"
+                        android:textSize="10sp"
+                        app:backgroundTint="@color/amber_primary"
+                        app:cornerRadius="8dp"
+                        app:strokeColor="@color/amber_primary"
+                        app:strokeWidth="1dp"
+                        android:textColor="@color/amber_on_surface" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnServersRestart"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="🔁 RESTART SERVERS"
+                        android:textSize="10sp"
+                        app:backgroundTint="@color/kitt_dark_red"
+                        app:cornerRadius="8dp"
+                        app:strokeColor="@color/kitt_red"
+                        app:strokeWidth="1dp"
+                        android:textColor="@color/kitt_red"
+                        android:layout_marginStart="8dp" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 

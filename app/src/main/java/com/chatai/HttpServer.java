@@ -18,6 +18,12 @@ import java.util.concurrent.Executors;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import com.chatai.hotword.HotwordAssetProvider;
+
 /**
  * Serveur HTTP local pour les plugins et API
  * Gère les requêtes HTTP pour les fonctionnalités étendues
@@ -263,6 +269,12 @@ public class HttpServer {
         else if (cleanPath.equals("/api/plugins")) {
             return createApiResponse("{\"plugins\":[\"translator\",\"calculator\",\"weather\",\"camera\",\"files\",\"jokes\",\"tips\"]}");
         }
+        else if (cleanPath.equals("/api/hotword/assets")) {
+            return handleHotwordAssetsRequest();
+        }
+        else if (cleanPath.equals("/api/config/ai")) {
+            return handleAiConfigGet();
+        }
         else if (cleanPath.startsWith("/api/weather/")) {
             String city = cleanPath.substring("/api/weather/".length());
             return handleWeatherRequest(city);
@@ -372,6 +384,9 @@ public class HttpServer {
         else if (cleanPath.equals("/api/files/storage/change")) {
             return handleChangeStorage(body);
         }
+        else if (cleanPath.equals("/api/config/ai")) {
+            return handleAiConfigPost(body);
+        }
         // Pour les sites utilisateur, traiter comme GET
         else if (cleanPath.startsWith("/sites/")) {
             String sitePath = cleanPath.substring("/sites/".length());
@@ -388,6 +403,18 @@ public class HttpServer {
     
     // ========== HANDLERS API ==========
     
+    private String handleHotwordAssetsRequest() {
+        try {
+            JSONArray assets = HotwordAssetProvider.listAssets(context);
+            JSONObject payload = new JSONObject();
+            payload.put("assets", assets);
+            return createApiResponse(payload.toString());
+        } catch (Exception e) {
+            Log.e(TAG, "Error listing hotword assets", e);
+            return createHttpErrorResponse(500, "Error listing hotword assets");
+        }
+    }
+
     private String handleWeatherRequest(String city) {
         try {
             String safeCity = SecurityUtils.sanitizeInput(city);
@@ -831,6 +858,63 @@ public class HttpServer {
         } catch (Exception e) {
             Log.e(TAG, "Erreur changement stockage", e);
             return createHttpErrorResponse(500, "Error changing storage");
+        }
+    }
+
+    private String handleAiConfigGet() {
+        try {
+            String configText = AiConfigManager.readConfigJson(context);
+            long updatedAt = System.currentTimeMillis();
+            try {
+                JSONObject parsed = new JSONObject(configText);
+                updatedAt = parsed.optLong("updatedAt", updatedAt);
+            } catch (JSONException ignored) {}
+
+            JSONObject response = new JSONObject();
+            response.put("status", "ok");
+            response.put("content", configText);
+            response.put("updatedAt", updatedAt);
+
+            return createApiResponse(response.toString());
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling AI config GET", e);
+            return createHttpErrorResponse(500, "AI config error: " + e.getMessage());
+        }
+    }
+
+    private String handleAiConfigPost(String body) {
+        try {
+            if (body == null || body.trim().isEmpty()) {
+                return createHttpErrorResponse(400, "Empty body");
+            }
+
+            JSONObject request = new JSONObject(body);
+            String content;
+
+            if (request.has("content")) {
+                Object contentNode = request.get("content");
+                if (contentNode instanceof JSONObject) {
+                    content = ((JSONObject) contentNode).toString();
+                } else {
+                    content = request.getString("content");
+                }
+            } else {
+                content = request.toString();
+            }
+
+            AiConfigManager.writeConfigJson(context, content);
+
+            JSONObject response = new JSONObject();
+            response.put("status", "ok");
+            response.put("updatedAt", System.currentTimeMillis());
+
+            return createApiResponse(response.toString());
+        } catch (JSONException e) {
+            Log.e(TAG, "Invalid AI config payload", e);
+            return createHttpErrorResponse(400, "JSON error: " + e.getMessage());
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving AI config", e);
+            return createHttpErrorResponse(500, "AI config save error: " + e.getMessage());
         }
     }
     

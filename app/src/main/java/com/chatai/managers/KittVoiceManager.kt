@@ -6,6 +6,8 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import com.chatai.audio.AudioEngineConfig
+import com.chatai.audio.WhisperServerRecognizer
 import java.util.*
 
 /**
@@ -58,12 +60,15 @@ class KittVoiceManager(
     
     private var speechRecognizer: SpeechRecognizer? = null
     private var vuMeterRecognizer: SpeechRecognizer? = null  // ⚠️ LISTENER SÉPARÉ - ESSENTIEL
+    private var whisperRecognizer: WhisperServerRecognizer? = null
     var isListening = false
         private set
     var isMicrophoneListening = false
         private set
     var currentMicrophoneLevel = -30f
         private set
+    private var audioEngineConfig: AudioEngineConfig = AudioEngineConfig.fromContext(context)
+    private var useWhisperServer: Boolean = audioEngineConfig.engine == AudioEngineConfig.DEFAULT_ENGINE
     
     // ════════════════════════════════════════════════════════════════════════
     // LISTENER VU-METER (COPIÉ DE V1)
@@ -172,9 +177,10 @@ class KittVoiceManager(
      */
     fun setupVoiceInterface() {
         android.util.Log.d(TAG, "🎤 setupVoiceInterface() called")
+        refreshAudioEngine()
         
         // Initialiser SpeechRecognizer pour la reconnaissance vocale
-        if (speechRecognizer == null) {
+        if (!useWhisperServer && speechRecognizer == null) {
             try {
                 speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
                 speechRecognizer?.setRecognitionListener(recognitionListener)
@@ -185,7 +191,7 @@ class KittVoiceManager(
         }
         
         // ⚠️ Initialiser SpeechRecognizer séparé pour le VU-meter
-        if (vuMeterRecognizer == null) {
+        if (!useWhisperServer && vuMeterRecognizer == null) {
             try {
                 vuMeterRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
                 vuMeterRecognizer?.setRecognitionListener(vuMeterListener)
@@ -195,7 +201,38 @@ class KittVoiceManager(
             }
         }
         
-        android.util.Log.d(TAG, "✅ Voice interface setup complete - speechRecognizer=${speechRecognizer != null}, vuMeterRecognizer=${vuMeterRecognizer != null}")
+        if (useWhisperServer) {
+            whisperRecognizer = WhisperServerRecognizer(audioEngineConfig, object : WhisperServerRecognizer.Callback {
+                override fun onReady() {
+                    listener.onVoiceRecognitionReady()
+                }
+
+                override fun onSpeechStart() {
+                    listener.onVoiceRecognitionStart()
+                }
+
+                override fun onRmsChanged(rmsDb: Float) {
+                    currentMicrophoneLevel = rmsDb
+                    listener.onVoiceRmsChanged(rmsDb)
+                }
+
+                override fun onResult(text: String) {
+                    isListening = false
+                    listener.onVoiceRecognitionResults(text)
+                }
+
+                override fun onError(message: String) {
+                    android.util.Log.e(TAG, "WhisperServerRecognizer error: $message")
+                    isListening = false
+                    listener.onVoiceRecognitionError(-997)
+                }
+            })
+        }
+
+        android.util.Log.d(
+            TAG,
+            "✅ Voice interface setup complete - speechRecognizer=${speechRecognizer != null}, useWhisper=$useWhisperServer"
+        )
     }
     
     /**
@@ -228,7 +265,17 @@ class KittVoiceManager(
             android.util.Log.w(TAG, "⚠️ Voice recognition already active")
             return
         }
-        
+
+        refreshAudioEngine()
+        if (useWhisperServer) {
+            if (whisperRecognizer == null) {
+                setupVoiceInterface()
+            }
+            whisperRecognizer?.startListening()
+            isListening = true
+            return
+        }
+
         if (speechRecognizer == null) {
             android.util.Log.e(TAG, "❌ SpeechRecognizer is NULL! Cannot start recognition.")
             listener.onVoiceRecognitionError(-998)
@@ -258,6 +305,12 @@ class KittVoiceManager(
      * ⚠️ COPIÉ À 100% DE V1 - NE PAS MODIFIER
      */
     fun stopVoiceRecognition() {
+        if (useWhisperServer) {
+            whisperRecognizer?.stopListening()
+            isListening = false
+            android.util.Log.d(TAG, "🛑 Whisper server recognition stopped")
+            return
+        }
         speechRecognizer?.stopListening()
         isListening = false
         android.util.Log.d(TAG, "🛑 Voice recognition stopped")
@@ -276,6 +329,10 @@ class KittVoiceManager(
      * ⚠️⚠️⚠️ COPIÉ À 100% DE V1 - NE PAS MODIFIER ⚠️⚠️⚠️
      */
     fun startMicrophoneListening() {
+        if (useWhisperServer) {
+            // Le nouveau moteur fournit déjà des RMS via callback
+            return
+        }
         if (isMicrophoneListening) return
         
         isMicrophoneListening = true
@@ -303,8 +360,11 @@ class KittVoiceManager(
      * ⚠️ COPIÉ À 100% DE V1 - NE PAS MODIFIER
      */
     fun stopMicrophoneListening() {
+        if (useWhisperServer) {
+            isMicrophoneListening = false
+            return
+        }
         isMicrophoneListening = false
-        // ⚠️ Utiliser le SpeechRecognizer séparé pour le VU-meter
         vuMeterRecognizer?.stopListening()
         android.util.Log.d(TAG, "🛑 Microphone listening stopped")
     }
@@ -323,7 +383,9 @@ class KittVoiceManager(
         
         speechRecognizer?.destroy()
         vuMeterRecognizer?.destroy()
-        
+        whisperRecognizer?.stopListening()
+        whisperRecognizer = null
+
         speechRecognizer = null
         vuMeterRecognizer = null
         
@@ -331,5 +393,14 @@ class KittVoiceManager(
         isMicrophoneListening = false
         
         android.util.Log.i(TAG, "🛑 KittVoiceManager destroyed")
+    }
+
+    private fun refreshAudioEngine() {
+        audioEngineConfig = AudioEngineConfig.fromContext(context)
+        useWhisperServer = audioEngineConfig.engine.equals("whisper_server", ignoreCase = true)
+        if (!useWhisperServer) {
+            whisperRecognizer?.stopListening()
+            whisperRecognizer = null
+        }
     }
 }

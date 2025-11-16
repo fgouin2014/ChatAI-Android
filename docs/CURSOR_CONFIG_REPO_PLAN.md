@@ -299,7 +299,7 @@ git init
 # Créer structure
 git add .
 git commit -m "feat: Initial Cursor config repo"
-git remote add origin https://github.com/<user>/cursor-config.git
+git remote add origin https://github.com/<user>/mcursor-config.git
 git push -u origin main
 ```
 

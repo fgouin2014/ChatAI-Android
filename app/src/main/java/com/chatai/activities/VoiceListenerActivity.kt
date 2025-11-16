@@ -1,6 +1,7 @@
 package com.chatai.activities
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -13,10 +14,11 @@ import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import android.view.WindowManager
 import android.widget.TextView
-import android.app.Activity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.chatai.R
+import com.chatai.audio.AudioEngineConfig
+import com.chatai.audio.WhisperServerRecognizer
 import com.chatai.services.KittAIService
 import com.chatai.services.KittActionCallback
 import kotlinx.coroutines.*
@@ -47,6 +49,9 @@ class VoiceListenerActivity : Activity(), RecognitionListener, TextToSpeech.OnIn
     // Voice Recognition
     private var speechRecognizer: SpeechRecognizer? = null
     private var isListening = false
+    private var useWhisperServer = false
+    private var audioEngineConfig: AudioEngineConfig? = null
+    private var whisperRecognizer: WhisperServerRecognizer? = null
     
     // Animations
     private var scannerAnimation: Runnable? = null
@@ -124,14 +129,53 @@ class VoiceListenerActivity : Activity(), RecognitionListener, TextToSpeech.OnIn
         val sharedPrefs = getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
         val personality = sharedPrefs.getString("selected_personality", "KITT") ?: "KITT"
         kittAIService = KittAIService(this, personality, "vocal", actionCallback = this)
+
+        audioEngineConfig = AudioEngineConfig.fromContext(this)
+        useWhisperServer = audioEngineConfig?.engine?.equals("whisper_server", ignoreCase = true) == true
+        if (useWhisperServer) {
+            whisperRecognizer = WhisperServerRecognizer(audioEngineConfig!!, object : WhisperServerRecognizer.Callback {
+                override fun onReady() {
+                    runOnUiThread {
+                        showListeningState()
+                        statusText.text = "🎤 Parlez maintenant!"
+                    }
+                }
+
+                override fun onSpeechStart() {
+                    runOnUiThread {
+                        statusText.text = "🗣️ Écoute en cours..."
+                    }
+                }
+
+                override fun onRmsChanged(rmsDb: Float) {
+                    // Pas de VU-meter dédié ici mais on peut animer plus tard
+                }
+
+                override fun onResult(text: String) {
+                    isListening = false
+                    runOnUiThread {
+                        statusText.text = "💭 KITT réfléchit..."
+                    }
+                    processVoiceCommand(text)
+                }
+
+                override fun onError(message: String) {
+                    isListening = false
+                    Log.e(TAG, "WhisperServerRecognizer error: $message")
+                    runOnUiThread {
+                        statusText.text = "Erreur STT"
+                        finishAfterDelay(2000)
+                    }
+                }
+            })
+        }
         
         // Timeout de sécurité - fermer après 15 secondes maximum
         startSafetyTimeout()
         
         // Vérifier permissions et démarrer
         if (checkAudioPermission()) {
-            initializeSpeechRecognizer()
-            startListening()
+            startEngineListening()
         } else {
             requestAudioPermission()
         }
@@ -173,6 +217,17 @@ class VoiceListenerActivity : Activity(), RecognitionListener, TextToSpeech.OnIn
             REQUEST_RECORD_AUDIO
         )
     }
+
+    private fun startEngineListening() {
+        if (useWhisperServer) {
+            statusText.text = "Initialisation Whisper..."
+            isListening = true
+            whisperRecognizer?.startListening()
+        } else {
+            initializeSpeechRecognizer()
+            startListening()
+        }
+    }
     
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -183,8 +238,7 @@ class VoiceListenerActivity : Activity(), RecognitionListener, TextToSpeech.OnIn
         
         if (requestCode == REQUEST_RECORD_AUDIO) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                initializeSpeechRecognizer()
-                startListening()
+                startEngineListening()
             } else {
                 statusText.text = "Permission audio refusée"
                 finishAfterDelay(2000)
@@ -193,6 +247,9 @@ class VoiceListenerActivity : Activity(), RecognitionListener, TextToSpeech.OnIn
     }
     
     private fun initializeSpeechRecognizer() {
+        if (useWhisperServer) {
+            return
+        }
         if (speechRecognizer == null) {
             speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
             speechRecognizer?.setRecognitionListener(this)
@@ -201,6 +258,7 @@ class VoiceListenerActivity : Activity(), RecognitionListener, TextToSpeech.OnIn
     }
     
     private fun startListening() {
+        if (useWhisperServer) return
         if (isListening) return
         
         try {
@@ -727,6 +785,9 @@ class VoiceListenerActivity : Activity(), RecognitionListener, TextToSpeech.OnIn
         
         cancelSafetyTimeout()
         stopAllAnimations()
+        
+        whisperRecognizer?.stopListening()
+        whisperRecognizer = null
         
         speechRecognizer?.destroy()
         speechRecognizer = null

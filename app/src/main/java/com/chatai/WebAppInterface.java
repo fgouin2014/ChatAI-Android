@@ -14,9 +14,12 @@ import android.os.Build;
 import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
+
+import com.chatai.hotword.HotwordAssetProvider;
 
 public class WebAppInterface {
     private Context mContext;
@@ -173,6 +176,46 @@ public class WebAppInterface {
         return prefs.getString("last_conversation", "[]");
     }
 
+    // ========== AI CONFIG JSON (WebApp Editor) ==========
+    @JavascriptInterface
+    public String readAiConfigJson() {
+        try {
+            return AiConfigManager.readConfigJson(mContext);
+        } catch (Exception e) {
+            Log.e(TAG, "Error reading ai_config.json", e);
+            return "";
+        }
+    }
+
+    @JavascriptInterface
+    public String writeAiConfigJson(String content) {
+        try {
+            if (content == null || content.trim().isEmpty()) {
+                return "Content is empty";
+            }
+            AiConfigManager.writeConfigJson(mContext, content);
+            return "OK";
+        } catch (org.json.JSONException e) {
+            Log.e(TAG, "Invalid JSON content", e);
+            return "JSON error: " + e.getMessage();
+        } catch (Exception e) {
+            Log.e(TAG, "Error writing ai_config.json", e);
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    @JavascriptInterface
+    public String listHotwordAssets() {
+        try {
+            // Retourne directement un tableau JSON (compatibilité chat.js)
+            JSONArray assets = HotwordAssetProvider.listAssets(mContext);
+            return assets.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "Error listing hotword assets", e);
+            return "[]";
+        }
+    }
+
     // ========== ACCÈS CAMÉRA ==========
     @JavascriptInterface
     public void openCamera() {
@@ -324,6 +367,43 @@ public class WebAppInterface {
             
             // ========== SERVICES HTTP ET IA ==========
             
+            // ========== HOTWORD CONTROLS ==========
+            @JavascriptInterface
+            public void hotwordStart() {
+                try {
+                    Intent intent = new Intent(mContext, BackgroundService.class);
+                    intent.setAction(BackgroundService.ACTION_HOTWORD_START);
+                    mContext.startService(intent);
+                    Log.i(TAG, "Hotword START via WebAppInterface");
+                } catch (Exception e) {
+                    Log.e(TAG, "hotwordStart error", e);
+                }
+            }
+
+            @JavascriptInterface
+            public void hotwordStop() {
+                try {
+                    Intent intent = new Intent(mContext, BackgroundService.class);
+                    intent.setAction(BackgroundService.ACTION_HOTWORD_STOP);
+                    mContext.startService(intent);
+                    Log.i(TAG, "Hotword STOP via WebAppInterface");
+                } catch (Exception e) {
+                    Log.e(TAG, "hotwordStop error", e);
+                }
+            }
+
+            @JavascriptInterface
+            public void hotwordRestart() {
+                try {
+                    Intent intent = new Intent(mContext, BackgroundService.class);
+                    intent.setAction(BackgroundService.ACTION_HOTWORD_RESTART);
+                    mContext.startService(intent);
+                    Log.i(TAG, "Hotword RESTART via WebAppInterface");
+                } catch (Exception e) {
+                    Log.e(TAG, "hotwordRestart error", e);
+                }
+            }
+
             /**
              * Obtient l'URL du serveur HTTP local
              */
