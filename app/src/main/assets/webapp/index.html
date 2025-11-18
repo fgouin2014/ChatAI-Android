@@ -232,9 +232,14 @@
                         </div>
                         
                         <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button class="panel-button" id="listCloudModelsBtn" style="flex: 1; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                                📋 Lister les modèles
+                            </button>
                             <button class="panel-button" id="testCloudConnectionBtn" style="flex: 1; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
                                 🧪 Tester la connexion
                             </button>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 8px;">
                             <button class="panel-button" id="saveCloudConfigBtn" style="flex: 1;">Sauvegarder</button>
                         </div>
                     </div>
@@ -1036,6 +1041,12 @@
                 serverBtn.addEventListener('click', openServers);
             }
             
+          // Lister les modèles Ollama Cloud
+          const listModelsBtn = document.getElementById('listCloudModelsBtn');
+          if (listModelsBtn) {
+              listModelsBtn.addEventListener('click', listCloudModels);
+          }
+          
           // Test de connexion Ollama Cloud
           const testCloudBtn = document.getElementById('testCloudConnectionBtn');
           if (testCloudBtn) {
@@ -1070,10 +1081,135 @@
                       });
                   }
               });
+              
+              // Charger les modèles sauvegardés au démarrage
+              const savedModels = loadCloudModelsFromStorage();
+              if (savedModels && savedModels.length > 0) {
+                  populateCloudModelDropdown(savedModels);
+              }
           }
       });
 
-        // Fonction de test de connexion Ollama Cloud
+        // Fonction pour lister les modèles disponibles (sans test de connexion)
+        async function listCloudModels() {
+            const apiKey = document.getElementById('configCloudApiKey').value.trim();
+            
+            const modelsResultDiv = document.getElementById('cloudModelsResult');
+            const modelsStatusDiv = document.getElementById('cloudModelsStatus');
+            const modelsListDiv = document.getElementById('cloudModelsList');
+            const listBtn = document.getElementById('listCloudModelsBtn');
+            
+            if (!apiKey) {
+                modelsResultDiv.style.display = 'block';
+                modelsResultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                modelsResultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                modelsStatusDiv.innerHTML = '❌ Clé API manquante';
+                modelsStatusDiv.style.color = '#dc2626';
+                modelsListDiv.textContent = 'Veuillez entrer votre clé API Ollama Cloud';
+                return;
+            }
+            
+            // Nettoyer la clé API (supprimer espaces, caractères de contrôle)
+            const cleanApiKey = apiKey.replace(/\s+/g, '').replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
+            
+            if (!cleanApiKey) {
+                modelsResultDiv.style.display = 'block';
+                modelsResultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                modelsResultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                modelsStatusDiv.innerHTML = '❌ Clé API invalide';
+                modelsStatusDiv.style.color = '#dc2626';
+                modelsListDiv.textContent = 'La clé API ne peut pas être vide après nettoyage';
+                return;
+            }
+            
+            // Afficher "Récupération en cours..."
+            modelsResultDiv.style.display = 'block';
+            modelsResultDiv.style.background = 'rgba(139, 92, 246, 0.1)';
+            modelsResultDiv.style.borderColor = 'rgba(139, 92, 246, 0.3)';
+            modelsStatusDiv.innerHTML = '⏳ Récupération des modèles disponibles...';
+            modelsStatusDiv.style.color = '#7c3aed';
+            modelsListDiv.textContent = '';
+            listBtn.disabled = true;
+            listBtn.innerHTML = '⏳ Récupération...';
+            
+            const startTime = Date.now();
+            
+            try {
+                // Récupérer la liste des modèles disponibles
+                const tagsResponse = await fetch('https://ollama.com/api/tags', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${cleanApiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!tagsResponse.ok) {
+                    if (tagsResponse.status === 401) {
+                        throw new Error('UNAUTHORIZED');
+                    }
+                    throw new Error(`HTTP ${tagsResponse.status}`);
+                }
+                
+                const tagsData = await tagsResponse.json();
+                const availableModels = (tagsData.models || []).map(m => {
+                    // Retirer le suffixe :latest si présent
+                    const name = m.name || '';
+                    return name.replace(/:latest$/, '');
+                });
+                
+                const elapsedTime = Date.now() - startTime;
+                
+                // Sauvegarder la liste des modèles dans localStorage pour persistance
+                saveCloudModelsToStorage(availableModels);
+                
+                // Peupler le dropdown avec les modèles découverts
+                populateCloudModelDropdown(availableModels);
+                
+                // Afficher les modèles disponibles dans la zone dédiée (cliquables)
+                modelsResultDiv.style.background = 'rgba(139, 92, 246, 0.1)';
+                modelsResultDiv.style.borderColor = 'rgba(139, 92, 246, 0.3)';
+                modelsStatusDiv.innerHTML = `✅ ${availableModels.length} modèle(s) disponible(s) (${elapsedTime}ms)`;
+                modelsStatusDiv.style.color = '#059669';
+                
+                // Récupérer le modèle actuellement sélectionné
+                const modelSelect = document.getElementById('configCloudModel');
+                const modelCustom = document.getElementById('configCloudModelCustom');
+                const currentModel = (modelSelect && modelSelect.value && modelSelect.value !== 'custom') 
+                    ? modelSelect.value 
+                    : (modelCustom && modelCustom.value ? modelCustom.value : null);
+                
+                const modelsList = availableModels.map(m => {
+                    const isSelected = m === currentModel;
+                    const modelClass = isSelected ? 'clickable-model selected' : 'clickable-model';
+                    const indent = isSelected ? '' : '  ';
+                    // Échapper les guillemets simples pour éviter les erreurs JavaScript
+                    const escapedModel = m.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    return `${indent}<span class="${modelClass}" data-model="${escapedModel}" onclick="selectModelFromList('${escapedModel}')">${m}</span>`;
+                }).join('<br>');
+                modelsListDiv.innerHTML = modelsList;
+                
+            } catch (error) {
+                const elapsedTime = Date.now() - startTime;
+                modelsResultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                modelsResultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                modelsStatusDiv.style.color = '#dc2626';
+                
+                if (error.message === 'UNAUTHORIZED') {
+                    modelsStatusDiv.innerHTML = '❌ Non autorisé (401)';
+                    modelsListDiv.innerHTML = 'Clé API invalide ou expirée.<br>' +
+                        '<a href="https://ollama.com/account" target="_blank" style="color: #667eea; text-decoration: underline;">Obtenez une nouvelle clé sur ollama.com/account</a>';
+                } else {
+                    modelsStatusDiv.innerHTML = `❌ Erreur (${elapsedTime}ms)`;
+                    modelsListDiv.textContent = error.message || 'Erreur inconnue';
+                }
+            } finally {
+                listBtn.disabled = false;
+                listBtn.innerHTML = '📋 Lister les modèles';
+            }
+        }
+        
+        // Fonction de test de connexion Ollama Cloud (liste + test chat)
         async function testOllamaCloudConnection() {
             const apiKey = document.getElementById('configCloudApiKey').value.trim();
             const modelSelect = document.getElementById('configCloudModel');
@@ -1156,6 +1292,9 @@
                     const name = m.name || '';
                     return name.replace(/:latest$/, '');
                 });
+                
+                // Sauvegarder la liste des modèles dans localStorage pour persistance
+                saveCloudModelsToStorage(availableModels);
                 
                 // Peupler le dropdown avec les modèles découverts
                 populateCloudModelDropdown(availableModels);
@@ -1314,6 +1453,42 @@
                 resultDiv.style.maxHeight = 'none';
                 expandBtn.innerHTML = '... Réduire ...';
             }
+        }
+        
+        // Fonction pour sauvegarder la liste des modèles dans localStorage
+        function saveCloudModelsToStorage(models) {
+            try {
+                localStorage.setItem('ollama_cloud_models', JSON.stringify(models));
+                localStorage.setItem('ollama_cloud_models_timestamp', Date.now().toString());
+            } catch (e) {
+                console.warn('Impossible de sauvegarder les modèles dans localStorage:', e);
+            }
+        }
+        
+        // Fonction pour charger la liste des modèles depuis localStorage
+        function loadCloudModelsFromStorage() {
+            try {
+                const modelsJson = localStorage.getItem('ollama_cloud_models');
+                const timestamp = localStorage.getItem('ollama_cloud_models_timestamp');
+                
+                if (modelsJson) {
+                    const models = JSON.parse(modelsJson);
+                    // Vérifier que la liste n'est pas trop ancienne (max 7 jours)
+                    const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 jours en millisecondes
+                    const age = timestamp ? Date.now() - parseInt(timestamp, 10) : Infinity;
+                    
+                    if (age < maxAge && Array.isArray(models) && models.length > 0) {
+                        return models;
+                    } else {
+                        // Liste trop ancienne, la supprimer
+                        localStorage.removeItem('ollama_cloud_models');
+                        localStorage.removeItem('ollama_cloud_models_timestamp');
+                    }
+                }
+            } catch (e) {
+                console.warn('Impossible de charger les modèles depuis localStorage:', e);
+            }
+            return null;
         }
         
         // Fonction pour peupler le dropdown avec les modèles découverts
