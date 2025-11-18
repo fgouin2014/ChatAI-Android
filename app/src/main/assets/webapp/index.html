@@ -7,839 +7,9 @@
     <meta name="description" content="Assistant IA mobile intelligent et sécurisé">
     <title>Chat IA Mobile</title>
     <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="glass-neon-styles.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-        
-        :root {
-            --primary-gradient: linear-gradient(135deg, #667eea, #764ba2);
-            --secondary-gradient: linear-gradient(135deg, #4ECDC4, #44A08D);
-            --accent-gradient: linear-gradient(135deg, #FF6B6B, #4ECDC4);
-            --bg-color: #f8f9fa;
-            --text-color: #333;
-            --border-color: #e0e0e0;
-            --shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: var(--primary-gradient);
-            height: 100vh;
-            overflow: hidden;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-        
-        .chat-container {
-            width: 100%;
-            height: 100vh;
-            background: white;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-        
-        .chat-header {
-            background: var(--primary-gradient);
-            color: white;
-            padding: 12px 16px 16px;
-            position: relative;
-            box-shadow: var(--shadow);
-            overflow: hidden;
-            z-index: 100;
-        }
-        
-        .header-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            min-height: 40px;
-        }
-        
-        .chat-title {
-            font-size: 18px;
-            font-weight: 700;
-            flex: 1;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            letter-spacing: 0.5px;
-        }
-        
-        .header-controls-row {
-            margin-top: 8px;
-            display: flex;
-            justify-content: flex-end;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-        }
-        
-        .header-controls-row::-webkit-scrollbar {
-            display: none;
-        }
-        
-        .header-controls {
-            display: flex;
-            gap: 6px;
-            flex-wrap: nowrap;
-        }
-        
-        .header-btn {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            padding: 4px;
-            border-radius: 50%;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            min-width: 28px;
-            min-height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-        
-        .header-btn:active {
-            transform: scale(0.9);
-            background: rgba(255,255,255,0.35);
-        }
-        
-        .personality-selector {
-            display: flex;
-            gap: 5px;
-            overflow-x: auto;
-            padding-bottom: 5px;
-            margin-top: 12px;
-            scrollbar-width: none;
-        }
-        
-        .personality-selector::-webkit-scrollbar {
-            display: none;
-        }
-        
-        .personality-btn {
-            padding: 5px 12px;
-            border: 1px solid rgba(255,255,255,0.3);
-            background: rgba(255,255,255,0.1);
-            color: white;
-            border-radius: 15px;
-            cursor: pointer;
-            font-size: 11px;
-            white-space: nowrap;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            font-weight: 500;
-        }
-        
-        .personality-btn.active {
-            background: rgba(255,255,255,0.3);
-            transform: scale(1.05);
-        }
-        
-        .main-nav {
-            display: flex;
-            gap: 8px;
-            padding: 12px 16px;
-            background: #f5f7fb;
-            border-bottom: 1px solid var(--border-color);
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-        }
-        
-        .main-nav::-webkit-scrollbar {
-            display: none;
-        }
-        
-        .main-nav-btn {
-            padding: 6px 12px;
-            border: 1px solid #c7cffb;
-            background: #eef1ff;
-            color: #2c2d33;
-            border-radius: 999px;
-            font-size: 12px;
-            cursor: pointer;
-            flex-shrink: 0;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            font-weight: 500;
-        }
-        
-        .main-nav-btn.active {
-            background: #2f3fbb;
-            color: #ffffff;
-            border-color: #2f3fbb;
-            box-shadow: 0 6px 16px rgba(47,63,187,0.25);
-            transform: translateY(-1px);
-        }
-        
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        
-        .view {
-            display: none;
-            flex: 1;
-            flex-direction: column;
-            overflow: hidden;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        
-        .view.active {
-            display: flex;
-            opacity: 1;
-        }
-        
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-            background: var(--bg-color);
-            -webkit-overflow-scrolling: touch;
-            scroll-behavior: smooth;
-        }
-        
-        .message {
-            margin-bottom: 12px;
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .message.user {
-            flex-direction: row-reverse;
-        }
-        
-        .message-bubble {
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 18px;
-            position: relative;
-            word-wrap: break-word;
-            line-height: 1.5;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        }
-        
-        .message.user .message-bubble {
-            background: var(--primary-gradient);
-            color: white;
-        }
-        
-        .message.ai .message-bubble {
-            background: white;
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
-        }
-        
-        .message-actions {
-            display: flex;
-            gap: 5px;
-            margin-top: 8px;
-            opacity: 0.7;
-        }
-        
-        .message-btn {
-            background: none;
-            border: none;
-            font-size: 14px;
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
-            transition: all 0.2s;
-        }
-        
-        .message-btn:active {
-            transform: scale(0.9);
-            opacity: 1;
-        }
-        
-        .message-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            flex-shrink: 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .message.user .message-avatar {
-            background: var(--accent-gradient);
-            color: white;
-        }
-        
-        .message.ai .message-avatar {
-            background: var(--secondary-gradient);
-            color: white;
-        }
-        
-        .typing-indicator {
-            display: none;
-            padding: 10px;
-        }
-        
-        .typing-dots {
-            display: inline-flex;
-            gap: 2px;
-        }
-        
-        .typing-dots span {
-            width: 6px;
-            height: 6px;
-            background: #667eea;
-            border-radius: 50%;
-            animation: typing 1.4s infinite ease-in-out;
-        }
-        
-        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-        
-        .chat-input-container {
-            background: white;
-            border-top: 1px solid var(--border-color);
-            padding: 10px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .plugins-bar {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 10px;
-            overflow-x: auto;
-            scrollbar-width: none;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        .plugins-bar::-webkit-scrollbar {
-            display: none;
-        }
-        
-        .plugin-btn {
-            padding: 6px 12px;
-            background: #f0f0f0;
-            border: none;
-            border-radius: 15px;
-            font-size: 11px;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            font-weight: 500;
-        }
-        
-        .plugin-btn:active {
-            background: #ddd;
-            transform: scale(0.95);
-        }
-        
-        .input-row {
-            display: flex;
-            gap: 8px;
-            align-items: flex-end;
-        }
-        
-        .input-field {
-            flex: 1;
-            padding: 12px 16px;
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            font-size: 16px;
-            outline: none;
-            resize: none;
-            max-height: 120px;
-            min-height: 44px;
-            font-family: inherit;
-            transition: border-color 0.3s;
-        }
-        
-        .input-field:focus {
-            border-color: #667eea;
-        }
-        
-        .input-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-        
-        .control-btn {
-            width: 44px;
-            height: 44px;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-        
-        .send-btn {
-            background: var(--primary-gradient);
-            color: white;
-        }
-        
-        .voice-btn {
-            background: #4ECDC4;
-            color: white;
-        }
-        
-        .voice-btn.recording {
-            background: #ff4757;
-            animation: pulse 1s infinite;
-        }
-        
-        .control-btn:active {
-            transform: scale(0.9);
-        }
-        
-        .control-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .panel {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-            background: #f7f8fb;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        .panel-section {
-            background: #ffffff;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: 0 10px 28px rgba(15,23,42,0.08);
-            border: 1px solid rgba(226,232,240,0.6);
-        }
-        
-        .panel-section h3 {
-            font-size: 18px;
-            margin-bottom: 10px;
-            color: #1f1f1f;
-            font-weight: 600;
-        }
-        
-        .panel-section h4 {
-            font-size: 15px;
-            margin-bottom: 8px;
-            color: #374151;
-            font-weight: 600;
-        }
-        
-        .panel-placeholder {
-            color: #475569;
-            font-size: 13px;
-            line-height: 1.6;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 12px;
-            margin: 12px 0;
-        }
-
-        .form-grid input,
-        .form-grid select,
-        .form-grid textarea {
-            width: 100%;
-            margin-top: 4px;
-            padding: 8px;
-            border-radius: 8px;
-            border: 1px solid rgba(148,163,184,0.4);
-            font-size: 13px;
-            background: rgba(15,23,42,0.03);
-            color: #111827;
-        }
-
-        .custom-input {
-            margin-top: 6px;
-        }
-
-        .custom-input.hidden {
-            display: none;
-        }
-
-        .porcupine-only.hidden {
-            display: none;
-        }
-
-        .engine-whisper-only.hidden,
-        .engine-legacy-only.hidden {
-            display: none;
-        }
-
-        .config-table-wrapper {
-            margin-top: 12px;
-            overflow-x: auto;
-        }
-
-        .config-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-
-        .config-table th,
-        .config-table td {
-            border: 1px solid rgba(148,163,184,0.3);
-            padding: 8px;
-            text-align: left;
-        }
-
-        .config-table th {
-            background: rgba(148,163,184,0.15);
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 0.05em;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 12px;
-            margin: 12px 0;
-        }
-
-        .form-grid input,
-        .form-grid select,
-        .form-grid textarea {
-            width: 100%;
-            margin-top: 4px;
-            padding: 8px;
-            border-radius: 8px;
-            border: 1px solid rgba(148,163,184,0.4);
-            font-size: 13px;
-            background: rgba(15,23,42,0.03);
-            color: #111827;
-        }
-
-        .config-table-wrapper {
-            margin-top: 12px;
-            overflow-x: auto;
-        }
-
-        .config-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-
-        .config-table th,
-        .config-table td {
-            border: 1px solid rgba(148,163,184,0.3);
-            padding: 8px;
-            text-align: left;
-        }
-
-        .config-table th {
-            background: rgba(148,163,184,0.15);
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 0.05em;
-        }
-        
-        .panel-json {
-            background: #0f172a;
-            color: #e2e8f0;
-            padding: 12px;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            overflow-x: auto;
-            max-height: 300px;
-        }
-        
-        .panel-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 12px;
-        }
-        
-        .panel-button {
-            padding: 8px 14px;
-            border: none;
-            border-radius: 8px;
-            background: var(--primary-gradient);
-            color: white;
-            font-size: 13px;
-            cursor: pointer;
-            transition: transform 0.2s;
-            font-weight: 500;
-        }
-        
-        .panel-button.secondary {
-            background: var(--secondary-gradient);
-        }
-        
-        .panel-button:active {
-            transform: scale(0.96);
-        }
-        
-        .panel-button:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .panel-list {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-        }
-        
-        .panel-list li {
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(148,163,184,0.25);
-            font-size: 13px;
-            color: #1e293b;
-        }
-        
-        .panel-list li:last-child {
-            border-bottom: none;
-        }
-        
-        .panel-status {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            font-size: 13px;
-            color: #1e293b;
-        }
-        
-        .status-item span {
-            color: #64748b;
-            text-transform: uppercase;
-            font-size: 11px;
-            letter-spacing: 0.05em;
-            margin-right: 8px;
-            font-weight: 600;
-        }
-        
-        .plugin-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: none;
-            z-index: 1000;
-            backdrop-filter: blur(4px);
-        }
-        
-        .modal-content {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            background: white;
-            border-radius: 20px 20px 0 0;
-            padding: 20px;
-            max-height: 80vh;
-            overflow-y: auto;
-            animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .modal-content.large {
-            max-height: 90vh;
-        }
-        
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        
-        .modal-header h3 {
-            font-size: 18px;
-            font-weight: 600;
-        }
-        
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #666;
-            transition: color 0.3s;
-        }
-        
-        .close-btn:active {
-            color: #333;
-        }
-        
-        .language-selector {
-            position: absolute;
-            top: 70px;
-            right: 15px;
-            background: white;
-            border-radius: 10px;
-            padding: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            display: none;
-            z-index: 100;
-            animation: fadeIn 0.2s ease;
-        }
-        
-        .lang-btn {
-            display: block;
-            width: 100%;
-            padding: 8px 15px;
-            border: none;
-            background: none;
-            cursor: pointer;
-            text-align: left;
-            border-radius: 5px;
-            margin: 2px 0;
-            transition: background 0.2s;
-            font-size: 14px;
-        }
-        
-        .lang-btn:hover, 
-        .lang-btn.active {
-            background: #f0f0f0;
-        }
-        
-        @keyframes slideIn {
-            from { 
-                opacity: 0; 
-                transform: translateY(20px); 
-            }
-            to { 
-                opacity: 1; 
-                transform: translateY(0); 
-            }
-        }
-        
-        @keyframes slideUp {
-            from { 
-                transform: translateY(100%); 
-            }
-            to { 
-                transform: translateY(0); 
-            }
-        }
-        
-        @keyframes fadeIn {
-            from { 
-                opacity: 0; 
-            }
-            to { 
-                opacity: 1; 
-            }
-        }
-        
-        @keyframes typing {
-            0%, 80%, 100% { 
-                transform: scale(0.8); 
-                opacity: 0.5; 
-            }
-            40% { 
-                transform: scale(1); 
-                opacity: 1; 
-            }
-        }
-        
-        @keyframes pulse {
-            0%, 100% { 
-                transform: scale(1); 
-            }
-            50% { 
-                transform: scale(1.1); 
-            }
-        }
-        
-        .chat-messages::-webkit-scrollbar { 
-            width: 3px; 
-        }
-        
-        .chat-messages::-webkit-scrollbar-track { 
-            background: transparent; 
-        }
-        
-        .chat-messages::-webkit-scrollbar-thumb { 
-            background: #ccc; 
-            border-radius: 3px; 
-        }
-        
-        /* Améliorations pour mobile */
-        @media (max-width: 480px) {
-            .chat-title {
-                font-size: 16px;
-            }
-            
-            .message-bubble {
-                max-width: 85%;
-            }
-            
-            .header-btn {
-                min-width: 26px;
-                min-height: 26px;
-            }
-        }
-        
-        /* Mode sombre (optionnel) */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-color: #1a1a1a;
-                --text-color: #e0e0e0;
-                --border-color: #333;
-            }
-            
-            body {
-                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            }
-            
-            .chat-container {
-                background: #0f0f0f;
-            }
-            
-            .message.ai .message-bubble {
-                background: #1a1a1a;
-                color: #e0e0e0;
-                border-color: #333;
-            }
-            
-            .chat-input-container {
-                background: #1a1a1a;
-                border-top-color: #333;
-            }
-            
-            .input-field {
-                background: #0f0f0f;
-                color: #e0e0e0;
-                border-color: #333;
-            }
-            
-            .panel {
-                background: #0f0f0f;
-            }
-            
-            .panel-section {
-                background: #1a1a1a;
-                border-color: #333;
-            }
-        }
+        /* Styles inline supplémentaires si nécessaire - tout est dans glass-neon-styles.css */
     </style>
 </head>
 <body>
@@ -926,8 +96,21 @@
 
             <div class="view" id="view-config">
                 <div class="panel">
+                    <!-- Tabs Navigation -->
+                    <div class="config-tabs" id="configTabs">
+                        <button class="config-tab active" data-tab="general">⚙️ Général</button>
+                        <button class="config-tab" data-tab="cloud">☁️ Cloud</button>
+                        <button class="config-tab" data-tab="local">💻 Local</button>
+                        <button class="config-tab" data-tab="audio">🎤 AV</button>
+                        <button class="config-tab" data-tab="hotword">🔊 Hotword</button>
+                        <button class="config-tab" data-tab="tts">🗣️ TTS</button>
+                        <button class="config-tab" data-tab="advanced">🔧 Avancé</button>
+                    </div>
+                    
+                    <!-- Tab Content: General -->
+                    <div class="config-tab-content active" data-content="general">
                     <div class="panel-section">
-                        <h3>Mode général</h3>
+                        <h3>⚙️ Mode général</h3>
                         <div class="form-grid">
                             <label>Mode
                                 <select id="configModeSelect">
@@ -950,11 +133,15 @@
                         </div>
                         <button class="panel-button" id="saveModeConfigBtn">Sauvegarder</button>
                     </div>
-
+                    </div>
+                    
+                    <!-- Tab Content: Cloud -->
+                    <div class="config-tab-content" data-content="cloud">
                     <div class="panel-section">
-                        <h4>Cloud</h4>
-                        <div class="form-grid">
-                            <label>Provider
+                        <h4>☁️ Cloud (Ollama Cloud API)</h4>
+                        <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); align-items: start;">
+                            <label>
+                                <span style="font-weight: 500; margin-bottom: 4px;">Provider</span>
                                 <select id="configCloudProvider">
                                     <option value="">– Choisir –</option>
                                     <option value="ollama">Ollama</option>
@@ -965,27 +152,98 @@
                                 </select>
                                 <input type="text" id="configCloudProviderCustom" class="custom-input hidden" placeholder="Provider personnalisé">
                             </label>
-                            <label>API Key
-                                <input type="password" id="configCloudApiKey" placeholder="••••">
+                            <label>
+                                <span style="font-weight: 500; margin-bottom: 4px;">🔑 API Key Ollama Cloud</span>
+                                <input type="password" id="configCloudApiKey" placeholder="Entrez votre clé API Ollama Cloud">
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Obtenez votre clé sur <a href="https://ollama.com/account" target="_blank" style="color: #667eea;">ollama.com/account</a></small>
                             </label>
-                            <label>Modèle
+                            <label>
+                                <span style="font-weight: 500; margin-bottom: 4px;">Modèle</span>
                                 <select id="configCloudModel">
                                     <option value="">– Choisir –</option>
-                                    <option value="deepseek-r1:7b">DeepSeek R1 7B</option>
-                                    <option value="gpt-oss:120b">GPT-OSS 120B</option>
-                                    <option value="gpt-4o-mini">GPT-4o Mini</option>
-                                    <option value="llama3.2">Llama 3.2</option>
-                                    <option value="mistral-nemo">Mistral Nemo</option>
                                     <option value="custom">Autre (personnalisé)</option>
                                 </select>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Les modèles disponibles seront chargés après le test de connexion</small>
                                 <input type="text" id="configCloudModelCustom" class="custom-input hidden" placeholder="Modèle cloud personnalisé">
                             </label>
                         </div>
-                        <button class="panel-button" id="saveCloudConfigBtn">Sauvegarder</button>
+                        
+                        <!-- Zone de résultats des modèles disponibles -->
+                        <div id="cloudModelsResult" style="display: none; margin-top: 12px; max-height: 200px; overflow-y: auto; overflow-x: hidden; padding: 12px; border-radius: 8px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); scrollbar-width: thin; scrollbar-color: rgba(100, 116, 139, 0.5) transparent;">
+                            <style>
+                                #cloudModelsResult::-webkit-scrollbar {
+                                    width: 6px;
+                                }
+                                #cloudModelsResult::-webkit-scrollbar-track {
+                                    background: transparent;
+                                    border-radius: 3px;
+                                }
+                                #cloudModelsResult::-webkit-scrollbar-thumb {
+                                    background: rgba(100, 116, 139, 0.5);
+                                    border-radius: 3px;
+                                }
+                                #cloudModelsResult::-webkit-scrollbar-thumb:hover {
+                                    background: rgba(100, 116, 139, 0.7);
+                                }
+                            </style>
+                            <div id="cloudModelsStatus" style="font-weight: 500; margin-bottom: 8px; color: #7c3aed;"></div>
+                            <div id="cloudModelsList" style="font-size: 12px; color: #64748b; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace;"></div>
+                            <style>
+                                .clickable-model {
+                                    cursor: pointer;
+                                    text-decoration: underline;
+                                    color: #667eea;
+                                    transition: color 0.2s;
+                                }
+                                .clickable-model:hover {
+                                    color: #4f46e5;
+                                }
+                                .clickable-model.selected {
+                                    font-weight: bold;
+                                    color: #10b981;
+                                    text-decoration: none;
+                                }
+                            </style>
+                        </div>
+                        
+                        <!-- Zone de résultats du test de connexion -->
+                        <div id="cloudTestResult" style="display: none; margin-top: 12px; max-height: 400px; overflow-y: auto; overflow-x: hidden; padding: 12px; border-radius: 8px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); scrollbar-width: thin; scrollbar-color: rgba(100, 116, 139, 0.5) transparent;">
+                            <style>
+                                #cloudTestResult::-webkit-scrollbar {
+                                    width: 6px;
+                                }
+                                #cloudTestResult::-webkit-scrollbar-track {
+                                    background: transparent;
+                                    border-radius: 3px;
+                                }
+                                #cloudTestResult::-webkit-scrollbar-thumb {
+                                    background: rgba(100, 116, 139, 0.5);
+                                    border-radius: 3px;
+                                }
+                                #cloudTestResult::-webkit-scrollbar-thumb:hover {
+                                    background: rgba(100, 116, 139, 0.7);
+                                }
+                            </style>
+                            <div id="cloudTestStatus" style="font-weight: 500; margin-bottom: 8px; color: #1e40af;"></div>
+                            <div id="cloudTestDetails" style="font-size: 13px; color: #64748b; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;"></div>
+                            <div id="cloudTestExpand" style="display: none; margin-top: 8px; font-size: 11px; color: #667eea; cursor: pointer; text-align: center; padding: 4px; border-top: 1px solid rgba(100, 116, 139, 0.2);" onclick="expandCloudTestResult()">
+                                ... Voir plus ...
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button class="panel-button" id="testCloudConnectionBtn" style="flex: 1; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                                🧪 Tester la connexion
+                            </button>
+                            <button class="panel-button" id="saveCloudConfigBtn" style="flex: 1;">Sauvegarder</button>
+                        </div>
                     </div>
-
+                    </div>
+                    
+                    <!-- Tab Content: Local -->
+                    <div class="config-tab-content" data-content="local">
                     <div class="panel-section">
-                        <h4>Serveur local</h4>
+                        <h4>💻 Serveur local</h4>
                         <div class="form-grid">
                             <label>URL
                                 <input type="text" id="configLocalUrl" placeholder="http://127.0.0.1:11434">
@@ -1004,38 +262,37 @@
                         </div>
                         <button class="panel-button" id="saveLocalConfigBtn">Sauvegarder</button>
                     </div>
-
+                    </div>
+                    
+                    <!-- Tab Content: Audio -->
+                    <div class="config-tab-content" data-content="audio">
+                    <!-- Web Search & Thinking -->
                     <div class="panel-section">
-                        <h4>Web Search & Pensée</h4>
+                        <h4>🔍 Web Search & Pensée</h4>
                         <div class="form-grid">
-                            <label>
-                                <input type="checkbox" id="configWebSearchEnabled">
-                                Web search activé
-                            </label>
-                            <label>Provider
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Provider (laisser vide pour désactiver)</span>
                                 <input type="text" id="configWebSearchProvider" placeholder="ollama">
                             </label>
-                            <label>
-                                <input type="checkbox" id="configThinkingEnabled">
-                                Thinking trace
-                            </label>
-                            <label>Dernier message
-                                <input type="text" id="configThinkingLast" placeholder="(auto)">
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Thinking trace</span>
+                                <select id="configThinkingEnabled">
+                                    <option value="">Désactivé</option>
+                                    <option value="auto">Activé (auto)</option>
+                                </select>
                             </label>
                         </div>
                         <button class="panel-button" id="saveWebThinkingBtn">Sauvegarder</button>
                     </div>
 
+                    <!-- Vision -->
                     <div class="panel-section">
-                        <h4>Vision & Audio</h4>
+                        <h4>👁️ Vision</h4>
                         <div class="form-grid">
-                            <label>
-                                <input type="checkbox" id="configVisionEnabled">
-                                Vision activée
-                            </label>
-                            <label>Modèle vision
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle vision</span>
                                 <select id="configVisionModel">
-                                    <option value="">– Choisir –</option>
+                                    <option value="">Désactivé</option>
                                     <option value="llava:13b">LLaVA 13B</option>
                                     <option value="gpt-4o-mini-vision">GPT-4o Mini Vision</option>
                                     <option value="pixtral-12b">Pixtral 12B</option>
@@ -1044,102 +301,154 @@
                                 </select>
                                 <input type="text" id="configVisionModelCustom" class="custom-input hidden" placeholder="Modèle vision personnalisé">
                             </label>
-                            <label>
-                                <input type="checkbox" id="configAudioEnabled">
-                                Audio activé
-                            </label>
-                            <label>Moteur STT
-                                <select id="configAudioEngine">
-                                    <option value="whisper_server">Whisper Server (local HTTP)</option>
-                                    <option value="legacy_google">Google Speech (Android)</option>
-                                </select>
-                            </label>
-                            <label>Modèle audio
-                                <select id="configAudioModel">
-                                    <option value="">– Choisir –</option>
-                                    <option value="ggml-small.bin">GGML Small</option>
-                                    <option value="ggml-medium.bin">GGML Medium</option>
-                                    <option value="ggml-large.bin">GGML Large</option>
-                                    <option value="whisper-large-v3">Whisper Large V3</option>
-                                    <option value="custom">Autre (personnalisé)</option>
-                                </select>
-                                <input type="text" id="configAudioModelCustom" class="custom-input hidden" placeholder="Modèle audio personnalisé">
-                            </label>
-                            <label class="engine-whisper-only">Endpoint Whisper Server
-                                <input type="text" id="configAudioEndpoint" placeholder="http://127.0.0.1:11400/inference">
-                            </label>
-                            <label>Timeout (ms)
-                                <input type="number" id="configAudioTimeout" placeholder="8000">
-                            </label>
-                            <label>Silence (dB)
-                                <input type="number" step="0.1" id="configAudioSilenceDb" placeholder="-45">
-                            </label>
-                            <label>Silence (ms)
-                                <input type="number" id="configAudioSilenceMs" placeholder="1200">
-                            </label>
                         </div>
-                        <button class="panel-button" id="saveVisionAudioBtn">Sauvegarder</button>
+                        <button class="panel-button" id="saveVisionBtn">Sauvegarder</button>
                     </div>
 
+                    <!-- Audio -->
                     <div class="panel-section">
-                        <h4>Hotwords (openWakeWord)</h4>
+                        <h4>🎤 Audio (STT)</h4>
                         <div class="form-grid">
-                            <label>
-                                <input type="checkbox" id="configHotwordEnabled">
-                                Hotword activé
-                            </label>
-                            <label>Moteur
-                                <select id="configHotwordEngine">
-                                    <option value="openwakeword">openWakeWord (recommandé)</option>
-                                    <option value="porcupine">Porcupine (legacy)</option>
-                                </select>
-                            </label>
-                            <label class="porcupine-only">Access Key (Porcupine)
-                                <input type="text" id="configHotwordAccessKey" placeholder="Porcupine access key">
-                            </label>
-                            <label class="porcupine-only">Fichier keyword (Porcupine)
-                                <input type="text" id="configHotwordKeyword" placeholder="hotwords/kit-kat_fr_android_v3_0_0.ppn">
+                            <label style="grid-column: 1 / -1;">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                                    <div>
+                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Moteur STT</span>
+                                        <select id="configAudioEngine">
+                                            <option value="whisper_server">Whisper Server (local HTTP)</option>
+                                            <option value="legacy_google">Google Speech (Android)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle audio</span>
+                                        <select id="configAudioModel">
+                                            <option value="">Désactivé</option>
+                                            <option value="ggml-small.bin">GGML Small</option>
+                                            <option value="ggml-medium.bin">GGML Medium</option>
+                                            <option value="ggml-large.bin">GGML Large</option>
+                                            <option value="whisper-large-v3">Whisper Large V3</option>
+                                            <option value="custom">Autre (personnalisé)</option>
+                                        </select>
+                                        <input type="text" id="configAudioModelCustom" class="custom-input hidden" placeholder="Modèle audio personnalisé">
+                                    </div>
+                                    <div class="engine-whisper-only">
+                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Endpoint Whisper Server</span>
+                                        <input type="text" id="configAudioEndpoint" placeholder="http://127.0.0.1:11400/inference">
+                                    </div>
+                                    <div>
+                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Timeout (ms)</span>
+                                        <input type="number" id="configAudioTimeout" placeholder="8000">
+                                    </div>
+                                    <div>
+                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Silence (dB)</span>
+                                        <input type="number" step="0.1" id="configAudioSilenceDb" placeholder="-45">
+                                    </div>
+                                    <div>
+                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Silence (ms)</span>
+                                        <input type="number" id="configAudioSilenceMs" placeholder="1200">
+                                    </div>
+                                </div>
                             </label>
                         </div>
-                        <div class="config-table-wrapper">
-                            <table class="config-table">
-                                <thead>
-                                    <tr>
-                                        <th>Actif</th>
-                                        <th>Nom</th>
-                                        <th>Asset</th>
-                                        <th>Seuil</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="hotwordModelsTable">
-                                    <tr><td colspan="5">Aucun modèle</td></tr>
-                                </tbody>
-                            </table>
-                            <div class="form-grid">
-                                <label>Nom
-                                    <input type="text" id="hotwordNewName" placeholder="hey_kitt">
+                        <div class="panel-actions" style="margin-top: 16px;">
+                            <button class="panel-button" id="saveAudioBtn">Sauvegarder</button>
+                        </div>
+                        <div class="panel-actions" style="margin-top:10px;">
+                            <button class="panel-button secondary" onclick="sttPingAction()">Ping Whisper</button>
+                            <button class="panel-button" onclick="sttTestOnceAction()">Tester STT</button>
+                        </div>
+                    </div>
+                    </div>
+                    
+                    <!-- Tab Content: Hotword -->
+                    <div class="config-tab-content" data-content="hotword">
+                        <!-- Configuration générale -->
+                        <div class="panel-section">
+                            <h4>⚙️ Configuration générale</h4>
+                            <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); align-items: start;">
+                                <label style="min-height: auto;">
+                                    <input type="checkbox" id="configHotwordEnabled">
+                                    <span>Hotword activé</span>
                                 </label>
-                                <label>Asset
-                                    <input type="text" id="hotwordNewAsset" placeholder="hotwords/.../file.tflite">
+                                <label>
+                                    <span style="font-weight: 500; margin-bottom: 4px;">Moteur</span>
+                                    <select id="configHotwordEngine">
+                                        <option value="openwakeword">openWakeWord (recommandé)</option>
+                                        <option value="porcupine">Porcupine (legacy)</option>
+                                    </select>
                                 </label>
-                                <label>Seuil
-                                    <input type="number" step="0.01" id="hotwordNewThreshold" placeholder="0.55">
+                                <label style="min-height: auto;">
+                                    <input type="checkbox" id="configHotwordAutoListen">
+                                    <span>Ecoute auto après hotword (STT → IA → TTS)</span>
+                                </label>
+                                <label style="min-height: auto;">
+                                    <input type="checkbox" id="configHotwordDebugScores">
+                                    <span>Logs score (debug)</span>
+                                </label>
+                                <label class="porcupine-only">
+                                    <span style="font-weight: 500; margin-bottom: 4px;">Access Key (Porcupine)</span>
+                                    <input type="text" id="configHotwordAccessKey" placeholder="Porcupine access key">
+                                </label>
+                                <label class="porcupine-only">
+                                    <span style="font-weight: 500; margin-bottom: 4px;">Fichier keyword (Porcupine)</span>
+                                    <input type="text" id="configHotwordKeyword" placeholder="hotwords/kit-kat_fr_android_v3_0_0.ppn">
+                                </label>
+                                <label>
+                                    <span style="font-weight: 500; margin-bottom: 4px;">Mode de communication par défaut</span>
+                                    <select id="configHotwordCommMode">
+                                        <option value="respond_ai_outside_kitt">Réponse IA (hors interface KITT)</option>
+                                        <option value="open_kitt_ui">Ouvrir l'interface KITT (legacy)</option>
+                                    </select>
                                 </label>
                             </div>
-                            <div class="panel-actions">
-                                <button class="panel-button secondary" id="importHotwordAssetsBtn">Importer depuis assets</button>
-                                <button class="panel-button secondary" id="addHotwordModelBtn">Ajouter</button>
-                                <button class="panel-button" id="saveHotwordBtn">Sauvegarder</button>
-                                <button class="panel-button" id="hotwordStartBtn">Démarrer</button>
-                                <button class="panel-button secondary" id="hotwordStopBtn">Arrêter</button>
-                                <button class="panel-button" id="hotwordRestartBtn">Redémarrer</button>
+                            <div class="panel-actions" style="margin-top: 16px;">
+                                <button class="panel-button" id="saveHotwordBtn">Sauvegarder la configuration</button>
+                                <button class="panel-button" id="hotwordStartBtn" style="margin-left: 8px;">▶️ Démarrer</button>
+                                <button class="panel-button secondary" id="hotwordStopBtn" style="margin-left: 8px;">⏹️ Arrêter</button>
+                                <button class="panel-button" id="hotwordRestartBtn" style="margin-left: 8px;">🔄 Redémarrer</button>
+                            </div>
+                        </div>
+
+                        <!-- Liste des modèles et ajout -->
+                        <div class="panel-section">
+                            <h4>📋 Modèles Hotword</h4>
+                            <div class="hotword-models-grid" id="hotwordModelsGrid">
+                                <div class="hotword-model-card-empty">
+                                    Aucun modèle configuré. Utilisez "Importer depuis assets" ou "Ajouter un modèle" ci-dessous.
+                                </div>
+                            </div>
+                            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
+                                <h5 class="add-model-toggle" style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none;">
+                                    <span class="toggle-icon" style="transition: transform 0.3s ease; display: inline-block;">▼</span>
+                                    <span>➕ Ajouter un modèle</span>
+                                </h5>
+                                <div class="add-model-content" style="display: none;">
+                                    <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                                        <label>
+                                            <span style="font-weight: 500; margin-bottom: 4px;">Nom du modèle</span>
+                                            <input type="text" id="hotwordNewName" placeholder="hey_kitt">
+                                        </label>
+                                        <label>
+                                            <span style="font-weight: 500; margin-bottom: 4px;">Chemin asset</span>
+                                            <input type="text" id="hotwordNewAsset" placeholder="hotwords/.../file.tflite">
+                                        </label>
+                                        <label>
+                                            <span style="font-weight: 500; margin-bottom: 4px;">Seuil de détection</span>
+                                            <input type="number" step="0.01" id="hotwordNewThreshold" placeholder="0.55" min="0" max="1">
+                                        </label>
+                                    </div>
+                                    <div class="panel-actions" style="margin-top: 16px;">
+                                        <button class="panel-button secondary" id="importHotwordAssetsBtn">📥 Importer depuis assets</button>
+                                        <button class="panel-button secondary" id="addHotwordModelBtn">➕ Ajouter le modèle</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-
+                    
+                    <!-- Tab Content: TTS -->
+                    <div class="config-tab-content" data-content="tts">
                     <div class="panel-section">
-                        <h4>TTS</h4>
+                        <h4>🎙️ TTS</h4>
                         <div class="form-grid">
                             <label>Mode
                                 <input type="text" id="configTtsMode" placeholder="local">
@@ -1159,9 +468,12 @@
                         </div>
                         <button class="panel-button" id="saveTtsBtn">Sauvegarder</button>
                     </div>
-
+                    </div>
+                    
+                    <!-- Tab Content: Advanced -->
+                    <div class="config-tab-content" data-content="advanced">
                     <div class="panel-section">
-                        <h4>Prompts personnalisés</h4>
+                        <h4>🔧 Prompts & Contraintes</h4>
                         <div class="form-grid">
                             <label>Prompt KITT
                                 <textarea id="configPromptKitt" rows="2"></textarea>
@@ -1172,13 +484,6 @@
                             <label>Prompt KARR
                                 <textarea id="configPromptKarr" rows="2"></textarea>
                             </label>
-                        </div>
-                        <button class="panel-button" id="savePromptsBtn">Sauvegarder</button>
-                    </div>
-
-                    <div class="panel-section">
-                        <h4>Contraintes</h4>
-                        <div class="form-grid">
                             <label>Max context tokens
                                 <input type="number" id="configMaxContext" placeholder="8192">
                             </label>
@@ -1186,7 +491,10 @@
                                 <input type="number" id="configMaxResponse" placeholder="2048">
                             </label>
                         </div>
-                        <button class="panel-button" id="saveConstraintsBtn">Sauvegarder</button>
+                        <div class="panel-actions" style="margin-top: 16px;">
+                            <button class="panel-button" id="savePromptsBtn">Sauvegarder prompts</button>
+                            <button class="panel-button" id="saveConstraintsBtn">Sauvegarder contraintes</button>
+                        </div>
                     </div>
 
                     <div class="panel-section">
@@ -1197,6 +505,7 @@
                             <button class="panel-button" id="aiConfigReloadBtn">Recharger</button>
                             <button class="panel-button secondary" id="aiConfigEditBtn">Modifier JSON</button>
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -1215,10 +524,28 @@
                     </div>
                     <div class="panel-section">
                         <h4>Statut rapide</h4>
-                        <div class="panel-status">
-                            <div class="status-item"><span>Services IA</span><strong>Actifs via l'application</strong></div>
-                            <div class="status-item"><span>WebSocket</span><strong>Bridge Android natif</strong></div>
-                            <div class="status-item"><span>Hotword</span><strong>Détection locale (Porcupine)</strong></div>
+                        <div class="mini-cards-grid" id="statusCardsGrid">
+                            <div class="mini-card">
+                                <div class="mini-card-header">
+                                    <span class="mini-card-label">Services IA</span>
+                                    <span class="mini-card-status active"></span>
+                                </div>
+                                <div class="mini-card-value">Actifs via l'application</div>
+                            </div>
+                            <div class="mini-card">
+                                <div class="mini-card-header">
+                                    <span class="mini-card-label">WebSocket</span>
+                                    <span class="mini-card-status active"></span>
+                                </div>
+                                <div class="mini-card-value">Bridge Android natif</div>
+                            </div>
+                            <div class="mini-card">
+                                <div class="mini-card-header">
+                                    <span class="mini-card-label">Hotword</span>
+                                    <span class="mini-card-status active"></span>
+                                </div>
+                                <div class="mini-card-value">Détection locale</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1670,6 +997,23 @@
             }
         }
 
+        // STT helpers
+        function sttPingAction() {
+            try {
+                const ok = window.secureChatApp?.androidInterface?.sttPing?.();
+                alert(ok ? '✅ Whisper Server disponible' : '❌ Whisper Server indisponible');
+            } catch (e) {
+                alert('❌ Erreur ping STT: ' + e.message);
+            }
+        }
+        function sttTestOnceAction() {
+            try {
+                window.secureChatApp?.androidInterface?.sttTestOnce?.();
+            } catch (e) {
+                alert('❌ Erreur test STT: ' + e.message);
+            }
+        }
+
         // Ajouter les événements pour les boutons de navigation
         document.addEventListener('DOMContentLoaded', () => {
             const infoBtn = document.getElementById('infoBtn');
@@ -1691,7 +1035,387 @@
             if (serverBtn) {
                 serverBtn.addEventListener('click', openServers);
             }
-        });
+            
+          // Test de connexion Ollama Cloud
+          const testCloudBtn = document.getElementById('testCloudConnectionBtn');
+          if (testCloudBtn) {
+              testCloudBtn.addEventListener('click', testOllamaCloudConnection);
+          }
+          
+          // Gérer l'affichage/masquage de l'input personnalisé pour le modèle Cloud
+          const cloudModelSelect = document.getElementById('configCloudModel');
+          const cloudModelCustomInput = document.getElementById('configCloudModelCustom');
+          if (cloudModelSelect && cloudModelCustomInput) {
+              cloudModelSelect.addEventListener('change', function() {
+                  if (this.value === 'custom') {
+                      cloudModelCustomInput.classList.remove('hidden');
+                      cloudModelCustomInput.focus();
+                  } else {
+                      cloudModelCustomInput.classList.add('hidden');
+                      cloudModelCustomInput.value = '';
+                  }
+                  
+                  // Mettre à jour le style dans la liste (si elle existe)
+                  const modelsListDiv = document.getElementById('cloudModelsList');
+                  if (modelsListDiv && this.value && this.value !== 'custom') {
+                      const allSpans = modelsListDiv.querySelectorAll('.clickable-model');
+                      allSpans.forEach(span => {
+                          const spanModel = span.getAttribute('data-model');
+                          const unescapedSpanModel = spanModel ? spanModel.replace(/\\'/g, "'").replace(/&quot;/g, '"') : '';
+                          if (unescapedSpanModel === this.value) {
+                              span.classList.add('selected');
+                          } else {
+                              span.classList.remove('selected');
+                          }
+                      });
+                  }
+              });
+          }
+      });
+
+        // Fonction de test de connexion Ollama Cloud
+        async function testOllamaCloudConnection() {
+            const apiKey = document.getElementById('configCloudApiKey').value.trim();
+            const modelSelect = document.getElementById('configCloudModel');
+            const modelCustom = document.getElementById('configCloudModelCustom');
+            const model = (modelSelect && modelSelect.value && modelSelect.value !== 'custom') 
+                ? modelSelect.value 
+                : (modelCustom && modelCustom.value ? modelCustom.value : 'gpt-oss:120b');
+            
+            const modelsResultDiv = document.getElementById('cloudModelsResult');
+            const modelsStatusDiv = document.getElementById('cloudModelsStatus');
+            const modelsListDiv = document.getElementById('cloudModelsList');
+            
+            const resultDiv = document.getElementById('cloudTestResult');
+            const statusDiv = document.getElementById('cloudTestStatus');
+            const detailsDiv = document.getElementById('cloudTestDetails');
+            const testBtn = document.getElementById('testCloudConnectionBtn');
+            
+            if (!apiKey) {
+                modelsResultDiv.style.display = 'none';
+                resultDiv.style.display = 'block';
+                resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                statusDiv.innerHTML = '❌ Clé API manquante';
+                statusDiv.style.color = '#dc2626';
+                detailsDiv.textContent = 'Veuillez entrer votre clé API Ollama Cloud';
+                return;
+            }
+            
+            // Nettoyer la clé API (supprimer espaces, caractères de contrôle)
+            const cleanApiKey = apiKey.replace(/\s+/g, '').replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
+            
+            if (!cleanApiKey) {
+                modelsResultDiv.style.display = 'none';
+                resultDiv.style.display = 'block';
+                resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                statusDiv.innerHTML = '❌ Clé API invalide';
+                statusDiv.style.color = '#dc2626';
+                detailsDiv.textContent = 'La clé API ne peut pas être vide après nettoyage';
+                return;
+            }
+            
+            // Afficher "Test en cours..."
+            modelsResultDiv.style.display = 'block';
+            modelsStatusDiv.innerHTML = '⏳ Récupération des modèles disponibles...';
+            modelsStatusDiv.style.color = '#7c3aed';
+            modelsListDiv.textContent = '';
+            
+            resultDiv.style.display = 'block';
+            resultDiv.style.background = 'rgba(59, 130, 246, 0.1)';
+            resultDiv.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+            statusDiv.innerHTML = '⏳ Test de connexion en cours...';
+            statusDiv.style.color = '#1e40af';
+            detailsDiv.textContent = '';
+            testBtn.disabled = true;
+            testBtn.innerHTML = '⏳ Test en cours...';
+            
+            const startTime = Date.now();
+            
+            try {
+                // Étape 1: Lister les modèles disponibles
+                const tagsResponse = await fetch('https://ollama.com/api/tags', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${cleanApiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!tagsResponse.ok) {
+                    if (tagsResponse.status === 401) {
+                        throw new Error('UNAUTHORIZED');
+                    }
+                    throw new Error(`HTTP ${tagsResponse.status}`);
+                }
+                
+                const tagsData = await tagsResponse.json();
+                const availableModels = (tagsData.models || []).map(m => {
+                    // Retirer le suffixe :latest si présent
+                    const name = m.name || '';
+                    return name.replace(/:latest$/, '');
+                });
+                
+                // Peupler le dropdown avec les modèles découverts
+                populateCloudModelDropdown(availableModels);
+                
+                // Afficher les modèles disponibles dans la zone dédiée (cliquables)
+                modelsStatusDiv.innerHTML = `✅ ${availableModels.length} modèle(s) disponible(s)`;
+                modelsStatusDiv.style.color = '#059669';
+                
+                const modelsList = availableModels.map(m => {
+                    const isSelected = m === model;
+                    const modelClass = isSelected ? 'clickable-model selected' : 'clickable-model';
+                    const indent = isSelected ? '' : '  ';
+                    // Échapper les guillemets simples pour éviter les erreurs JavaScript
+                    const escapedModel = m.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    return `${indent}<span class="${modelClass}" data-model="${escapedModel}" onclick="selectModelFromList('${escapedModel}')">${m}</span>`;
+                }).join('<br>');
+                modelsListDiv.innerHTML = modelsList;
+                
+                // Vérifier si le modèle demandé est disponible
+                const modelAvailable = availableModels.includes(model);
+                
+                if (!modelAvailable && availableModels.length > 0) {
+                    detailsDiv.innerHTML = `⚠️ Le modèle "<strong>${model}</strong>" n'est pas disponible.<br>Sélectionnez un modèle depuis la liste ci-dessus.`;
+                }
+                
+                // Étape 2: Tester une requête chat
+                detailsDiv.innerHTML += '<br>⏳ Test de la connexion chat...';
+                
+                const chatResponse = await fetch('https://ollama.com/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${cleanApiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [
+                            {
+                                role: 'system',
+                                content: 'Tu es un assistant IA technique spécialisé dans le développement logiciel, l\'architecture système et le support technique avancé. Tu fournis des réponses précises, structurées et professionnelles. Tu utilises un vocabulaire technique approprié et des explications claires. Tu réponds TOUJOURS exclusivement en français. Tes réponses sont concises mais complètes, avec une attention particulière à la précision technique et à l\'utilité pratique.'
+                            },
+                            {
+                                role: 'user',
+                                content: 'Confirme ta disponibilité en décrivant brièvement tes capacités techniques actuelles (architecture, langages supportés, méthodologies). Réponds en français.'
+                            }
+                        ],
+                        stream: false,
+                        think: true
+                    })
+                });
+                
+                const elapsedTime = Date.now() - startTime;
+                
+                if (!chatResponse.ok) {
+                    const errorBody = await chatResponse.text();
+                    
+                    if (chatResponse.status === 401) {
+                        throw new Error('UNAUTHORIZED');
+                    } else if (chatResponse.status === 400) {
+                        throw new Error(`BAD_REQUEST: ${errorBody.substring(0, 200)}`);
+                    } else if (chatResponse.status === 429) {
+                        throw new Error('RATE_LIMIT');
+                    } else if (chatResponse.status === 502 || chatResponse.status === 503) {
+                        throw new Error(`QUOTA_ERROR: HTTP ${chatResponse.status}`);
+                    }
+                    
+                    throw new Error(`HTTP ${chatResponse.status}: ${errorBody.substring(0, 200)}`);
+                }
+                
+                const chatData = await chatResponse.json();
+                const responseContent = chatData.message?.content || '';
+                const thinking = chatData.message?.thinking || '';
+                
+                // Succès!
+                resultDiv.style.background = 'rgba(16, 185, 129, 0.1)';
+                resultDiv.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                statusDiv.innerHTML = `✅ Connexion OK (${elapsedTime}ms)`;
+                statusDiv.style.color = '#059669';
+                detailsDiv.innerHTML = `Modèle testé: <strong>${model}</strong><br>` +
+                    `Réponse: "<strong>${responseContent}</strong>"` +
+                    (thinking ? `<br><small style="color: #64748b; margin-top: 4px; display: block;">💭 Thinking: ${thinking}</small>` : '');
+                
+                // Afficher le bouton "Voir plus" si le contenu dépasse la hauteur max
+                setTimeout(() => {
+                    checkCloudTestExpand();
+                }, 100);
+                
+            } catch (error) {
+                const elapsedTime = Date.now() - startTime;
+                
+                // Si l'erreur survient lors de la récupération des modèles, masquer la zone modèles
+                if (error.message === 'UNAUTHORIZED' || error.message.startsWith('HTTP')) {
+                    modelsResultDiv.style.display = 'none';
+                }
+                
+                resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                statusDiv.style.color = '#dc2626';
+                
+                if (error.message === 'UNAUTHORIZED') {
+                    statusDiv.innerHTML = '❌ Non autorisé (401)';
+                    detailsDiv.innerHTML = 'Clé API invalide ou expirée.<br>' +
+                        '<a href="https://ollama.com/account" target="_blank" style="color: #667eea; text-decoration: underline;">Obtenez une nouvelle clé sur ollama.com/account</a>';
+                } else if (error.message === 'RATE_LIMIT') {
+                    statusDiv.innerHTML = '⚠️ Rate limit (429)';
+                    detailsDiv.textContent = 'Trop de requêtes. Attendez quelques minutes avant de réessayer.';
+                } else if (error.message.startsWith('QUOTA_ERROR')) {
+                    statusDiv.innerHTML = '⚠️ Quota atteint';
+                    detailsDiv.innerHTML = 'Vérifiez votre quota sur <a href="https://ollama.com/account" target="_blank" style="color: #667eea; text-decoration: underline;">ollama.com/account</a>';
+                } else if (error.message.startsWith('BAD_REQUEST')) {
+                    statusDiv.innerHTML = '❌ Requête invalide (400)';
+                    detailsDiv.textContent = error.message.replace('BAD_REQUEST: ', '');
+                } else {
+                    statusDiv.innerHTML = `❌ Erreur (${elapsedTime}ms)`;
+                    detailsDiv.textContent = error.message || 'Erreur inconnue';
+                }
+            } finally {
+                testBtn.disabled = false;
+                testBtn.innerHTML = '🧪 Tester la connexion';
+                
+                // Afficher le bouton "Voir plus" si nécessaire
+                setTimeout(() => {
+                    checkCloudTestExpand();
+                }, 100);
+            }
+        }
+        
+        // Fonction pour vérifier si le contenu dépasse et afficher "Voir plus"
+        function checkCloudTestExpand() {
+            const resultDiv = document.getElementById('cloudTestResult');
+            const expandBtn = document.getElementById('cloudTestExpand');
+            
+            if (!resultDiv || !expandBtn) return;
+            
+            // Vérifier si le contenu dépasse la hauteur maximale
+            if (resultDiv.scrollHeight > resultDiv.clientHeight) {
+                expandBtn.style.display = 'block';
+            } else {
+                expandBtn.style.display = 'none';
+            }
+        }
+        
+        // Fonction pour développer/réduire la zone de diagnostic
+        function expandCloudTestResult() {
+            const resultDiv = document.getElementById('cloudTestResult');
+            const expandBtn = document.getElementById('cloudTestExpand');
+            
+            if (!resultDiv || !expandBtn) return;
+            
+            if (resultDiv.style.maxHeight === 'none' || resultDiv.style.maxHeight === '') {
+                // Réduire
+                resultDiv.style.maxHeight = '400px';
+                expandBtn.innerHTML = '... Voir plus ...';
+            } else {
+                // Développer
+                resultDiv.style.maxHeight = 'none';
+                expandBtn.innerHTML = '... Réduire ...';
+            }
+        }
+        
+        // Fonction pour peupler le dropdown avec les modèles découverts
+        function populateCloudModelDropdown(models) {
+            const dropdown = document.getElementById('configCloudModel');
+            if (!dropdown) return;
+            
+            // Sauvegarder la valeur actuelle si elle existe
+            const currentValue = dropdown.value;
+            
+            // Vider le dropdown (garder seulement "– Choisir –" et "Autre (personnalisé)")
+            while (dropdown.children.length > 0) {
+                dropdown.removeChild(dropdown.firstChild);
+            }
+            
+            // Ajouter "– Choisir –"
+            const chooseOption = document.createElement('option');
+            chooseOption.value = '';
+            chooseOption.textContent = '– Choisir –';
+            dropdown.appendChild(chooseOption);
+            
+            // Ajouter tous les modèles découverts
+            models.forEach(modelName => {
+                const option = document.createElement('option');
+                option.value = modelName;
+                // Formater le nom pour l'affichage (première lettre en majuscule, etc.)
+                const displayName = modelName
+                    .split(':')[0]
+                    .split('-')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
+                option.textContent = displayName;
+                dropdown.appendChild(option);
+            });
+            
+            // Ajouter "Autre (personnalisé)"
+            const customOption = document.createElement('option');
+            customOption.value = 'custom';
+            customOption.textContent = 'Autre (personnalisé)';
+            dropdown.appendChild(customOption);
+            
+            // Restaurer la valeur si elle existe encore dans la liste
+            if (currentValue && models.includes(currentValue)) {
+                dropdown.value = currentValue;
+            } else if (currentValue === 'custom') {
+                dropdown.value = 'custom';
+            }
+        }
+        
+        // Fonction pour sélectionner un modèle depuis la liste
+        function selectModelFromList(modelName) {
+            const dropdown = document.getElementById('configCloudModel');
+            const customInput = document.getElementById('configCloudModelCustom');
+            
+            if (!dropdown) return;
+            
+            // Déséchapper le nom du modèle (si nécessaire)
+            const unescapedModelName = modelName.replace(/\\'/g, "'").replace(/&quot;/g, '"');
+            
+            // Vérifier si le modèle est dans le dropdown
+            const option = Array.from(dropdown.options).find(opt => opt.value === unescapedModelName);
+            
+            if (option) {
+                // Sélectionner dans le dropdown
+                dropdown.value = unescapedModelName;
+                
+                // Masquer l'input personnalisé si nécessaire
+                if (customInput && !customInput.classList.contains('hidden')) {
+                    customInput.classList.add('hidden');
+                    customInput.value = '';
+                }
+                
+                // Déclencher l'événement change pour mettre à jour l'UI
+                dropdown.dispatchEvent(new Event('change'));
+            } else {
+                // Modèle non dans le dropdown - utiliser l'input personnalisé
+                dropdown.value = 'custom';
+                
+                if (customInput) {
+                    customInput.value = unescapedModelName;
+                    customInput.classList.remove('hidden');
+                    customInput.focus();
+                }
+                
+                // Déclencher l'événement change pour mettre à jour l'UI
+                dropdown.dispatchEvent(new Event('change'));
+            }
+            
+            // Mettre à jour le style dans la liste (re-sélection)
+            const modelsListDiv = document.getElementById('cloudModelsList');
+            if (modelsListDiv) {
+                const allSpans = modelsListDiv.querySelectorAll('.clickable-model');
+                allSpans.forEach(span => {
+                    const spanModel = span.getAttribute('data-model');
+                    if (spanModel === modelName || spanModel === unescapedModelName) {
+                        span.classList.add('selected');
+                    } else {
+                        span.classList.remove('selected');
+                    }
+                });
+            }
+        }
     </script>
 </body>
 </html>
