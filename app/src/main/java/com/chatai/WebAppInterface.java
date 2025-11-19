@@ -19,10 +19,8 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Bundle;
-import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
-import java.util.ArrayList;
 import java.util.Locale;
 
 import com.chatai.hotword.HotwordAssetProvider;
@@ -40,10 +38,8 @@ public class WebAppInterface {
     private static RealtimeAIService aiService;
     private static FileServer fileServer;
     
-    // STT pour bouton micro webapp
+    // STT pour bouton micro webapp (Whisper uniquement, Google Speech utilise Intent standard)
     private com.chatai.audio.WhisperServerRecognizer webappWhisperRecognizer = null;
-    private android.speech.SpeechRecognizer webappSpeechRecognizer = null;
-    private WebappGoogleSpeechListener webappSpeechListener = null;
 
     public WebAppInterface(Context c, Object activity) {
         mContext = c;
@@ -530,6 +526,22 @@ public class WebAppInterface {
                     
                     if ("whisper_server".equalsIgnoreCase(engine)) {
                         // === WHISPER SERVER ===
+                        // ⭐ AMÉLIORATION : Vérifier la disponibilité avant d'utiliser Whisper
+                        boolean whisperAvailable = sttPing();
+                        
+                        if (!whisperAvailable) {
+                            // ⭐ FALLBACK AUTOMATIQUE : Whisper configuré mais serveur non disponible
+                            Log.w(TAG, "⚠️ STT Test: Whisper Server configuré mais non disponible - Fallback vers Intent Google Speech standard");
+                            showToast("Whisper non disponible - Utilisation de Google Speech");
+                            
+                            // Utiliser Intent Google Speech standard à la place
+                            startGoogleSpeechActivity();
+                            return;
+                        }
+                        
+                        // Whisper est disponible → continuer avec Whisper
+                        Log.i(TAG, "✅ STT Test: Whisper Server disponible - démarrage Whisper");
+                        
                         // CRITIQUE: Arrêter Google Speech s'il est actif (il monopolise le microphone)
                         // Whisper et Google Speech ne peuvent PAS être actifs en même temps
                         Intent stopGoogleIntent = new Intent(mContext, BackgroundService.class);
@@ -537,115 +549,49 @@ public class WebAppInterface {
                         mContext.startService(stopGoogleIntent);
                         Log.i(TAG, "STT Test (Whisper): Arrêt de Google Speech si actif");
                         
-                    // Créer client OkHttp avec timeouts configurés (120s read, 150s call)
-                    okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
-                            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                            .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
-                            .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-                            .callTimeout(150, java.util.concurrent.TimeUnit.SECONDS)
-                            .build();
-                    com.chatai.audio.WhisperServerRecognizer rec = new com.chatai.audio.WhisperServerRecognizer(
-                            cfg,
-                            new com.chatai.audio.WhisperServerRecognizer.Callback() {
-                                    @Override public void onReady() { Log.i(TAG, "STT Test (Whisper): ready"); }
-                                    @Override public void onSpeechStart() { Log.i(TAG, "STT Test (Whisper): speech start"); }
-                                @Override public void onRmsChanged(float rmsDb) { /* no-op */ }
-                                @Override public void onResult(String text) {
-                                        Log.i(TAG, "STT Test (Whisper) result: " + text);
-                                    showToast("STT: " + text);
-                                }
-                                @Override public void onError(String message) {
-                                        Log.e(TAG, "STT Test (Whisper) error: " + message);
-                                    showToast("STT error: " + message);
-                                }
-                            },
-                            client
-                    );
-                    rec.startListening();
-                    } else if ("legacy_google".equalsIgnoreCase(engine)) {
-                        // === GOOGLE SPEECH ===
-                        // CRITIQUE: Arrêter Whisper s'il est actif (il monopolise le microphone)
-                        // Whisper et Google Speech ne peuvent PAS être actifs en même temps
-                        Intent stopWhisperIntent = new Intent(mContext, BackgroundService.class);
-                        stopWhisperIntent.setAction(BackgroundService.ACTION_STOP_WHISPER);
-                        mContext.startService(stopWhisperIntent);
-                        Log.i(TAG, "STT Test (Google Speech): Arrêt de Whisper si actif");
-                        
-                        // SpeechRecognizer doit être créé et utilisé depuis le main thread
-                        new Handler(Looper.getMainLooper()).post(() -> {
-                            SpeechRecognizer recognizer = null;
-                            Handler timeoutHandler = null;
-                            Runnable timeoutRunnable = null;
-                            try {
-                                // Vérifier si Google Speech est disponible
-                                if (!SpeechRecognizer.isRecognitionAvailable(mContext)) {
-                                    Log.e(TAG, "STT Test (Google Speech): Google Speech non disponible sur ce device");
-                                    showToast("Google Speech non disponible");
-                                    return;
-                                }
-                                
-                                recognizer = SpeechRecognizer.createSpeechRecognizer(mContext);
-                                if (recognizer == null) {
-                                    Log.e(TAG, "STT Test (Google Speech): SpeechRecognizer.createSpeechRecognizer() retourne null");
-                                    showToast("Google Speech non disponible (null)");
-                                    return;
-                                }
-                                
-                                Log.i(TAG, "STT Test (Google Speech): SpeechRecognizer créé avec succès");
-                                
-                                // Créer le listener avec référence au recognizer et contexte
-                                GoogleSpeechTestListener listener = new GoogleSpeechTestListener(recognizer, mContext);
-                                
-                                // TIMEOUT: Forcer l'arrêt après 12 secondes si aucun résultat
-                                timeoutHandler = new Handler(Looper.getMainLooper());
-                                final SpeechRecognizer finalRecognizer = recognizer;
-                                final GoogleSpeechTestListener finalListener = listener;
-                                timeoutRunnable = () -> {
-                                    if (finalRecognizer != null && !finalListener.isDestroyed()) {
-                                        Log.w(TAG, "STT Test (Google Speech): timeout global (12s) - arrêt forcé");
-                                        try {
-                                            finalRecognizer.stopListening();
-                                        } catch (Throwable ignored) {}
-                                        try {
-                                            finalRecognizer.destroy();
-                                            finalListener.setDestroyed(true);
-                                        } catch (Throwable ignored) {}
-                                        showToast("STT test timeout (12s)");
+                        // Créer client OkHttp avec timeouts configurés (120s read, 150s call)
+                        okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                                .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                                .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                                .callTimeout(150, java.util.concurrent.TimeUnit.SECONDS)
+                                .build();
+                        com.chatai.audio.WhisperServerRecognizer rec = new com.chatai.audio.WhisperServerRecognizer(
+                                cfg,
+                                new com.chatai.audio.WhisperServerRecognizer.Callback() {
+                                        @Override public void onReady() { Log.i(TAG, "STT Test (Whisper): ready"); }
+                                        @Override public void onSpeechStart() { Log.i(TAG, "STT Test (Whisper): speech start"); }
+                                    @Override public void onRmsChanged(float rmsDb) { /* no-op */ }
+                                    @Override public void onResult(String text) {
+                                            Log.i(TAG, "STT Test (Whisper) result: " + text);
+                                        showToast("STT: " + text);
                                     }
-                                };
-                                timeoutHandler.postDelayed(timeoutRunnable, 12000); // 12 secondes maximum
-                                
-                                // Stocker la référence au timeout dans le listener pour annulation
-                                listener.setTimeoutHandler(timeoutHandler);
-                                listener.setTimeoutRunnable(timeoutRunnable);
-                                
-                                recognizer.setRecognitionListener(listener);
-                                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-                                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-                                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.FRENCH);
-                                intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, mContext.getPackageName());
-                                intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
-                                // Note: EXTRA_PROMPT non utilisé avec SpeechRecognizer (seulement pour startActivityForResult)
-                                recognizer.startListening(intent);
-                                Log.i(TAG, "STT Test (Google Speech): started (timeout global: 12s, après parole: 7s)");
-                            } catch (Exception e) {
-                                Log.e(TAG, "Failed to start Google Speech test", e);
-                                showToast("Erreur Google Speech: " + e.getMessage());
-                                // Nettoyer en cas d'erreur
-                                if (timeoutHandler != null && timeoutRunnable != null) {
-                                    timeoutHandler.removeCallbacks(timeoutRunnable);
-                                }
-                                if (recognizer != null) {
-                                    try { recognizer.destroy(); } catch (Throwable ignored) {}
-                                }
-                            }
-                        });
+                                    @Override public void onError(String message) {
+                                            Log.e(TAG, "STT Test (Whisper) error: " + message);
+                                        showToast("STT error: " + message);
+                                    }
+                                },
+                                client
+                        );
+                        rec.startListening();
                     } else {
-                        showToast("Engine STT inconnu: " + engine);
+                        // === GOOGLE SPEECH VIA INTENT STANDARD ===
+                        // ⭐ SIMPLIFICATION : Utilise Intent standard au lieu de SpeechRecognizer manuel
+                        Log.i(TAG, "STT Test: Utilisation Intent Google Speech standard (même que bouton micro clavier)");
+                        startGoogleSpeechActivity();
+                        showToast("Reconnaissance vocale standard lancée (comme le clavier Google)");
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "sttTestOnce error", e);
-                    showToast("STT test error: " + e.getMessage());
+                    // ⭐ FALLBACK EN CAS D'ERREUR : Utiliser Intent Google Speech standard
+                    try {
+                        Log.w(TAG, "⚠️ Erreur lors du test STT - Fallback vers Intent Google Speech standard");
+                        startGoogleSpeechActivity();
+                        showToast("Erreur STT - Utilisation de Google Speech");
+                    } catch (Exception fallbackError) {
+                        Log.e(TAG, "Fallback Google Speech error", fallbackError);
+                        showToast("STT test error: " + e.getMessage());
+                    }
                 }
             }
             // ========== STT (Whisper/Google Speech) POUR BOUTON MICRO WEBBAPP ==========
@@ -672,8 +618,8 @@ public class WebAppInterface {
             }
             
             /**
-             * Démarrer Whisper Server (pour bouton micro webapp)
-             * Utilise la configuration Audio STT de la webapp (whisper_server ou legacy_google)
+             * ⭐ SIMPLIFIÉ : Démarrer STT (Whisper ou Intent Google Speech standard)
+             * Utilise Whisper si configuré ET disponible, sinon Intent Google Speech standard (comme le clavier Google)
              */
             @JavascriptInterface
             public void sttStartWhisper() {
@@ -685,6 +631,33 @@ public class WebAppInterface {
                     
                     if ("whisper_server".equalsIgnoreCase(engine)) {
                         // === WHISPER SERVER ===
+                        // ⭐ AMÉLIORATION : Vérifier la disponibilité avant d'utiliser Whisper
+                        boolean whisperAvailable = sttPing();
+                        
+                        if (!whisperAvailable) {
+                            // ⭐ FALLBACK AUTOMATIQUE : Whisper configuré mais serveur non disponible
+                            Log.w(TAG, "⚠️ Whisper Server configuré mais non disponible - Fallback vers Intent Google Speech standard");
+                            
+                            // Afficher un toast à l'utilisateur
+                            if (mContext instanceof MainActivity) {
+                                MainActivity activity = (MainActivity) mContext;
+                                new Handler(Looper.getMainLooper()).post(() -> {
+                                    android.widget.Toast.makeText(
+                                        mContext,
+                                        "Whisper Server non disponible - Utilisation de Google Speech",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show();
+                                });
+                            }
+                            
+                            // Utiliser Intent Google Speech standard à la place
+                            startGoogleSpeechActivity();
+                            return;
+                        }
+                        
+                        // Whisper est disponible → continuer avec Whisper
+                        Log.i(TAG, "✅ Whisper Server disponible - démarrage Whisper");
+                        
                         // CRITIQUE: Arrêter Google Speech s'il est actif (il monopolise le microphone)
                         Intent stopGoogleIntent = new Intent(mContext, BackgroundService.class);
                         stopGoogleIntent.setAction(BackgroundService.ACTION_STOP_GOOGLE_SPEECH);
@@ -700,7 +673,6 @@ public class WebAppInterface {
                                 .build();
                         
                         // Créer un recognizer Whisper temporaire pour le webapp
-                        // Stocker dans une variable de classe pour pouvoir l'arrêter
                         if (webappWhisperRecognizer != null) {
                             try {
                                 webappWhisperRecognizer.stopListening();
@@ -713,7 +685,6 @@ public class WebAppInterface {
                                 new com.chatai.audio.WhisperServerRecognizer.Callback() {
                                     @Override public void onReady() {
                                         Log.i(TAG, "Webapp Whisper: ready");
-                                        // Notifier le webapp via callback JavaScript
                                         if (mContext instanceof MainActivity) {
                                             MainActivity activity = (MainActivity) mContext;
                                             new Handler(Looper.getMainLooper()).post(() -> {
@@ -733,7 +704,6 @@ public class WebAppInterface {
                                         }
                                     }
                                     @Override public void onRmsChanged(float rmsDb) {
-                                        // Envoyer RMS au webapp
                                         if (mContext instanceof MainActivity) {
                                             MainActivity activity = (MainActivity) mContext;
                                             new Handler(Looper.getMainLooper()).post(() -> {
@@ -744,14 +714,12 @@ public class WebAppInterface {
                                     }
                                     @Override public void onResult(String text) {
                                         Log.i(TAG, "Webapp Whisper: result=" + text);
-                                        // Nettoyer le recognizer après résultat
                                         if (webappWhisperRecognizer != null) {
                                             try {
                                                 webappWhisperRecognizer.stopListening();
                                             } catch (Exception ignored) {}
                                             webappWhisperRecognizer = null;
                                         }
-                                        // Notifier le webapp
                                         if (mContext instanceof MainActivity) {
                                             MainActivity activity = (MainActivity) mContext;
                                             final String safeText = text.replace("'", "\\'").replace("\n", "\\n");
@@ -763,14 +731,12 @@ public class WebAppInterface {
                                     }
                                     @Override public void onError(String message) {
                                         Log.e(TAG, "Webapp Whisper: error=" + message);
-                                        // Nettoyer le recognizer après erreur
                                         if (webappWhisperRecognizer != null) {
                                             try {
                                                 webappWhisperRecognizer.stopListening();
                                             } catch (Exception ignored) {}
                                             webappWhisperRecognizer = null;
                                         }
-                                        // Notifier le webapp
                                         if (mContext instanceof MainActivity) {
                                             MainActivity activity = (MainActivity) mContext;
                                             final String safeMsg = message.replace("'", "\\'").replace("\n", "\\n");
@@ -785,72 +751,109 @@ public class WebAppInterface {
                         );
                         webappWhisperRecognizer.startListening();
                         Log.i(TAG, "✅ Webapp Whisper: started");
-                    } else if ("legacy_google".equalsIgnoreCase(engine)) {
-                        // === GOOGLE SPEECH ===
-                        // CRITIQUE: Arrêter Whisper s'il est actif (il monopolise le microphone)
-                        Intent stopWhisperIntent = new Intent(mContext, BackgroundService.class);
-                        stopWhisperIntent.setAction(BackgroundService.ACTION_STOP_WHISPER);
-                        mContext.startService(stopWhisperIntent);
-                        Log.i(TAG, "sttStartWhisper (Google Speech): Arrêt de Whisper si actif");
-                        
-                        // CRITIQUE: Arrêter le hotword temporairement pour libérer l'AudioRecord
-                        // Cela permet au clavier Google et autres apps d'utiliser le microphone
-                        if (mContext instanceof MainActivity) {
-                            MainActivity activity = (MainActivity) mContext;
-                            // On pourrait arrêter le hotword ici si nécessaire
-                            // Pour l'instant, on laisse le hotword actif et on essaie quand même
-                        }
-                        
-                        // Utiliser Google Speech pour le webapp (même logique que sttTestOnce)
-                        new Handler(Looper.getMainLooper()).post(() -> {
-                            try {
-                                if (!SpeechRecognizer.isRecognitionAvailable(mContext)) {
-                                    Log.e(TAG, "sttStartWhisper (Google Speech): non disponible");
-                                    return;
-                                }
-                                
-                                // Libérer le recognizer existant si présent
-                                if (webappSpeechRecognizer != null) {
-                                    try {
-                                        webappSpeechRecognizer.stopListening();
-                                        webappSpeechRecognizer.destroy();
-                                    } catch (Throwable ignored) {}
-                                    webappSpeechRecognizer = null;
-                                }
-                                
-                                webappSpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(mContext);
-                                if (webappSpeechRecognizer == null) {
-                                    Log.e(TAG, "sttStartWhisper (Google Speech): création échouée");
-                                    return;
-                                }
-                                
-                                // Créer un listener pour le webapp
-                                webappSpeechListener = new WebappGoogleSpeechListener(mContext);
-                                webappSpeechRecognizer.setRecognitionListener(webappSpeechListener);
-                                
-                                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-                                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-                                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.FRENCH);
-                                intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, mContext.getPackageName());
-                                intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
-                                intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
-                                
-                                webappSpeechRecognizer.startListening(intent);
-                                Log.i(TAG, "✅ Webapp Google Speech: started");
-                            } catch (Exception e) {
-                                Log.e(TAG, "sttStartWhisper (Google Speech): error", e);
-                            }
-                        });
                     } else {
-                        Log.w(TAG, "sttStartWhisper: Engine inconnu=" + engine);
+                        // === GOOGLE SPEECH VIA INTENT STANDARD ===
+                        // ⭐ SIMPLIFICATION : Utilise Intent standard (comme le clavier Google) au lieu de SpeechRecognizer manuel
+                        Log.i(TAG, "sttStartWhisper: Utilisation Intent Google Speech standard (engine=" + engine + ")");
+                        startGoogleSpeechActivity();
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "sttStartWhisper error", e);
+                    // ⭐ FALLBACK EN CAS D'ERREUR : Utiliser Intent Google Speech standard
+                    try {
+                        Log.w(TAG, "⚠️ Erreur lors du démarrage STT - Fallback vers Intent Google Speech standard");
+                        startGoogleSpeechActivity();
+                    } catch (Exception fallbackError) {
+                        Log.e(TAG, "Fallback Google Speech error", fallbackError);
+                    }
                 }
             }
             
             /**
-             * Arrêter Whisper Server (pour bouton micro webapp)
+             * ⭐ NOUVEAU : Démarrer le serveur Whisper via Termux
+             * Envoie un Intent à Termux pour exécuter la commande whisper-server
+             */
+            @JavascriptInterface
+            public void startWhisperServer() {
+                try {
+                    Log.i(TAG, "startWhisperServer: Envoi Intent à Termux");
+                    
+                    // Créer Intent pour Termux RUN_COMMAND
+                    Intent intent = new Intent();
+                    intent.setAction("com.termux.RUN_COMMAND");
+                    intent.putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash");
+                    intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", new String[]{
+                        "-c",
+                        "./whisper.cpp/build/bin/whisper-server -m /sdcard/ChatAI-Files/models/whisper/ggml-small.bin --port 11400 --host 127.0.0.1 -l fr -t 4"
+                    });
+                    intent.putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home");
+                    intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true); // En arrière-plan
+                    intent.putExtra("com.termux.RUN_COMMAND_SESSION_NAME", "whisper-server");
+                    intent.setClassName("com.termux", "com.termux.app.RunCommandService");
+                    
+                    try {
+                        mContext.startService(intent);
+                        Log.i(TAG, "✅ Intent Termux envoyé - Whisper Server démarré");
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            Toast.makeText(mContext, "Whisper Server démarré via Termux", Toast.LENGTH_SHORT).show();
+                        });
+                    } catch (Exception e) {
+                        Log.e(TAG, "Erreur lors de l'envoi de l'Intent Termux", e);
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            Toast.makeText(mContext, "Erreur: Termux non disponible ou permission refusée", Toast.LENGTH_LONG).show();
+                        });
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "startWhisperServer error", e);
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        Toast.makeText(mContext, "Erreur: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+                }
+            }
+            
+            /**
+             * ⭐ NOUVEAU : Démarre l'Activity Google Speech standard (comme le clavier Google)
+             * Utilise startActivityForResult() avec RecognizerIntent - beaucoup plus simple que SpeechRecognizer manuel
+             */
+            private void startGoogleSpeechActivity() {
+                try {
+                    // Vérifier si Google Speech est disponible
+                    if (!SpeechRecognizer.isRecognitionAvailable(mContext)) {
+                        Log.e(TAG, "Google Speech non disponible");
+                        Toast.makeText(mContext, "Reconnaissance vocale non disponible", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    
+                    // Arrêter Whisper s'il est actif (il monopolise le microphone)
+                    Intent stopWhisperIntent = new Intent(mContext, BackgroundService.class);
+                    stopWhisperIntent.setAction(BackgroundService.ACTION_STOP_WHISPER);
+                    mContext.startService(stopWhisperIntent);
+                    Log.i(TAG, "Arrêt de Whisper pour libérer le microphone");
+                    
+                    // Créer Intent standard Google Speech (comme le clavier Google)
+                    Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.FRENCH);
+                    intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Parlez...");
+                    intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+                    
+                    // Lancer l'Activity standard Google Speech
+                    if (mContext instanceof MainActivity) {
+                        MainActivity activity = (MainActivity) mContext;
+                        activity.startActivityForResult(intent, MainActivity.REQUEST_SPEECH_RECOGNITION);
+                        Log.i(TAG, "✅ Intent Google Speech standard lancé");
+                    } else {
+                        Log.e(TAG, "Context n'est pas MainActivity, impossible de lancer l'Intent");
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "startGoogleSpeechActivity error", e);
+                    Toast.makeText(mContext, "Erreur lors du lancement de la reconnaissance vocale", Toast.LENGTH_SHORT).show();
+                }
+            }
+            
+            /**
+             * ⭐ SIMPLIFIÉ : Arrêter Whisper Server (pour bouton micro webapp)
+             * Note: Google Speech via Intent standard n'a pas besoin d'être arrêté (géré par Android)
              */
             @JavascriptInterface
             public void sttStopWhisper() {
@@ -869,22 +872,9 @@ public class WebAppInterface {
                             }
                             webappWhisperRecognizer = null;
                         }
-                    } else if ("legacy_google".equalsIgnoreCase(engine)) {
-                        // Arrêter Google Speech
-                        if (webappSpeechRecognizer != null) {
-                            new Handler(Looper.getMainLooper()).post(() -> {
-                                try {
-                                    webappSpeechRecognizer.stopListening();
-                                    webappSpeechRecognizer.destroy();
-                                    Log.i(TAG, "✅ Webapp Google Speech: stopped");
-                                } catch (Exception e) {
-                                    Log.w(TAG, "Error stopping webapp Google Speech: " + e.getMessage());
-                                }
-                                webappSpeechRecognizer = null;
-                                webappSpeechListener = null;
-                            });
-                        }
                     }
+                    // Note: Google Speech via Intent standard n'a pas besoin d'être arrêté manuellement
+                    // L'utilisateur peut simplement fermer l'Activity standard
                 } catch (Exception e) {
                     Log.e(TAG, "sttStopWhisper error", e);
                 }
@@ -1215,350 +1205,6 @@ public class WebAppInterface {
                     
                 } catch (Exception e) {
                     Log.e(TAG, "Error sending message via bridge", e);
-                }
-            }
-    
-    /**
-     * RecognitionListener pour Google Speech dans webapp (classe interne statique pour éviter problèmes KSP)
-     */
-    private static class WebappGoogleSpeechListener implements RecognitionListener {
-        private final Context context;
-        private Handler timeoutHandler;
-        private Runnable timeoutRunnable;
-        private boolean destroyed = false;
-        
-        WebappGoogleSpeechListener(Context context) {
-            this.context = context;
-            this.timeoutHandler = new Handler(Looper.getMainLooper());
-        }
-        
-        void setTimeoutHandler(Handler handler) {
-            this.timeoutHandler = handler;
-        }
-        
-        void setTimeoutRunnable(Runnable runnable) {
-            this.timeoutRunnable = runnable;
-        }
-        
-        boolean isDestroyed() {
-            return destroyed;
-        }
-        
-        void setDestroyed(boolean destroyed) {
-            this.destroyed = destroyed;
-        }
-        
-        private void cleanup() {
-            if (destroyed) {
-                return;
-            }
-            destroyed = true;
-            
-            if (timeoutHandler != null && timeoutRunnable != null) {
-                timeoutHandler.removeCallbacks(timeoutRunnable);
-            }
-        }
-        
-        @Override
-        public void onReadyForSpeech(Bundle params) {
-            Log.i("WebAppInterface", "Webapp Google Speech: ready");
-            // Notifier le webapp
-            if (context instanceof MainActivity) {
-                MainActivity activity = (MainActivity) context;
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_ready', ''); }";
-                    activity.getWebView().evaluateJavascript(jsCode, null);
-                });
-            }
-            
-            // TIMEOUT: Forcer l'arrêt après 12 secondes si aucun résultat
-            if (timeoutHandler != null && !destroyed) {
-                final WebappGoogleSpeechListener self = this;
-                timeoutRunnable = () -> {
-                    if (!self.destroyed) {
-                        Log.w("WebAppInterface", "Webapp Google Speech: timeout global (12s)");
-                        cleanup();
-                        if (context instanceof MainActivity) {
-                            MainActivity activity = (MainActivity) context;
-                            new Handler(Looper.getMainLooper()).post(() -> {
-                                String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_error', 'Timeout (12s)'); }";
-                                activity.getWebView().evaluateJavascript(jsCode, null);
-                            });
-                        }
-                    }
-                };
-                timeoutHandler.postDelayed(timeoutRunnable, 12000);
-            }
-        }
-        
-        @Override
-        public void onBeginningOfSpeech() {
-            Log.i("WebAppInterface", "Webapp Google Speech: speech start");
-            if (context instanceof MainActivity) {
-                MainActivity activity = (MainActivity) context;
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_speech_start', ''); }";
-                    activity.getWebView().evaluateJavascript(jsCode, null);
-                });
-            }
-        }
-        
-        @Override
-        public void onRmsChanged(float rmsDb) {
-            // Envoyer RMS au webapp
-            if (context instanceof MainActivity) {
-                MainActivity activity = (MainActivity) context;
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_rms', '" + rmsDb + "'); }";
-                    activity.getWebView().evaluateJavascript(jsCode, null);
-                });
-            }
-        }
-        
-        @Override
-        public void onBufferReceived(byte[] buffer) {
-            // No-op
-        }
-        
-        @Override
-        public void onEndOfSpeech() {
-            Log.i("WebAppInterface", "Webapp Google Speech: speech end");
-            if (timeoutHandler != null && timeoutRunnable != null) {
-                timeoutHandler.removeCallbacks(timeoutRunnable);
-            }
-        }
-        
-        @Override
-        public void onError(int error) {
-            String errorMsg = "Unknown error";
-            switch (error) {
-                case SpeechRecognizer.ERROR_AUDIO: errorMsg = "Audio error"; break;
-                case SpeechRecognizer.ERROR_CLIENT: errorMsg = "Client error"; break;
-                case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS: errorMsg = "Insufficient permissions"; break;
-                case SpeechRecognizer.ERROR_NETWORK: errorMsg = "Network error"; break;
-                case SpeechRecognizer.ERROR_NETWORK_TIMEOUT: errorMsg = "Network timeout"; break;
-                case SpeechRecognizer.ERROR_NO_MATCH: errorMsg = "No match"; break;
-                case SpeechRecognizer.ERROR_RECOGNIZER_BUSY: errorMsg = "Recognizer busy"; break;
-                case SpeechRecognizer.ERROR_SERVER: errorMsg = "Server error"; break;
-                case SpeechRecognizer.ERROR_SPEECH_TIMEOUT: errorMsg = "Speech timeout"; break;
-            }
-            Log.e("WebAppInterface", "Webapp Google Speech: error=" + errorMsg + " (" + error + ")");
-            cleanup();
-            
-            if (context instanceof MainActivity) {
-                MainActivity activity = (MainActivity) context;
-                final String safeMsg = errorMsg.replace("'", "\\'").replace("\n", "\\n");
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_error', '" + safeMsg + "'); }";
-                    activity.getWebView().evaluateJavascript(jsCode, null);
-                });
-            }
-        }
-        
-        @Override
-        public void onResults(Bundle results) {
-            Log.i("WebAppInterface", "Webapp Google Speech: results");
-            cleanup();
-            
-            ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-            String transcript = (matches != null && !matches.isEmpty()) ? matches.get(0) : "";
-            
-            if (context instanceof MainActivity) {
-                MainActivity activity = (MainActivity) context;
-                final String safeText = transcript.replace("'", "\\'").replace("\n", "\\n");
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_transcription', '" + safeText + "'); }";
-                    activity.getWebView().evaluateJavascript(jsCode, null);
-                });
-            }
-        }
-        
-        @Override
-        public void onPartialResults(Bundle partialResults) {
-            // No-op (on attend onResults)
-        }
-        
-        @Override
-        public void onEvent(int eventType, Bundle params) {
-            // No-op
-        }
-    }
-    
-    /**
-     * RecognitionListener pour test Google Speech (classe interne statique pour éviter problèmes KSP)
-     */
-    private static class GoogleSpeechTestListener implements RecognitionListener {
-        private final SpeechRecognizer recognizer;
-        private final Context context;
-        private Handler timeoutHandler;
-        private Runnable timeoutRunnable;
-        private Runnable speechTimeoutRunnable;
-        private boolean destroyed = false;
-        
-        GoogleSpeechTestListener(SpeechRecognizer recognizer, Context context) {
-            this.recognizer = recognizer;
-            this.context = context;
-        }
-        
-        void setTimeoutHandler(Handler handler) {
-            this.timeoutHandler = handler;
-        }
-        
-        void setTimeoutRunnable(Runnable runnable) {
-            this.timeoutRunnable = runnable;
-        }
-        
-        boolean isDestroyed() {
-            return destroyed;
-        }
-        
-        void setDestroyed(boolean destroyed) {
-            this.destroyed = destroyed;
-        }
-        
-        private void cleanup() {
-            if (destroyed) {
-                return; // Déjà nettoyé
-            }
-            destroyed = true;
-            
-            // Annuler tous les timeouts
-            if (timeoutHandler != null) {
-                if (timeoutRunnable != null) {
-                    timeoutHandler.removeCallbacks(timeoutRunnable);
-                }
-                if (speechTimeoutRunnable != null) {
-                    timeoutHandler.removeCallbacks(speechTimeoutRunnable);
-                }
-            }
-            
-            // Détruire le recognizer
-            if (recognizer != null) {
-                try {
-                    recognizer.stopListening();
-                } catch (Throwable ignored) {}
-                try {
-                    recognizer.destroy();
-                    Log.i("WebAppInterface", "STT Test (Google Speech): recognizer destroyed");
-                } catch (Throwable e) {
-                    Log.w("WebAppInterface", "STT Test (Google Speech): error destroying recognizer", e);
-                }
-            }
-        }
-        
-        @Override
-        public void onReadyForSpeech(android.os.Bundle params) {
-            Log.i("WebAppInterface", "STT Test (Google Speech): ready - microphone accessible");
-            // Si onReadyForSpeech est appelé, le microphone est accessible
-            // Cela signifie qu'aucun autre processus (comme Whisper avec AudioRecord) ne le monopolise
-        }
-        
-        @Override
-        public void onBeginningOfSpeech() {
-            Log.i("WebAppInterface", "STT Test (Google Speech): speech start");
-            // TIMEOUT: Si aucun résultat après 12 secondes depuis le début de la parole, forcer l'arrêt
-            // (augmenté de 7s à 12s car Google Speech peut prendre plus de temps pour traiter)
-            if (timeoutHandler != null && !destroyed) {
-                final GoogleSpeechTestListener self = this;
-                speechTimeoutRunnable = () -> {
-                    if (!self.isDestroyed()) {
-                        Log.w("WebAppInterface", "STT Test (Google Speech): timeout après début de parole (12s) - arrêt forcé");
-                        new Handler(Looper.getMainLooper()).post(() -> {
-                            Toast.makeText(context, "STT: Timeout après parole (12s)", Toast.LENGTH_SHORT).show();
-                        });
-                        cleanup();
-                    }
-                };
-                timeoutHandler.postDelayed(speechTimeoutRunnable, 12000); // 12 secondes après début de parole
-            }
-        }
-        
-        @Override
-        public void onRmsChanged(float rmsDb) {
-            // Log RMS toutes les 50 fois pour diagnostic
-            // RMS > -30 dB = parole audible, RMS > -10 dB = parole forte
-            if ((int)(rmsDb * 10) % 50 == 0) {
-                String level = rmsDb > -10 ? "FORT" : (rmsDb > -30 ? "NORMAL" : "FAIBLE");
-                Log.i("WebAppInterface", "🎤 STT Test (Google Speech) RMS: " + String.format("%.1f", rmsDb) + " dB (" + level + ")");
-            }
-        }
-        
-        @Override
-        public void onBufferReceived(byte[] buffer) {
-            // Log buffer reçu (confirme que microphone envoie des données)
-            Log.d("WebAppInterface", "📡 STT Test (Google Speech) buffer received: " + buffer.length + " bytes");
-        }
-        
-        @Override
-        public void onEndOfSpeech() {
-            Log.i("WebAppInterface", "STT Test (Google Speech): speech end");
-        }
-        
-        @Override
-        public void onPartialResults(android.os.Bundle partialResults) {
-            ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-            if (matches != null && !matches.isEmpty()) {
-                String text = matches.get(0);
-                Log.i("WebAppInterface", "✅ STT Test (Google Speech) partial result: '" + text + "' (Google Speech VOUS ENTEND!)");
-                // Afficher aussi dans un Toast pour feedback visuel immédiat
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    Toast.makeText(context, "STT partiel: " + text, Toast.LENGTH_SHORT).show();
-                });
-            } else {
-                Log.d("WebAppInterface", "STT Test (Google Speech) partial results: aucun match (Google Speech traite mais ne reconnaît pas encore)");
-            }
-        }
-        
-        @Override
-        public void onError(int error) {
-            final String errorMsg;
-            switch (error) {
-                case SpeechRecognizer.ERROR_AUDIO: 
-                    errorMsg = "Audio error (microphone peut-être monopolisé par Whisper)"; 
-                    break;
-                case SpeechRecognizer.ERROR_CLIENT: errorMsg = "Client error"; break;
-                case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS: errorMsg = "Insufficient permissions"; break;
-                case SpeechRecognizer.ERROR_NETWORK: errorMsg = "Network error"; break;
-                case SpeechRecognizer.ERROR_NETWORK_TIMEOUT: errorMsg = "Network timeout"; break;
-                case SpeechRecognizer.ERROR_NO_MATCH: errorMsg = "No match"; break;
-                case SpeechRecognizer.ERROR_RECOGNIZER_BUSY: 
-                    errorMsg = "Recognizer busy (peut-être que Whisper monopolise le microphone)"; 
-                    break;
-                case SpeechRecognizer.ERROR_SERVER: errorMsg = "Server error"; break;
-                case SpeechRecognizer.ERROR_SPEECH_TIMEOUT: errorMsg = "Speech timeout"; break;
-                default: errorMsg = "Unknown error"; break;
-            }
-            Log.e("WebAppInterface", "STT Test (Google Speech) error: " + errorMsg + " (" + error + ")");
-            if (error == SpeechRecognizer.ERROR_AUDIO || error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    Toast.makeText(context, "STT error: " + errorMsg + " - Arrêtez Whisper si actif", Toast.LENGTH_LONG).show();
-                });
-            }
-            cleanup();
-        }
-        
-        @Override
-        public void onResults(android.os.Bundle results) {
-            ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-            if (matches != null && !matches.isEmpty()) {
-                String text = matches.get(0);
-                Log.i("WebAppInterface", "STT Test (Google Speech) result: " + text + " (matches: " + matches.size() + ")");
-                // Afficher le résultat à l'utilisateur (comme pour Whisper)
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    Toast.makeText(context, "STT: " + text, Toast.LENGTH_LONG).show();
-                });
-            } else {
-                Log.w("WebAppInterface", "STT Test (Google Speech): no matches");
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    Toast.makeText(context, "STT: Aucun résultat", Toast.LENGTH_SHORT).show();
-                });
-            }
-            cleanup();
-        }
-        
-        @Override
-        public void onEvent(int eventType, android.os.Bundle params) {
-            // no-op
                 }
             }
 }

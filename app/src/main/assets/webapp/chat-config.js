@@ -800,16 +800,14 @@
                 if (engine === 'whisper_server') {
                     el.classList.remove('hidden');
                 } else {
+                    // Cacher si "disabled" ou autre moteur
                     el.classList.add('hidden');
                 }
             });
 
             legacyOnlyElements.forEach(el => {
-                if (engine !== 'whisper_server') {
-                    el.classList.remove('hidden');
-                } else {
-                    el.classList.add('hidden');
-                }
+                // Les éléments "legacy" ne sont plus utilisés (Google Speech via Intent standard)
+                el.classList.add('hidden');
             });
         }
 

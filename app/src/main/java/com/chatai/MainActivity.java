@@ -6,6 +6,8 @@ import android.os.Bundle;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.WebChromeClient;
+import android.webkit.ConsoleMessage;
 import android.content.pm.PackageManager;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -20,6 +22,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.Settings;
+import android.speech.RecognizerIntent;
+import java.util.ArrayList;
+import java.util.Locale;
 import com.chatai.fragments.KittFragment;
 
 public class MainActivity extends FragmentActivity implements com.chatai.fragments.KittFragment.KittFragmentListener {
@@ -48,6 +53,10 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
     // Permissions
     private static final int PERMISSION_REQUEST_CODE = 1001;
     private boolean hasRequestedPermissions = false;
+    
+    // Speech Recognition (simplifié avec Intent standard)
+    // ⭐ PUBLIC pour être accessible depuis WebAppInterface
+    public static final int REQUEST_SPEECH_RECOGNITION = 2001;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -134,7 +143,18 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                Log.d(TAG, "Page chargée");
+                // ⭐ Logs WebView réduits - ne log que si vraiment nécessaire
+                // Log.d(TAG, "Page chargée");
+            }
+        });
+        
+        // ⭐ TAIRE les logs de console JavaScript de la WebView
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+                // Ignorer tous les logs de console JavaScript (console.log, console.warn, console.error)
+                // Pour ne pas polluer les logs Android
+                return true; // Message traité, ne pas afficher dans logcat
             }
         });
 
@@ -502,6 +522,48 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
         if (isServiceBound && backgroundService != null) {
             boolean serversRunning = backgroundService.areServersRunning();
             Log.i(TAG, "Serveurs actifs: " + serversRunning);
+        }
+    }
+    
+    /**
+     * ⭐ SIMPLIFICATION Google Speech : Utilise Intent standard au lieu de SpeechRecognizer manuel
+     * Reçoit le résultat de RecognizerIntent et l'insère dans le textInput de la webapp
+     */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        
+        if (requestCode == REQUEST_SPEECH_RECOGNITION) {
+            if (resultCode == RESULT_OK && data != null) {
+                ArrayList<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                if (results != null && !results.isEmpty()) {
+                    String spokenText = results.get(0);
+                    Log.i(TAG, "Speech Recognition result: " + spokenText);
+                    
+                    // Insérer le texte dans le textInput de la webapp via JavaScript
+                    if (webView != null) {
+                        // Échapper les guillemets simples et sauts de ligne pour JavaScript
+                        String safeText = spokenText.replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r");
+                        String jsCode = 
+                            "var input = document.getElementById('messageInput'); " +
+                            "if (input) { " +
+                            "  input.value = '" + safeText + "'; " +
+                            "  if (input.dispatchEvent) { " +
+                            "    input.dispatchEvent(new Event('input', { bubbles: true })); " +
+                            "  } " +
+                            "  if (window.secureChatApp && window.secureChatApp.chatUI && window.secureChatApp.chatUI.adjustTextareaHeight) { " +
+                            "    window.secureChatApp.chatUI.adjustTextareaHeight(); " +
+                            "  } " +
+                            "}";
+                        webView.evaluateJavascript(jsCode, null);
+                        Log.i(TAG, "✅ Text inserted into messageInput");
+                    }
+                }
+            } else if (resultCode == RESULT_CANCELED) {
+                Log.i(TAG, "Speech Recognition cancelled by user");
+            } else {
+                Log.w(TAG, "Speech Recognition failed (resultCode=" + resultCode + ")");
+            }
         }
     }
     

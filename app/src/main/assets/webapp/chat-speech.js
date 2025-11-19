@@ -1,10 +1,11 @@
 /**
  * chat-speech.js - Reconnaissance vocale (STT)
  * 
- * ✅ Phase 1 intégrée
+ * ⭐ SIMPLIFIÉ : Whisper uniquement + Intent Google Speech standard (comme le clavier Google)
  * 
  * Responsabilités :
  * - STT via Whisper Server (prioritaire)
+ * - Intent Google Speech standard si Whisper non configuré (géré par Android)
  * - Fallback webkitSpeechRecognition
  * - Gestion VU-meter
  */
@@ -20,14 +21,13 @@
             this.isRecording = false;
             this.recognition = null; // webkitSpeechRecognition (fallback)
             this.useWhisper = false;
-            this.useGoogleSpeech = false;
         }
 
         /**
-         * Initialise la reconnaissance vocale (Whisper ou Google Speech selon configuration Audio STT)
+         * ⭐ SIMPLIFIÉ : Initialise la reconnaissance vocale (Whisper uniquement, Google Speech via Intent standard)
          */
         initializeSpeech() {
-            // ✅ Lire la configuration Audio STT depuis la webapp
+            // Lire la configuration Audio STT depuis la webapp
             const audioEngine = this.getAudioEngineFromConfig();
             
             if (audioEngine === 'whisper_server') {
@@ -40,19 +40,6 @@
                 } else {
                     console.warn('⚠️ Whisper Server configuré mais non disponible - vérifiez le serveur Whisper');
                     this.useWhisper = false;
-                    this.useGoogleSpeech = false;
-                }
-            } else if (audioEngine === 'legacy_google') {
-                // === GOOGLE SPEECH ===
-                if (this.androidInterface && android.speech?.SpeechRecognizer?.isRecognitionAvailable) {
-                    this.useWhisper = false;
-                    this.useGoogleSpeech = true;
-                    this.setupWhisperListener(); // Réutilise le même listener pour Google Speech
-                    console.log('✅ Google Speech disponible - utilisation de Google Speech (config Audio STT)');
-                } else {
-                    console.warn('⚠️ Google Speech configuré mais non disponible');
-                    this.useWhisper = false;
-                    this.useGoogleSpeech = false;
                 }
             } else if ('webkitSpeechRecognition' in window) {
                 // Fallback : webkitSpeechRecognition (si pas d'Android ou Whisper non configuré)
@@ -143,35 +130,46 @@
         }
 
         /**
-         * Obtenir le moteur Audio STT depuis la configuration
+         * ⭐ SIMPLIFIÉ : Obtenir le moteur Audio STT depuis la configuration
+         * Note: legacy_google n'existe plus, utilise toujours whisper_server ou Intent Google Speech standard
          */
         getAudioEngineFromConfig() {
             // Lire depuis la config de la webapp (configAudioEngine)
             const configAudioEngine = document.getElementById('configAudioEngine');
             if (configAudioEngine && configAudioEngine.value) {
-                return configAudioEngine.value;
+                // Migration: legacy_google → whisper_server (Google Speech utilise maintenant Intent standard)
+                return configAudioEngine.value === 'legacy_google' ? 'whisper_server' : configAudioEngine.value;
             }
             // Fallback: vérifier si Whisper est disponible
             if (this.androidInterface?.isWhisperAvailable?.()) {
                 return 'whisper_server';
             }
-            // Fallback par défaut
+            // Fallback par défaut: whisper_server (sttStartWhisper() utilisera Intent Google Speech standard si Whisper non disponible)
             return 'whisper_server';
         }
         
         /**
-         * Démarrer la reconnaissance vocale (Whisper ou Google Speech selon configuration Audio STT)
+         * ⭐ SIMPLIFIÉ : Démarrer la reconnaissance vocale
+         * Whisper si configuré, sinon Intent Google Speech standard (comme le clavier Google)
          */
         startVoiceRecognition() {
             const audioEngine = this.getAudioEngineFromConfig();
             
-            if (audioEngine === 'whisper_server' && this.androidInterface?.sttStartWhisper) {
-                // ✅ Utiliser Whisper Server (selon configuration Audio STT)
-                this.androidInterface.sttStartWhisper();
-                this.isRecording = true;
-            } else if (audioEngine === 'legacy_google' && this.androidInterface?.sttStartWhisper) {
-                // ✅ Utiliser Google Speech (selon configuration Audio STT)
-                // sttStartWhisper() gère aussi Google Speech selon la configuration
+            if (audioEngine === 'disabled') {
+                // ⭐ "Disable" sélectionné → Utiliser Intent Google Speech standard (comme le clavier Google)
+                if (this.androidInterface?.sttStartWhisper) {
+                    this.androidInterface.sttStartWhisper(); // Utilisera automatiquement Intent Google Speech standard
+                    this.isRecording = true;
+                } else if (this.recognition) {
+                    // Fallback : webkitSpeechRecognition
+                    this.recognition.start();
+                    this.isRecording = true;
+                } else {
+                    console.warn("Aucun système de reconnaissance vocale disponible");
+                    this.chatUI.showToast('Reconnaissance vocale non disponible');
+                }
+            } else if (audioEngine === 'whisper_server' && this.androidInterface?.sttStartWhisper) {
+                // Utiliser Whisper Server si configuré
                 this.androidInterface.sttStartWhisper();
                 this.isRecording = true;
             } else if (this.recognition) {
@@ -185,17 +183,20 @@
         }
 
         /**
-         * Arrêter la reconnaissance vocale
+         * ⭐ SIMPLIFIÉ : Arrêter la reconnaissance vocale
+         * Note: Intent Google Speech standard n'a pas besoin d'être arrêté manuellement
          */
         stopVoiceRecognition() {
             const audioEngine = this.getAudioEngineFromConfig();
             
-            if ((audioEngine === 'whisper_server' || audioEngine === 'legacy_google') && this.androidInterface?.sttStopWhisper) {
-                // Arrêter Whisper ou Google Speech selon la configuration
+            if (audioEngine === 'whisper_server' && this.androidInterface?.sttStopWhisper) {
+                // Arrêter Whisper si actif
+                // Note: Intent Google Speech standard n'a pas besoin d'être arrêté (géré par Android)
                 this.androidInterface.sttStopWhisper();
             } else if (this.recognition) {
                 this.recognition.stop();
             }
+            // Note: Si "disabled" (Intent Google Speech standard), pas besoin d'arrêter (géré par Android)
             this.isRecording = false;
             const voiceBtn = document.getElementById('voiceBtn');
             if (voiceBtn) voiceBtn.classList.remove('recording');

@@ -317,8 +317,9 @@
                                     <div>
                                         <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Moteur STT</span>
                                         <select id="configAudioEngine">
-                                            <option value="whisper_server">Whisper Server (local HTTP)</option>
-                                            <!-- <option value="legacy_google">Google Speech (Android)</option> --> <!-- DÉSACTIVÉ - Problèmes de reconnaissance vocale -->
+                                            <option value="disabled">Disable</option>
+                                            <option value="whisper_server" selected>Whisper Server (local HTTP)</option>
+                                            <!-- ⭐ SIMPLIFIÉ : Si "Disable", Google Speech utilise automatiquement Intent standard (comme le clavier Google) via sttStartWhisper() -->
                                         </select>
                                     </div>
                                     <div class="engine-whisper-only">
@@ -363,6 +364,7 @@
                         <div class="panel-actions" style="margin-top:10px;">
                             <button class="panel-button secondary engine-whisper-only" onclick="sttPingAction()">Ping Whisper</button>
                             <button class="panel-button" onclick="sttTestOnceAction()">Tester STT</button>
+                            <button class="panel-button engine-whisper-only" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" onclick="startWhisperServerAction()">🚀 Démarrer Whisper Server</button>
                         </div>
                     </div>
                     </div>
@@ -1026,6 +1028,14 @@
                 alert(ok ? '✅ Whisper Server disponible' : '❌ Whisper Server indisponible');
             } catch (e) {
                 alert('❌ Erreur ping STT: ' + e.message);
+            }
+        }
+        
+        function startWhisperServerAction() {
+            try {
+                window.secureChatApp?.androidInterface?.startWhisperServer?.();
+            } catch (e) {
+                alert('❌ Erreur démarrage Whisper Server: ' + e.message);
             }
         }
         function sttTestOnceAction() {

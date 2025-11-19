@@ -1611,8 +1611,9 @@
                             </label>
                             <label>Moteur STT
                                 <select id="configAudioEngine">
-                                    <option value="whisper_server">Whisper Server (local HTTP)</option>
-                                            <!-- <option value="legacy_google">Google Speech (Android)</option> --> <!-- DÉSACTIVÉ - Problèmes de reconnaissance vocale -->
+                                    <option value="disabled">Disable</option>
+                                    <option value="whisper_server" selected>Whisper Server (local HTTP)</option>
+                                    <!-- ⭐ SIMPLIFIÉ : Si "Disable", Google Speech utilise automatiquement Intent standard (comme le clavier Google) via sttStartWhisper() -->
                                 </select>
                             </label>
                             <label>Modèle audio

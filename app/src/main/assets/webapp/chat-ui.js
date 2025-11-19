@@ -192,6 +192,34 @@
             } else if (type === 'response') {
                 const responseDiv = messageDiv.querySelector('.response-content-stream');
                 if (responseDiv) {
+                    // ⭐ FIX : Mettre à jour le titre du thinking dès le premier chunk de réponse
+                    // (début de réponse = fin du thinking implicite, même si isComplete n'est pas encore arrivé)
+                    const thinkingSection = messageDiv.querySelector('.thinking-section');
+                    if (thinkingSection) {
+                        const thinkingHeader = thinkingSection.querySelector('div');
+                        if (thinkingHeader && thinkingHeader.textContent.includes('en cours')) {
+                            // Le titre est encore "Raisonnement en cours..." → le mettre à jour
+                            thinkingHeader.innerHTML = '🧠 Raisonnement <span style="font-size: 12px; color: #888;">(cliquez pour voir/cacher)</span>';
+                            thinkingSection.style.cursor = 'pointer';
+                            
+                            const contentDiv = thinkingSection.querySelector('.thinking-content-stream');
+                            if (contentDiv && contentDiv.style.display !== 'none') {
+                                contentDiv.style.display = 'none';
+                                contentDiv.style.maxHeight = '200px';
+                                contentDiv.style.overflowY = 'auto';
+                            }
+                            
+                            // Ajouter le listener de toggle si pas déjà présent
+                            if (!thinkingSection.hasAttribute('data-toggle-added')) {
+                                thinkingSection.setAttribute('data-toggle-added', 'true');
+                                thinkingSection.addEventListener('click', () => {
+                                    const isVisible = contentDiv.style.display !== 'none';
+                                    contentDiv.style.display = isVisible ? 'none' : 'block';
+                                });
+                            }
+                        }
+                    }
+                    
                     responseDiv.textContent += content;
                     
                     if (isComplete) {
