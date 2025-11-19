@@ -19,6 +19,7 @@ import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.TimeUnit
 import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.sqrt
@@ -26,7 +27,12 @@ import kotlin.math.sqrt
 class WhisperServerRecognizer(
     private val config: AudioEngineConfig,
     private val callback: Callback,
-    private val httpClient: OkHttpClient = OkHttpClient()
+    private val httpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)  // Connexion: 15s
+        .readTimeout(120, TimeUnit.SECONDS)    // Lecture: 120s (transcription peut être très longue)
+        .writeTimeout(60, TimeUnit.SECONDS)    // Écriture: 60s (upload du fichier)
+        .callTimeout(150, TimeUnit.SECONDS)     // Timeout global: 150s (tout le call)
+        .build()
 ) {
 
     interface Callback {
@@ -84,12 +90,18 @@ class WhisperServerRecognizer(
         val silenceThreshold = config.silenceThresholdDb
         val requiredSilence = config.silenceDurationMs
         val maxDuration = config.captureTimeoutMs
+        val minDuration = 1500L // Minimum 1.5 secondes pour garantir un envoi (réduit pour éviter coupure)
         val startTime = System.currentTimeMillis()
+        var totalSamples = 0L
+        var maxRmsSeen = -160f
+
+        android.util.Log.d("WhisperSTT", "Capture démarrée: threshold=${silenceThreshold}dB, timeout=${maxDuration}ms, min=${minDuration}ms, silence=${requiredSilence}ms")
 
         while (isRecording) {
             val read = try {
                 record.read(shortBuffer, 0, shortBuffer.size)
             } catch (e: Exception) {
+                android.util.Log.e("WhisperSTT", "Erreur lecture audio", e)
                 postError("Erreur lecture audio: ${e.message}")
                 stopListening()
                 return
@@ -100,28 +112,45 @@ class WhisperServerRecognizer(
 
             val chunkBytes = toByteArray(shortBuffer, read)
             pcmStream.write(chunkBytes)
+            totalSamples += read
 
             val rmsDb = computeRmsDb(shortBuffer, read)
+            if (rmsDb > maxRmsSeen) maxRmsSeen = rmsDb
             post { callback.onRmsChanged(rmsDb) }
 
             if (!speechDetected && rmsDb > silenceThreshold) {
                 speechDetected = true
+                android.util.Log.d("WhisperSTT", "Voix détectée: rms=${rmsDb}dB")
                 post { callback.onSpeechStart() }
             }
 
             val chunkDurationMs = (read.toDouble() / sampleRate.toDouble() * 1000).toLong()
+            val elapsed = System.currentTimeMillis() - startTime
+            
             if (speechDetected) {
                 if (rmsDb < silenceThreshold) {
                     silenceDuration += chunkDurationMs
                 } else {
                     silenceDuration = 0L
                 }
-                if (silenceDuration >= requiredSilence) {
+                // Si voix détectée + silence suffisant + minimum durée atteint
+                // Augmenter le silence requis pour éviter coupure prématurée (1500ms au lieu de 1200ms)
+                val adjustedSilence = maxOf(requiredSilence.toLong(), 1500L)
+                if (silenceDuration >= adjustedSilence && elapsed >= minDuration) {
+                    android.util.Log.d("WhisperSTT", "Silence détecté après voix, arrêt capture (${elapsed}ms, silence=${silenceDuration}ms)")
                     break
                 }
             }
 
-            if (System.currentTimeMillis() - startTime > maxDuration) {
+            // Timeout: arrêter même sans voix si on a au moins le minimum
+            if (elapsed > maxDuration) {
+                android.util.Log.d("WhisperSTT", "Timeout atteint (${elapsed}ms), arrêt capture")
+                break
+            }
+            
+            // Forcer arrêt après minimum si pas de voix (pour test) - réduit à 1 seconde
+            if (!speechDetected && elapsed >= 1000L) {
+                android.util.Log.d("WhisperSTT", "Minimum durée atteint sans voix (mode test), arrêt capture (${elapsed}ms)")
                 break
             }
         }
@@ -129,16 +158,32 @@ class WhisperServerRecognizer(
         stopListeningInternal()
 
         val audioBytes = pcmStream.toByteArray()
+        val durationSec = totalSamples.toDouble() / sampleRate.toDouble()
+        android.util.Log.d("WhisperSTT", "Capture terminée: ${audioBytes.size} bytes, ${durationSec}s, maxRms=${maxRmsSeen}dB, speechDetected=${speechDetected}")
+        
         if (audioBytes.isEmpty()) {
-            postError("Aucun audio capturé")
+            android.util.Log.e("WhisperSTT", "Aucun audio capturé (${totalSamples} samples)")
+            postError("Aucun audio capturé (max rms: ${maxRmsSeen}dB)")
             return
         }
 
+        // TOUJOURS envoyer même si très court (pour test)
+        if (durationSec < 0.5) {
+            android.util.Log.w("WhisperSTT", "Audio très court (${durationSec}s), envoi quand même pour test")
+        }
+
         val wavData = buildWav(audioBytes)
+        android.util.Log.d("WhisperSTT", "Envoi WAV: ${wavData.size} bytes (${durationSec}s) vers ${config.endpoint}")
+        android.util.Log.d("WhisperSTT", "Timeouts configurés: connect=15s, read=120s, write=60s, call=150s")
+        val startTranscribeTime = System.currentTimeMillis()
         try {
             val text = uploadAndTranscribe(wavData)
+            val transcribeDuration = System.currentTimeMillis() - startTranscribeTime
+            android.util.Log.i("WhisperSTT", "Transcription reçue en ${transcribeDuration}ms: $text")
             post { callback.onResult(text) }
         } catch (e: Exception) {
+            val transcribeDuration = System.currentTimeMillis() - startTranscribeTime
+            android.util.Log.e("WhisperSTT", "Erreur transcription après ${transcribeDuration}ms", e)
             postError("Erreur transcription: ${e.message}")
         }
     }
@@ -206,13 +251,33 @@ class WhisperServerRecognizer(
 
     private fun uploadAndTranscribe(wavData: ByteArray): String {
         val mediaType = "audio/wav".toMediaType()
-        val body = MultipartBody.Builder()
+        val bodyBuilder = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("audio", "capture.wav", wavData.toRequestBody(mediaType))
+            .addFormDataPart("file", "capture.wav", wavData.toRequestBody(mediaType))
             .addFormDataPart("language", config.language)
             .addFormDataPart("task", "transcribe")
             .addFormDataPart("model", config.preferredModel)
-            .build()
+        
+        // Paramètres MINIMAUX - ne pas envoyer si = 0 (laisser Whisper utiliser ses défauts)
+        // Seulement envoyer les paramètres explicitement configurés
+        if (config.speedUp) {
+            bodyBuilder.addFormDataPart("speed_up", "true")
+        }
+        if (config.temperature > 0.0f) {
+            bodyBuilder.addFormDataPart("temperature", config.temperature.toString())
+        }
+        // Ne pas envoyer beamSize, bestOf, threads si = 0 (laisser Whisper décider)
+        if (config.beamSize > 0) {
+            bodyBuilder.addFormDataPart("beam_size", config.beamSize.toString())
+        }
+        if (config.bestOf > 0) {
+            bodyBuilder.addFormDataPart("best_of", config.bestOf.toString())
+        }
+        if (config.threads > 0) {
+            bodyBuilder.addFormDataPart("threads", config.threads.toString())
+        }
+        
+        val body = bodyBuilder.build()
 
         val requestBuilder = Request.Builder()
             .url(config.endpoint.ifBlank { AudioEngineConfig.DEFAULT_ENDPOINT })

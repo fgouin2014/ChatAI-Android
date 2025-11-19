@@ -13,6 +13,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import com.chatai.SecureConfig
 import java.io.BufferedReader
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -20,9 +21,11 @@ import java.util.concurrent.TimeUnit
 /**
  * Service Ollama avec support du mode "thinking"
  * Compatible avec:
- * - Ollama local (http://localhost:11434)
- * - Ollama Cloud (https://api.ollama.com)
+ * - Ollama local (http://localhost:11434/v1/chat/completions) - Format OpenAI-compatible
+ * - Ollama Cloud (https://ollama.com/api/chat) - Format natif Ollama
  * - Modèles supportant thinking: qwen3, deepseek-r1, deepseek-v3.1, gpt-oss
+ * 
+ * Référence: https://docs.ollama.com/cloud
  */
 class OllamaThinkingService(private val context: Context) {
     
@@ -30,8 +33,8 @@ class OllamaThinkingService(private val context: Context) {
         private const val TAG = "OllamaThinkingService"
         
         // URLs par défaut
-        private const val OLLAMA_LOCAL_DEFAULT = "http://localhost:11434/v1/chat/completions"
-        private const val OLLAMA_CLOUD_URL = "https://api.ollama.com/v1/chat/completions"
+        private const val OLLAMA_LOCAL_DEFAULT = "http://localhost:11434/v1/chat/completions" // Format OpenAI-compatible
+        private const val OLLAMA_CLOUD_URL = "https://ollama.com/api/chat" // API native Ollama Cloud (format natif)
         
         // Modèles recommandés avec thinking
         private val THINKING_MODELS = listOf(
@@ -46,6 +49,8 @@ class OllamaThinkingService(private val context: Context) {
     
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
+    
+    private val secureConfig: SecureConfig = SecureConfig(context)
     
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -74,7 +79,7 @@ class OllamaThinkingService(private val context: Context) {
         }
         
         val apiKey = if (useCloud) {
-            sharedPreferences.getString("ollama_cloud_api_key", null)?.trim()
+            secureConfig.getOllamaCloudApiKey()?.trim()
         } else {
             null // Ollama local n'a pas besoin de clé API
         }
@@ -139,10 +144,28 @@ class OllamaThinkingService(private val context: Context) {
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     val errorBody = response.body?.string()
-                    Log.e(TAG, "HTTP ${response.code} error: $errorBody")
+                    val httpCode = response.code
+                    
+                    // Gestion spécifique des erreurs Ollama Cloud
+                    val errorMessage = when (httpCode) {
+                        401 -> "Non autorisé - Vérifiez votre clé API Ollama Cloud sur ollama.com/account"
+                        429 -> "Rate limit atteint - Attendez quelques minutes avant de réessayer"
+                        502, 503 -> {
+                            val isQuotaError = errorBody?.contains("quota", ignoreCase = true) == true ||
+                                              errorBody?.contains("rate limit", ignoreCase = true) == true
+                            if (isQuotaError) {
+                                "Quota atteint - Vérifiez votre quota Ollama Cloud sur ollama.com/account"
+                            } else {
+                                "Service temporairement indisponible - Réessayez plus tard"
+                            }
+                        }
+                        else -> "Erreur HTTP $httpCode: ${errorBody?.take(200)}"
+                    }
+                    
+                    Log.e(TAG, "HTTP $httpCode error: $errorBody")
                     emit(BidirectionalBridge.ThinkingChunk(
                         type = BidirectionalBridge.ChunkType.RESPONSE,
-                        content = "Erreur: ${response.code} - ${errorBody?.take(100)}",
+                        content = errorMessage,
                         isComplete = true
                     ))
                     return@flow
@@ -177,16 +200,32 @@ class OllamaThinkingService(private val context: Context) {
                         
                         try {
                             val json = JSONObject(jsonLine)
+                            
+                            // Support format natif Ollama Cloud (streaming)
+                            // Format: { "message": { "content": "...", "thinking": "..." } } ou
+                            // Format OpenAI-compatible (streaming): { "choices": [{ "delta": { "content": "...", "thinking": "..." } }] }
+                            val message = json.optJSONObject("message")
                             val choices = json.optJSONArray("choices")
-                            if (choices == null || choices.length() == 0) continue
                             
-                            val choice = choices.getJSONObject(0)
-                            val delta = choice.optJSONObject("delta")
-                            if (delta == null) continue
+                            val thinkingContent: String
+                            val messageContent: String
                             
-                            // Vérifier si c'est du thinking ou du content
-                            val thinkingContent = delta.optString("thinking", "")
-                            val messageContent = delta.optString("content", "")
+                            when {
+                                // Format natif Ollama Cloud
+                                message != null -> {
+                                    thinkingContent = message.optString("thinking", "")
+                                    messageContent = message.optString("content", "")
+                                }
+                                // Format OpenAI-compatible (streaming)
+                                choices != null && choices.length() > 0 -> {
+                                    val choice = choices.getJSONObject(0)
+                                    val delta = choice.optJSONObject("delta")
+                                    if (delta == null) continue
+                                    thinkingContent = delta.optString("thinking", "")
+                                    messageContent = delta.optString("content", "")
+                                }
+                                else -> continue
+                            }
                             
                             when {
                                 // Chunk de thinking
@@ -229,8 +268,15 @@ class OllamaThinkingService(private val context: Context) {
                             }
                             
                             // Vérifier si c'est le dernier chunk
-                            val finishReason = choice.optString("finish_reason", "")
-                            if (finishReason == "stop") {
+                            // Format natif Ollama: { "done": true } ou format OpenAI: { "choices": [{ "finish_reason": "stop" }] }
+                            val isDone = json.optBoolean("done", false)
+                            val finishReason = if (choices != null && choices.length() > 0) {
+                                choices.getJSONObject(0).optString("finish_reason", "")
+                            } else {
+                                ""
+                            }
+                            
+                            if (isDone || finishReason == "stop") {
                                 Log.d(TAG, "✅ Stream finished")
                                 emit(BidirectionalBridge.ThinkingChunk(
                                     type = BidirectionalBridge.ChunkType.RESPONSE,
@@ -247,6 +293,27 @@ class OllamaThinkingService(private val context: Context) {
                 }
             }
             
+        } catch (e: java.net.UnknownHostException) {
+            Log.e(TAG, "Network error: No internet connection", e)
+            emit(BidirectionalBridge.ThinkingChunk(
+                type = BidirectionalBridge.ChunkType.RESPONSE,
+                content = "Pas d'accès internet - Vérifiez votre connexion réseau",
+                isComplete = true
+            ))
+        } catch (e: java.net.SocketTimeoutException) {
+            Log.e(TAG, "Network error: Timeout", e)
+            emit(BidirectionalBridge.ThinkingChunk(
+                type = BidirectionalBridge.ChunkType.RESPONSE,
+                content = "Timeout - Le serveur met trop de temps à répondre (réseau lent ou serveur surchargé)",
+                isComplete = true
+            ))
+        } catch (e: java.net.ConnectException) {
+            Log.e(TAG, "Network error: Connection refused", e)
+            emit(BidirectionalBridge.ThinkingChunk(
+                type = BidirectionalBridge.ChunkType.RESPONSE,
+                content = "Connexion refusée - Vérifiez que l'URL du serveur est correcte",
+                isComplete = true
+            ))
         } catch (e: IOException) {
             Log.e(TAG, "IO Error during streaming", e)
             emit(BidirectionalBridge.ThinkingChunk(
@@ -258,7 +325,7 @@ class OllamaThinkingService(private val context: Context) {
             Log.e(TAG, "Unexpected error", e)
             emit(BidirectionalBridge.ThinkingChunk(
                 type = BidirectionalBridge.ChunkType.RESPONSE,
-                content = "Erreur: ${e.message}",
+                content = "Erreur inattendue: ${e.message}",
                 isComplete = true
             ))
         }

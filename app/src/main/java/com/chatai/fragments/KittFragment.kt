@@ -30,6 +30,7 @@ import com.chatai.viewmodels.KittViewModel
 import com.chatai.services.KittAIService
 import com.chatai.services.KittActionCallback
 import com.chatai.managers.*
+import com.chatai.SecureConfig
 import kotlinx.coroutines.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -82,10 +83,13 @@ class KittFragment : Fragment(),
     private lateinit var stateManager: KittStateManager
     private lateinit var drawerManager: KittDrawerManager
     
+    // SecureConfig pour stockage sécurisé des clés API
+    private val secureConfig: SecureConfig by lazy { SecureConfig(requireContext()) }
+    
     // ═══════════════════════════════════════════════════════════════════════════════
     // UI & VIEWMODEL (Seulement les références, pas de logique)
     // ═══════════════════════════════════════════════════════════════════════════════
-    
+
     private lateinit var viewModel: KittViewModel
     private val mainHandler = Handler(Looper.getMainLooper())
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
@@ -105,7 +109,7 @@ class KittFragment : Fragment(),
     private lateinit var centerVuBar: LinearLayout
     private lateinit var rightVuBar: LinearLayout
     private lateinit var textInput: TextInputEditText
-    
+
     // Boutons
     private lateinit var aiButton: MaterialButton
     private lateinit var thinkButton: MaterialButton
@@ -126,13 +130,13 @@ class KittFragment : Fragment(),
     interface KittFragmentListener {
         fun hideKittInterface()
     }
-    
+
     private var kittFragmentListener: KittFragmentListener? = null
-    
+
     fun setKittFragmentListener(listener: KittFragmentListener?) {
         this.kittFragmentListener = listener
     }
-    
+
     // Permission launcher
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -145,7 +149,7 @@ class KittFragment : Fragment(),
     // ═══════════════════════════════════════════════════════════════════════════════
     // LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════════════
-    
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -153,21 +157,21 @@ class KittFragment : Fragment(),
     ): View? {
         return inflater.inflate(R.layout.fragment_kitt, container, false)
     }
-    
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
         android.util.Log.i(TAG, "🚗 KITT Fragment V3 (Architecture Modulaire) - Initialisation")
         
         // Initialiser ViewModel
         viewModel = ViewModelProvider(this)[KittViewModel::class.java]
-        
+
         // Initialiser SharedPreferences
         sharedPrefs = requireContext().getSharedPreferences("kitt_usage", Context.MODE_PRIVATE)
-        
+
         // Initialiser AudioManager
         audioManager = requireContext().getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        
+
         // Initialiser views
         initializeViews(view)
         
@@ -185,17 +189,17 @@ class KittFragment : Fragment(),
         setupVuMeter()
         setupListeners()
         setupObservers()
-        
+
         // Initialiser TTS
         ttsManager.initialize()
         
         // Initialiser musique
         musicManager.initialize()
-        
+
         // Appliquer thème sauvegardé
         val theme = drawerManager.applySelectedTheme()
         applyTheme(theme)
-        
+
         // Initialiser en mode standby
         setStandbyMode()
         
@@ -233,7 +237,7 @@ class KittFragment : Fragment(),
         
         android.util.Log.i(TAG, "✅ 7 managers initialized")
     }
-    
+
     private fun initializeViews(view: View) {
         statusText = view.findViewById(R.id.statusText)
         thinkingCard = view.findViewById(R.id.thinkingCard)
@@ -252,18 +256,18 @@ class KittFragment : Fragment(),
         centerVuBar = view.findViewById(R.id.centerVuBar)
         rightVuBar = view.findViewById(R.id.rightVuBar)
         textInput = view.findViewById(R.id.textInput)
-        
+
         aiButton = view.findViewById(R.id.aiButton)
         thinkButton = view.findViewById(R.id.thinkButton)
         resetButton = view.findViewById(R.id.resetButton)
         sendButton = view.findViewById(R.id.sendButton)
         vuModeButton = view.findViewById(R.id.vuModeButton)
         menuDrawerButton = view.findViewById(R.id.menuDrawerButton)
-        
+
         // Configurer marquee
         setupMarqueeScrolling()
     }
-    
+
     private fun setupMarqueeScrolling() {
         statusText.apply {
             ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
@@ -272,12 +276,12 @@ class KittFragment : Fragment(),
             isSelected = false
         }
     }
-    
+
     private fun setupScanner() {
         // Déléguer au AnimationManager
         animationManager.setupScanner(scannerRow)
     }
-    
+
     private fun setupVuMeter() {
         // Déléguer au AnimationManager
         animationManager.setupVuMeter(leftVuBar, centerVuBar, rightVuBar)
@@ -358,7 +362,7 @@ class KittFragment : Fragment(),
                 val intent = Intent(requireContext(), com.chatai.activities.AIConfigurationActivity::class.java)
                 startActivity(intent)
                 ttsManager.speakAIResponse("Configuration IA")
-            } catch (e: Exception) {
+        } catch (e: Exception) {
                 android.util.Log.e(TAG, "Erreur ouverture config: ${e.message}")
             }
         }
@@ -632,7 +636,7 @@ class KittFragment : Fragment(),
         stateManager.isThinking = true
         stateManager.isSpeaking = true
         updateStatusIndicators()
-        
+
         animationManager.stopScannerAnimation()
         animationManager.startThinkingAnimation()
         
@@ -644,7 +648,7 @@ class KittFragment : Fragment(),
                 stateManager.isThinking = false
                 
                 mainHandler.postDelayed({
-                    simulateSpeaking()
+            simulateSpeaking()
                 }, 1000)
             }
         }, 3000)
@@ -687,7 +691,7 @@ class KittFragment : Fragment(),
     override fun onTTSStart(utteranceId: String?) {
         stateManager.isTTSSpeaking = true
         animationManager.isTTSSpeaking = true
-        updateStatusIndicators()
+            updateStatusIndicators()
         animationManager.startSystemVolumeAnimation()
     }
     
@@ -722,12 +726,12 @@ class KittFragment : Fragment(),
     
     private fun speakKittActivationMessage() {
         if (!stateManager.isReady) return
-        
+
         if (ttsManager.isReady() && !ttsManager.isSpeaking()) {
             try {
-                val activationMessage = "Bonjour, je suis KITT. En quoi puis-je vous aider ?"
-                
-                if (isAdded) {
+        val activationMessage = "Bonjour, je suis KITT. En quoi puis-je vous aider ?"
+
+        if (isAdded) {
                     showStatusMessageInternal(activationMessage, 0)
                 }
                 
@@ -741,26 +745,26 @@ class KittFragment : Fragment(),
                         updateStatusIndicators()
                         showStatusMessageInternal("KITT prêt - En attente de vos instructions", 3000)
                         animationManager.stopVuMeterAnimation()
-                        
+
                         if (!stateManager.isThinking) {
                             animationManager.startScannerAnimation(120)
                         }
                     }
                 }, 4000)
-                
+
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "Erreur TTS activation: ${e.message}")
                 // Fallback visuel
                 stateManager.isSpeaking = true
                 animationManager.startVuMeterAnimation()
-                
+
                 mainHandler.postDelayed({
                     if (isAdded) {
                         stateManager.isSpeaking = false
                         updateStatusIndicators()
                         showStatusMessageInternal("KITT prêt - En attente de vos instructions", 3000)
                         animationManager.stopVuMeterAnimation()
-                        
+
                         if (!stateManager.isThinking) {
                             animationManager.startScannerAnimation(120)
                         }
@@ -772,7 +776,7 @@ class KittFragment : Fragment(),
             android.util.Log.d(TAG, "TTS pas encore prêt, simulation visuelle")
             stateManager.isSpeaking = true
             animationManager.startVuMeterAnimation()
-            
+
             mainHandler.postDelayed({
                 if (isAdded) {
                     stateManager.isSpeaking = false
@@ -987,9 +991,9 @@ class KittFragment : Fragment(),
                 android.util.Log.i("NETWORK_TEST_EXPORT", "📅 Date: $testTimestamp")
                 android.util.Log.i("NETWORK_TEST_EXPORT", "")
                 
-                // Lire configuration
+                // Lire configuration depuis SecureConfig et SharedPreferences
                 val sharedPrefs = requireContext().getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
-                val cloudApiKey = sharedPrefs.getString("ollama_cloud_api_key", "") ?: ""
+                val cloudApiKey = secureConfig.getOllamaCloudApiKey() ?: ""
                 val cloudModel = sharedPrefs.getString("ollama_cloud_model", "") ?: ""
                 val localUrl = sharedPrefs.getString("local_server_url", "") ?: ""
                 
@@ -1073,14 +1077,14 @@ class KittFragment : Fragment(),
     
     private suspend fun testOllamaCloud(): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         try {
-            val sharedPrefs = requireContext().getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
-            val apiKey = sharedPrefs.getString("ollama_cloud_api_key", "") ?: ""
+            val apiKey = secureConfig.getOllamaCloudApiKey() ?: ""
             
             if (apiKey.isEmpty()) {
                 android.util.Log.d(TAG, "☁️ Ollama Cloud: Pas de clé API")
                 return@withContext Pair(false, "Pas de clé API configurée")
             }
             
+            val sharedPrefs = requireContext().getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
             val model = sharedPrefs.getString("ollama_cloud_model", "gpt-oss:120b") ?: "gpt-oss:120b"
             
             // Test avec une vraie requête de chat pour détecter les erreurs de quota
@@ -1212,15 +1216,15 @@ class KittFragment : Fragment(),
         
         // Gérer microphone selon mode
         when (newMode) {
-            VUMeterMode.VOICE -> {
+                    VUMeterMode.VOICE -> {
                 voiceManager.stopMicrophoneListening()
-            }
-            VUMeterMode.AMBIENT -> {
+                    }
+                    VUMeterMode.AMBIENT -> {
                 if (stateManager.isReady) {
                     voiceManager.startMicrophoneListening()
                 }
             }
-            VUMeterMode.OFF -> {
+                    VUMeterMode.OFF -> {
                 voiceManager.stopMicrophoneListening()
             }
         }
@@ -1420,9 +1424,9 @@ class KittFragment : Fragment(),
         
         if (!debugModeEnabled) {
             thinkingCard.visibility = View.GONE
-            return
-        }
-        
+                return
+            }
+            
         val thinking = kittAIService.getLastThinkingTrace()
         
         if (thinking.isNotEmpty()) {
@@ -1557,28 +1561,28 @@ class KittFragment : Fragment(),
     }
     
     override fun onOpenConfig() {
-        try {
-            val intent = Intent(requireContext(), com.chatai.activities.AIConfigurationActivity::class.java)
-            startActivity(intent)
-        } catch (e: Exception) {
+                try {
+                    val intent = Intent(requireContext(), com.chatai.activities.AIConfigurationActivity::class.java)
+                    startActivity(intent)
+                } catch (e: Exception) {
             android.util.Log.e(TAG, "Error opening Config", e)
-        }
-    }
-    
+                }
+            }
+            
     override fun onOpenHistory() {
-        try {
+                try {
             val intent = Intent(requireContext(), com.chatai.activities.ConversationHistoryActivity::class.java)
-            startActivity(intent)
-        } catch (e: Exception) {
+                    startActivity(intent)
+                } catch (e: Exception) {
             android.util.Log.e(TAG, "Error opening History", e)
-        }
-    }
-    
+                }
+            }
+            
     override fun onOpenServerConfig() {
-        try {
+                try {
             val intent = Intent(requireContext(), com.chatai.activities.ServerConfigurationActivity::class.java)
-            startActivity(intent)
-        } catch (e: Exception) {
+                    startActivity(intent)
+                } catch (e: Exception) {
             android.util.Log.e(TAG, "Error opening Server Config", e)
         }
     }
@@ -1598,7 +1602,7 @@ class KittFragment : Fragment(),
                 setReadyMode()
                 showStatusMessageInternal("Systèmes redémarrés - KITT opérationnel", 2000, MessageType.STATUS)
             }, 500)
-        } else {
+                    } else {
             setReadyMode()
         }
     }
@@ -1607,7 +1611,7 @@ class KittFragment : Fragment(),
         try {
             val intent = Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
             startActivity(intent)
-        } catch (e: Exception) {
+                } catch (e: Exception) {
             android.util.Log.e(TAG, "Error opening WiFi settings", e)
         }
     }

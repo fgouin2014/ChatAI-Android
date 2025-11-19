@@ -14,6 +14,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import com.chatai.database.ChatAIDatabase
 import com.chatai.database.ConversationEntity
+import com.chatai.SecureConfig
 import java.util.UUID
 
 /**
@@ -63,7 +64,7 @@ class KittAIService(
         private const val OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
         private const val ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
         private const val HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/"
-        private const val OLLAMA_CLOUD_API_URL = "https://ollama.com/api/chat" // API native Ollama Cloud
+        private const val OLLAMA_CLOUD_API_URL = "https://ollama.com/api/chat" // API native Ollama Cloud (format natif)
         
         // Serveur local (Ollama, LM Studio, etc.) - OpenAI-compatible
         // L'utilisateur peut configurer l'URL dans les paramètres
@@ -84,6 +85,8 @@ class KittAIService(
     
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
+    
+    private val secureConfig: SecureConfig = SecureConfig(context)
     
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -520,6 +523,19 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
      */
     private fun callWebSearchAPI(query: String, apiKey: String): String {
         try {
+            // Nettoyer la clé API (même logique que tryOllamaCloud)
+            // IMPORTANT: Ne pas supprimer les caractères valides des clés base64 (+, /, =)
+            val cleanApiKey = apiKey
+                .trim()
+                .replace(Regex("\\s+"), "") // Espaces, tabs, newlines uniquement
+                .replace(Regex("[\\x00-\\x08\\x0B-\\x0C\\x0E-\\x1F\\x7F]"), "") // Caractères de contrôle (sauf \t, \n, \r déjà supprimés)
+                // Ne PAS filtrer davantage - garder tous les caractères restants (base64 valide)
+            
+            if (cleanApiKey.isEmpty()) {
+                Log.e(TAG, "❌ Web Search API: Clé API vide après nettoyage")
+                return ""
+            }
+            
             // Construire request
             val requestBody = JSONObject().apply {
                 put("query", query)
@@ -528,7 +544,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             
             val request = Request.Builder()
                 .url("https://ollama.com/api/web_search")
-                .addHeader("Authorization", "Bearer $apiKey")
+                .addHeader("Authorization", "Bearer $cleanApiKey")
                 .addHeader("Content-Type", "application/json")
                 .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
                 .build()
@@ -1371,8 +1387,8 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
      */
     private suspend fun tryOllamaCloud(userInput: String): String? = withContext(Dispatchers.IO) {
         try {
-            // Récupérer la clé API Ollama Cloud depuis les préférences
-            val ollamaCloudApiKey = sharedPreferences.getString("ollama_cloud_api_key", null)?.trim()
+            // Récupérer la clé API Ollama Cloud depuis SecureConfig
+            val ollamaCloudApiKey = secureConfig.getOllamaCloudApiKey()?.trim()
             Log.i(TAG, "Ollama Cloud API key check: ${if (ollamaCloudApiKey.isNullOrEmpty()) "EMPTY/NULL" else "FOUND"}")
             
             if (ollamaCloudApiKey.isNullOrEmpty()) {
@@ -1459,13 +1475,48 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             }
             
             Log.i(TAG, "Request to Ollama Cloud: model=$ollamaCloudModel")
+            Log.d(TAG, "Ollama Cloud API key length: ${ollamaCloudApiKey.length} chars")
+            Log.d(TAG, "Ollama Cloud API key preview: ${ollamaCloudApiKey.take(10)}...${ollamaCloudApiKey.takeLast(4)}")
+            Log.d(TAG, "Ollama Cloud URL: $OLLAMA_CLOUD_API_URL")
+            
+            // Nettoyer la clé API (enlever espaces, retours à la ligne, caractères invisibles, etc.)
+            // IMPORTANT: Ne pas supprimer les caractères valides des clés base64 (+, /, =)
+            // Les clés API Ollama Cloud sont généralement en base64, donc elles peuvent contenir: A-Z, a-z, 0-9, +, /, =
+            val cleanApiKey = ollamaCloudApiKey
+                .trim()
+                .replace(Regex("\\s+"), "") // Espaces, tabs, newlines uniquement
+                .replace(Regex("[\\x00-\\x08\\x0B-\\x0C\\x0E-\\x1F\\x7F]"), "") // Caractères de contrôle (sauf \t, \n, \r déjà supprimés)
+                // Ne PAS filtrer davantage - garder tous les caractères restants (base64 valide: A-Z, a-z, 0-9, +, /, =)
+            
+            Log.d(TAG, "Ollama Cloud API key after cleaning: length=${cleanApiKey.length} chars")
+            Log.d(TAG, "Ollama Cloud API key cleaned preview: ${cleanApiKey.take(10)}...${cleanApiKey.takeLast(4)}")
+            Log.d(TAG, "Ollama Cloud API key full (for debugging): $cleanApiKey")
+            
+            val originalTrimmed = ollamaCloudApiKey.trim().replace(Regex("\\s+"), "")
+            if (cleanApiKey.length != originalTrimmed.length) {
+                Log.w(TAG, "⚠️ Clé API nettoyée: ${originalTrimmed.length} → ${cleanApiKey.length} chars (caractères de contrôle supprimés)")
+                Log.w(TAG, "⚠️ Clé originale (trimmed): $originalTrimmed")
+                Log.w(TAG, "⚠️ Clé nettoyée: $cleanApiKey")
+            }
+            
+            if (cleanApiKey.isEmpty()) {
+                Log.e(TAG, "❌ Clé API vide après nettoyage! Clé originale: ${ollamaCloudApiKey.length} chars")
+                addDiagnosticLog("    - ❌ Error: Clé API invalide (vide après nettoyage)")
+                return@withContext null
+            }
+            
+            val authHeader = "Bearer $cleanApiKey"
+            Log.d(TAG, "Authorization header length: ${authHeader.length} chars")
+            Log.d(TAG, "Authorization header preview: ${authHeader.take(20)}...")
             
             val request = Request.Builder()
                 .url(OLLAMA_CLOUD_API_URL)
-                .addHeader("Authorization", "Bearer $ollamaCloudApiKey")
+                .addHeader("Authorization", authHeader)
                 .addHeader("Content-Type", "application/json")
                 .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
                 .build()
+            
+            Log.d(TAG, "Request body preview: ${requestBody.toString().take(200)}...")
             
             Log.d(TAG, "Sending request to Ollama Cloud...")
             val response = httpClient.newCall(request).execute()
@@ -1473,11 +1524,29 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             Log.d(TAG, "Ollama Cloud HTTP response code: ${response.code}")
             addDiagnosticLog("    - HTTP response: ${response.code}")
             
-            if (response.isSuccessful) {
-                val responseBody = response.body?.string()
-                Log.d(TAG, "Ollama Cloud raw response body length: ${responseBody?.length ?: 0}")
-                responseBody?.let {
-                    val jsonResponse = JSONObject(it)
+            val responseBody = response.body?.string()
+            
+            // Log du message d'erreur si 401
+            if (response.code == 401) {
+                Log.e(TAG, "═══════════════════════════════════════════════════════════")
+                Log.e(TAG, "❌ Ollama Cloud 401 Unauthorized")
+                Log.e(TAG, "Response body: $responseBody")
+                Log.e(TAG, "API Key length: ${cleanApiKey.length} chars")
+                Log.e(TAG, "API Key preview: ${cleanApiKey.take(10)}...${cleanApiKey.takeLast(4)}")
+                Log.e(TAG, "URL: $OLLAMA_CLOUD_API_URL")
+                Log.e(TAG, "Model: $ollamaCloudModel")
+                Log.e(TAG, "═══════════════════════════════════════════════════════════")
+                addDiagnosticLog("    - Error: unauthorized")
+                addDiagnosticLog("    - 💡 Vérifiez que la clé API est valide sur ollama.com/account")
+                addDiagnosticLog("    - 💡 Vérifiez que la clé n'a pas expiré")
+                addDiagnosticLog("    - 💡 Vérifiez que vous avez un compte Ollama Cloud actif")
+                return@withContext null
+            }
+            
+            if (response.isSuccessful && responseBody != null) {
+                Log.d(TAG, "Ollama Cloud raw response body length: ${responseBody.length}")
+                try {
+                    val jsonResponse = JSONObject(responseBody)
                     // Format natif Ollama: { "message": { "content": "...", "thinking": "..." } }
                     // PAS format OpenAI: { "choices": [{ "message": { "content": "..." } }] }
                     val messageObj = jsonResponse.getJSONObject("message")
@@ -1521,9 +1590,13 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                     Log.d(TAG, "Ollama Cloud response received successfully: ${content.take(50)}...")
                     addDiagnosticLog("    - Response: ${content.take(100)}")
                     return@withContext content.trim()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Erreur parsing réponse Ollama Cloud", e)
+                    addDiagnosticLog("    - Parse error: ${e.message}")
+                    return@withContext null
                 }
             } else {
-                val errorBody = response.body?.string()
+                val errorBody = responseBody
                 val httpCode = response.code
                 
                 // Détection spécifique des erreurs de quota

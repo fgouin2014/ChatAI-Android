@@ -16,6 +16,7 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.chatai.R
 import com.chatai.AiConfigManager
+import com.chatai.SecureConfig
 import com.chatai.services.KittAIService
 import kotlinx.coroutines.launch
 import androidx.appcompat.app.AlertDialog
@@ -41,6 +42,10 @@ import java.util.concurrent.TimeUnit
 class AIConfigurationActivity : AppCompatActivity() {
     
     private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var secureConfig: SecureConfig
+    
+    // Stocker les clés réelles (non masquées) pour éviter de perdre les valeurs lors de la sauvegarde
+    private var currentOllamaCloudApiKey: String? = null
     
     // Configuration des APIs IA
     private lateinit var openaiApiKeyInput: TextInputEditText
@@ -85,6 +90,7 @@ class AIConfigurationActivity : AppCompatActivity() {
         
         // Initialiser les préférences
         sharedPreferences = getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
+        secureConfig = SecureConfig(this)
         
         // Initialiser les vues
         initializeViews()
@@ -197,9 +203,18 @@ class AIConfigurationActivity : AppCompatActivity() {
         val anthropicKey = sharedPreferences.getString("anthropic_api_key", "")
         anthropicApiKeyInput.setText(if (anthropicKey.isNullOrEmpty()) "" else maskApiKey(anthropicKey))
         
-        // Charger la configuration Ollama Cloud
-        val ollamaCloudKey = sharedPreferences.getString("ollama_cloud_api_key", "")
-        ollamaCloudApiKeyInput.setText(if (ollamaCloudKey.isNullOrEmpty()) "" else maskApiKey(ollamaCloudKey))
+        // Charger la configuration Ollama Cloud depuis SecureConfig
+        val ollamaCloudKey = secureConfig.getOllamaCloudApiKey()
+        android.util.Log.d("AIConfig", "loadCurrentSettings: Ollama Cloud key chargée = ${if (ollamaCloudKey == null || ollamaCloudKey.isEmpty()) "vide/null" else "${ollamaCloudKey.length} chars"}")
+        if (ollamaCloudKey != null && ollamaCloudKey.isNotEmpty()) {
+            currentOllamaCloudApiKey = ollamaCloudKey
+            ollamaCloudApiKeyInput.setText(maskApiKey(ollamaCloudKey))
+            android.util.Log.d("AIConfig", "loadCurrentSettings: Clé stockée dans currentOllamaCloudApiKey (${currentOllamaCloudApiKey!!.length} chars)")
+        } else {
+            currentOllamaCloudApiKey = null
+            ollamaCloudApiKeyInput.setText("")
+            android.util.Log.d("AIConfig", "loadCurrentSettings: Aucune clé trouvée, currentOllamaCloudApiKey = null")
+        }
         
         val ollamaCloudModel = sharedPreferences.getString("ollama_cloud_model", "gpt-oss:120b")
         
@@ -373,10 +388,54 @@ class AIConfigurationActivity : AppCompatActivity() {
                 editor.putString("anthropic_api_key", anthropicKey)
             }
             
-            // Sauvegarder la configuration Ollama Cloud
-            val ollamaCloudKey = ollamaCloudApiKeyInput.text.toString().trim().replace(Regex("\\s+"), "")
-            if (ollamaCloudKey.isNotEmpty() && !ollamaCloudKey.contains("*")) {
-                editor.putString("ollama_cloud_api_key", ollamaCloudKey)
+            // Sauvegarder la configuration Ollama Cloud dans SecureConfig
+            val ollamaCloudKeyInputText = ollamaCloudApiKeyInput.text.toString().trim().replace(Regex("\\s+"), "")
+            android.util.Log.d("AIConfig", "saveAISettings: Ollama Cloud key du champ = ${if (ollamaCloudKeyInputText.isEmpty()) "vide" else if (ollamaCloudKeyInputText.contains("*")) "masquée (${ollamaCloudKeyInputText.length} chars)" else "${ollamaCloudKeyInputText.length} chars"}")
+            android.util.Log.d("AIConfig", "saveAISettings: currentOllamaCloudApiKey = ${if (currentOllamaCloudApiKey == null) "null" else "${currentOllamaCloudApiKey!!.length} chars"}")
+            
+            if (ollamaCloudKeyInputText.isEmpty()) {
+                // Champ vide = supprimer la clé
+                android.util.Log.d("AIConfig", "saveAISettings: Champ vide, suppression de la clé Ollama Cloud");
+                secureConfig.clearOllamaCloudApiKey()
+                currentOllamaCloudApiKey = null
+            } else if (ollamaCloudKeyInputText.contains("*")) {
+                // Champ masqué = l'utilisateur n'a pas modifié, garder la valeur actuelle
+                if (currentOllamaCloudApiKey != null && currentOllamaCloudApiKey!!.isNotEmpty()) {
+                    android.util.Log.d("AIConfig", "saveAISettings: Champ masqué, conservation de la clé existante (${currentOllamaCloudApiKey!!.length} chars)")
+                    secureConfig.setOllamaCloudApiKey(currentOllamaCloudApiKey!!)
+                    // Vérifier que la sauvegarde a fonctionné
+                    val verifyKey = secureConfig.getOllamaCloudApiKey()
+                    if (verifyKey != null && verifyKey == currentOllamaCloudApiKey) {
+                        android.util.Log.i("AIConfig", "saveAISettings: Clé vérifiée après sauvegarde (${verifyKey.length} chars)")
+                    } else {
+                        android.util.Log.e("AIConfig", "saveAISettings: ERREUR - Clé non conservée après sauvegarde!")
+                    }
+                } else {
+                    // Si currentOllamaCloudApiKey est null, essayer de recharger depuis SecureConfig
+                    android.util.Log.w("AIConfig", "saveAISettings: Champ masqué mais currentOllamaCloudApiKey est null, tentative de rechargement...")
+                    val reloadedKey = secureConfig.getOllamaCloudApiKey()
+                    if (reloadedKey != null && reloadedKey.isNotEmpty()) {
+                        android.util.Log.i("AIConfig", "saveAISettings: Clé rechargée depuis SecureConfig (${reloadedKey.length} chars), conservation")
+                        secureConfig.setOllamaCloudApiKey(reloadedKey)
+                        currentOllamaCloudApiKey = reloadedKey
+                    } else {
+                        android.util.Log.w("AIConfig", "saveAISettings: Aucune clé trouvée dans SecureConfig, suppression")
+                        secureConfig.clearOllamaCloudApiKey()
+                        currentOllamaCloudApiKey = null
+                    }
+                }
+            } else {
+                // Nouvelle clé entrée par l'utilisateur
+                android.util.Log.d("AIConfig", "saveAISettings: Nouvelle clé entrée, sauvegarde (${ollamaCloudKeyInputText.length} chars)")
+                secureConfig.setOllamaCloudApiKey(ollamaCloudKeyInputText)
+                currentOllamaCloudApiKey = ollamaCloudKeyInputText
+                // Vérifier que la sauvegarde a fonctionné
+                val verifyKey = secureConfig.getOllamaCloudApiKey()
+                if (verifyKey != null && verifyKey == ollamaCloudKeyInputText) {
+                    android.util.Log.i("AIConfig", "saveAISettings: Nouvelle clé vérifiée après sauvegarde (${verifyKey.length} chars)")
+                } else {
+                    android.util.Log.e("AIConfig", "saveAISettings: ERREUR - Nouvelle clé non conservée après sauvegarde!")
+                }
             }
             
             // Sauvegarder modèle Cloud (depuis input si manuel, sinon depuis spinner)

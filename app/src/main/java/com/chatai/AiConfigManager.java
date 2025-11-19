@@ -42,6 +42,15 @@ public final class AiConfigManager {
             String content = readConfigJson(context);
             if (content != null && !content.trim().isEmpty()) {
                 JSONObject json = new JSONObject(content);
+                // Nettoyer le JSON : supprimer apiKey si elle est vide
+                JSONObject cloud = json.optJSONObject("cloud");
+                if (cloud != null && cloud.has("apiKey")) {
+                    String apiKey = cloud.optString("apiKey", null);
+                    if (apiKey == null || apiKey.trim().isEmpty()) {
+                        cloud.remove("apiKey");
+                        Log.d(TAG, "loadConfig: apiKey vide supprimée du JSON");
+                    }
+                }
                 applyJsonToPreferences(context, json);
                 return json;
             }
@@ -75,7 +84,18 @@ public final class AiConfigManager {
             }
             String json = builder.toString().trim();
             if (!json.isEmpty()) {
-                applyJsonToPreferences(context, new JSONObject(json));
+                JSONObject jsonObj = new JSONObject(json);
+                // Nettoyer le JSON : supprimer apiKey si elle est vide pour éviter la suppression de la clé
+                JSONObject cloud = jsonObj.optJSONObject("cloud");
+                if (cloud != null && cloud.has("apiKey")) {
+                    String apiKey = cloud.optString("apiKey", null);
+                    if (apiKey == null || apiKey.trim().isEmpty()) {
+                        // Supprimer apiKey vide du JSON pour éviter qu'elle supprime la clé existante
+                        cloud.remove("apiKey");
+                        Log.d(TAG, "Nettoyage ai_config.json: apiKey vide supprimée du JSON");
+                    }
+                }
+                applyJsonToPreferences(context, jsonObj);
             }
             return json;
         } catch (Exception e) {
@@ -98,6 +118,15 @@ public final class AiConfigManager {
                 hotword.remove("accessKey");
                 hotword.remove("keywordFile");
                 hotword.remove("model");
+            }
+        }
+        // Nettoyage: supprimer apiKey si elle est vide pour éviter qu'elle supprime la clé existante
+        JSONObject cloud = json.optJSONObject("cloud");
+        if (cloud != null && cloud.has("apiKey")) {
+            String apiKey = cloud.optString("apiKey", null);
+            if (apiKey == null || apiKey.trim().isEmpty()) {
+                cloud.remove("apiKey");
+                Log.d(TAG, "writeConfigJson: apiKey vide supprimée du JSON avant sauvegarde");
             }
         }
         applyJsonToPreferences(context, json);
@@ -158,7 +187,15 @@ public final class AiConfigManager {
 
             JSONObject cloud = new JSONObject();
             cloud.put("provider", prefs.getString("cloud_provider", "ollama"));
-            cloud.put("apiKey", prefs.getString("ollama_cloud_api_key", ""));
+            // Récupérer la clé API depuis SecureConfig
+            // IMPORTANT: Ne mettre apiKey dans le JSON que si elle existe
+            // Si elle est vide/null, ne pas l'inclure pour éviter qu'elle soit supprimée
+            SecureConfig secureConfig = new SecureConfig(context);
+            String apiKey = secureConfig.getOllamaCloudApiKey();
+            if (apiKey != null && !apiKey.trim().isEmpty()) {
+                cloud.put("apiKey", apiKey);
+            }
+            // Si apiKey est vide, ne pas l'inclure dans le JSON (pas de cloud.put("apiKey", ""))
             cloud.put("selectedModel", prefs.getString("cloud_selected_model", selectedModel));
 
             JSONObject webSearch = new JSONObject();
@@ -249,7 +286,34 @@ public final class AiConfigManager {
         JSONObject cloud = json.optJSONObject("cloud");
         if (cloud != null) {
             putStringIfPresent(editor, "cloud_provider", cloud, "provider");
-            putStringIfPresent(editor, "ollama_cloud_api_key", cloud, "apiKey");
+            // Sauvegarder la clé API dans SecureConfig
+            // IMPORTANT: Ne modifier la clé que si elle est explicitement présente dans le JSON
+            // Si elle n'est pas présente, c'est que la webapp ne l'a pas modifiée (masquée avec *)
+            SecureConfig secureConfig = new SecureConfig(context);
+            if (cloud.has("apiKey")) {
+                // La clé est présente dans le JSON (modifiée ou explicitement supprimée)
+                String apiKey = cloud.optString("apiKey", null);
+                if (apiKey != null && !apiKey.trim().isEmpty()) {
+                    Log.d(TAG, "Sauvegarde clé Ollama Cloud depuis ai_config.json (" + apiKey.length() + " chars)");
+                    secureConfig.setOllamaCloudApiKey(apiKey);
+                } else {
+                    // Champ vide dans le JSON
+                    // Vérifier si une clé existe déjà dans SecureConfig
+                    String existingKey = secureConfig.getOllamaCloudApiKey();
+                    if (existingKey != null && !existingKey.trim().isEmpty()) {
+                        // Une clé existe déjà, ne pas la supprimer (probablement un JSON mal formé ou vide)
+                        Log.d(TAG, "Champ apiKey vide dans ai_config.json mais clé existante trouvée dans SecureConfig, conservation");
+                    } else {
+                        // Aucune clé existante, suppression OK
+                        Log.d(TAG, "Suppression clé Ollama Cloud (champ vide dans ai_config.json et aucune clé existante)");
+                        secureConfig.clearOllamaCloudApiKey();
+                    }
+                }
+            } else {
+                // La clé n'est pas présente dans le JSON = pas modifiée par la webapp
+                // Ne pas toucher à SecureConfig, garder la valeur existante
+                Log.d(TAG, "Clé Ollama Cloud non modifiée dans ai_config.json, conservation de la valeur existante");
+            }
             putStringIfPresent(editor, "cloud_selected_model", cloud, "selectedModel");
             putStringIfPresent(editor, "ollama_cloud_model", cloud, "selectedModel");
         }

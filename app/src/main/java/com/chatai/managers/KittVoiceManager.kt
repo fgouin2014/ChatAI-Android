@@ -70,6 +70,12 @@ class KittVoiceManager(
     private var audioEngineConfig: AudioEngineConfig = AudioEngineConfig.fromContext(context)
     private var useWhisperServer: Boolean = audioEngineConfig.engine == AudioEngineConfig.DEFAULT_ENGINE
     
+    // Timeouts pour Google Speech (éviter blocage si aucun résultat)
+    private var timeoutHandler: android.os.Handler? = null
+    private var globalTimeoutRunnable: Runnable? = null
+    private var speechTimeoutRunnable: Runnable? = null
+    private var endOfSpeechTimeoutRunnable: Runnable? = null
+    
     // ════════════════════════════════════════════════════════════════════════
     // LISTENER VU-METER (COPIÉ DE V1)
     // ════════════════════════════════════════════════════════════════════════
@@ -118,44 +124,83 @@ class KittVoiceManager(
      */
     private val recognitionListener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
+            android.util.Log.d(TAG, "🎤 onReadyForSpeech() - prêt à écouter")
             listener.onVoiceRecognitionReady()
         }
         
         override fun onBeginningOfSpeech() {
+            android.util.Log.d(TAG, "🎤 onBeginningOfSpeech() - parole détectée")
             listener.onVoiceRecognitionStart()
+            
+            // Annuler le timeout global (la parole a été détectée)
+            globalTimeoutRunnable?.let { timeoutHandler?.removeCallbacks(it) }
+            globalTimeoutRunnable = null
+            
+            // TIMEOUT: Si aucun résultat après 7 secondes depuis le début de la parole, forcer l'arrêt
+            if (timeoutHandler != null && isListening) {
+                val self = this@KittVoiceManager
+                speechTimeoutRunnable = Runnable {
+                    if (self.isListening && self.speechRecognizer != null) {
+                        android.util.Log.w(TAG, "⚠️ Timeout après début de parole (7s) - arrêt forcé")
+                        self.cleanupSpeechRecognizer()
+                        listener.onVoiceRecognitionError(-1) // No match
+                    }
+                }
+                timeoutHandler?.postDelayed(speechTimeoutRunnable!!, 7000) // 7 secondes après début de parole
+            }
         }
         
         override fun onRmsChanged(rmsdB: Float) {
-            // Ce callback est maintenant géré par vuMeterListener
-            // Pas de traitement ici pour éviter les conflits
+            // Log RMS toutes les 20 fois (réduire spam logs) pour diagnostic
+            if ((rmsdB * 10).toInt() % 20 == 0) {
+                android.util.Log.d(TAG, "🎤 onRmsChanged: ${rmsdB}dB (microphone actif)")
+            }
+            // Ce callback est maintenant géré par vuMeterListener pour VU-meter
+            // Mais on log quand même pour diagnostic
         }
         
         override fun onBufferReceived(buffer: ByteArray?) {
-            // Buffer audio reçu
+            android.util.Log.v(TAG, "🎤 onBufferReceived: ${buffer?.size ?: 0} bytes")
         }
         
         override fun onEndOfSpeech() {
-            // Fin de la parole détectée
+            android.util.Log.d(TAG, "🎤 onEndOfSpeech() - fin de parole détectée, en attente des résultats...")
+            // TIMEOUT: Si aucun résultat après 3 secondes depuis la fin de la parole, forcer l'arrêt
+            if (timeoutHandler != null && isListening) {
+                val self = this@KittVoiceManager
+                endOfSpeechTimeoutRunnable = Runnable {
+                    if (self.isListening && self.speechRecognizer != null) {
+                        android.util.Log.w(TAG, "⚠️ Timeout après fin de parole (3s) - arrêt forcé")
+                        self.cleanupSpeechRecognizer()
+                        listener.onVoiceRecognitionError(-1) // No match
+                    }
+                }
+                timeoutHandler?.postDelayed(endOfSpeechTimeoutRunnable!!, 3000) // 3 secondes après fin de parole
+            }
         }
         
         override fun onError(error: Int) {
+            android.util.Log.w(TAG, "🎤 onError($error) - arrêt de la reconnaissance")
+            cleanupTimeouts()
             isListening = false
             // ⚠️ Pas d'affichage de statut pour les erreurs - juste silence (V1 original)
             listener.onVoiceRecognitionError(error)
         }
         
         override fun onResults(results: Bundle?) {
+            cleanupTimeouts()
+            
             val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             if (!matches.isNullOrEmpty()) {
                 val command = matches[0]
-                android.util.Log.d(TAG, "Voice recognized: '$command'")
+                android.util.Log.d(TAG, "✅ Voice recognized: '$command'")
+                isListening = false
                 listener.onVoiceRecognitionResults(command)
             } else {
-                android.util.Log.w(TAG, "No voice match")
+                android.util.Log.w(TAG, "⚠️ No voice match")
+                isListening = false
                 listener.onVoiceRecognitionError(-1)
             }
-            
-            isListening = false
         }
         
         override fun onPartialResults(partialResults: Bundle?) {
@@ -180,25 +225,53 @@ class KittVoiceManager(
         refreshAudioEngine()
         
         // Initialiser SpeechRecognizer pour la reconnaissance vocale
+        // CRITIQUE: SpeechRecognizer DOIT être créé sur le main thread
         if (!useWhisperServer && speechRecognizer == null) {
-            try {
-                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
-                speechRecognizer?.setRecognitionListener(recognitionListener)
-                android.util.Log.d(TAG, "✅ SpeechRecognizer principal créé")
-            } catch (e: Exception) {
-                android.util.Log.e(TAG, "❌ Erreur création SpeechRecognizer principal: ${e.message}")
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                try {
+                    // Vérifier si Google Speech est disponible
+                    if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+                        android.util.Log.e(TAG, "❌ Google Speech recognition non disponible sur ce device")
+                        listener.onVoiceRecognitionError(-997)
+                        return@post
+                    }
+                    
+                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                    if (speechRecognizer == null) {
+                        android.util.Log.e(TAG, "❌ SpeechRecognizer.createSpeechRecognizer() retourne null")
+                        listener.onVoiceRecognitionError(-996)
+                        return@post
+                    }
+                    speechRecognizer?.setRecognitionListener(recognitionListener)
+                    android.util.Log.d(TAG, "✅ SpeechRecognizer principal créé sur main thread")
+                } catch (e: Exception) {
+                    android.util.Log.e(TAG, "❌ Erreur création SpeechRecognizer principal: ${e.message}", e)
+                    listener.onVoiceRecognitionError(-995)
+                }
             }
         }
         
         // ⚠️ Initialiser SpeechRecognizer séparé pour le VU-meter
-        if (!useWhisperServer && vuMeterRecognizer == null) {
-            try {
-                vuMeterRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
-                vuMeterRecognizer?.setRecognitionListener(vuMeterListener)
-                android.util.Log.d(TAG, "✅ SpeechRecognizer VU-meter créé")
-            } catch (e: Exception) {
-                android.util.Log.e(TAG, "❌ Erreur création SpeechRecognizer VU-meter: ${e.message}")
+        // CRITIQUE: Ne PAS créer vuMeterRecognizer si Google Speech est utilisé (pas Whisper)
+        // Le VU-meter monopoliserait Google Speech et empêcherait le clavier Google de fonctionner
+        // Note: On ne crée pas vuMeterRecognizer si Google Speech est utilisé
+        // Whisper utilise son propre système audio et ne monopolise pas Google Speech
+        if (!useWhisperServer) {
+            // Détruire vuMeterRecognizer s'il existe déjà (libérer Google Speech)
+            if (vuMeterRecognizer != null) {
+                try {
+                    vuMeterRecognizer?.stopListening()
+                    vuMeterRecognizer?.destroy()
+                    android.util.Log.d(TAG, "🛑 VU-meter SpeechRecognizer détruit (libération Google Speech)")
+                } catch (e: Exception) {
+                    android.util.Log.w(TAG, "Warning destroying vuMeterRecognizer: ${e.message}")
+                }
+                vuMeterRecognizer = null
             }
+            // Ne pas créer vuMeterRecognizer avec Google Speech
+            // Il monopoliserait la ressource même s'il n'est pas utilisé
+            android.util.Log.d(TAG, "⚠️ VU-meter SpeechRecognizer non créé avec Google Speech (monopoliserait la ressource)")
+            android.util.Log.d(TAG, "⚠️ Utilisez Whisper pour avoir le VU-meter sans monopoliser Google Speech")
         }
         
         if (useWhisperServer) {
@@ -268,12 +341,34 @@ class KittVoiceManager(
 
         refreshAudioEngine()
         if (useWhisperServer) {
+            // CRITIQUE: Arrêter Google Speech s'il est actif dans BackgroundService
+            // Whisper et Google Speech ne peuvent PAS être actifs en même temps
+            val stopGoogleIntent = android.content.Intent(context, com.chatai.BackgroundService::class.java)
+            stopGoogleIntent.action = com.chatai.BackgroundService.ACTION_STOP_GOOGLE_SPEECH
+            context.startService(stopGoogleIntent)
+            android.util.Log.i(TAG, "Arrêt de Google Speech dans BackgroundService (libération pour Whisper)")
+            
             if (whisperRecognizer == null) {
                 setupVoiceInterface()
             }
             whisperRecognizer?.startListening()
             isListening = true
             return
+        }
+
+        // CRITIQUE: Arrêter Whisper s'il est actif dans BackgroundService
+        // Whisper et Google Speech ne peuvent PAS être actifs en même temps
+        val stopWhisperIntent = android.content.Intent(context, com.chatai.BackgroundService::class.java)
+        stopWhisperIntent.action = com.chatai.BackgroundService.ACTION_STOP_WHISPER
+        context.startService(stopWhisperIntent)
+        android.util.Log.i(TAG, "Arrêt de Whisper dans BackgroundService (libération pour Google Speech)")
+
+        // CRITIQUE: Arrêter le VU-meter avant de démarrer la reconnaissance vocale
+        // Google Speech ne peut être utilisé que par une seule app à la fois
+        // Le VU-meter utilise vuMeterRecognizer qui monopolise la ressource
+        if (isMicrophoneListening) {
+            android.util.Log.d(TAG, "🛑 Arrêt du VU-meter avant démarrage reconnaissance vocale (libération Google Speech)")
+            stopMicrophoneListening()
         }
 
         if (speechRecognizer == null) {
@@ -285,17 +380,34 @@ class KittVoiceManager(
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.FRENCH)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Parlez maintenant...")
+            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
+            // Note: EXTRA_PROMPT non utilisé avec SpeechRecognizer (seulement pour startActivityForResult)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
         }
+        
+        // Initialiser le handler pour les timeouts
+        timeoutHandler = android.os.Handler(android.os.Looper.getMainLooper())
         
         try {
             android.util.Log.d(TAG, "🎤 Calling speechRecognizer.startListening()...")
             speechRecognizer?.startListening(intent)
             isListening = true
-            android.util.Log.d(TAG, "✅ Voice recognition started successfully")
+            
+            // TIMEOUT GLOBAL: Si aucun événement après 12 secondes, forcer l'arrêt
+            val self = this
+            globalTimeoutRunnable = Runnable {
+                if (self.isListening && self.speechRecognizer != null) {
+                    android.util.Log.w(TAG, "⚠️ Timeout global (12s) - arrêt forcé (aucune parole détectée)")
+                    self.cleanupSpeechRecognizer()
+                    listener.onVoiceRecognitionError(-1) // No match
+                }
+            }
+            timeoutHandler?.postDelayed(globalTimeoutRunnable!!, 12000) // 12 secondes maximum
+            
+            android.util.Log.d(TAG, "✅ Voice recognition started successfully (timeouts: global=12s, speech=7s, end=3s)")
         } catch (e: Exception) {
             android.util.Log.e(TAG, "❌ Error starting voice recognition: ${e.message}", e)
+            cleanupTimeouts()
             listener.onVoiceRecognitionError(-999)
         }
     }
@@ -311,9 +423,41 @@ class KittVoiceManager(
             android.util.Log.d(TAG, "🛑 Whisper server recognition stopped")
             return
         }
-        speechRecognizer?.stopListening()
+        
+        cleanupSpeechRecognizer()
+    }
+    
+    /**
+     * Nettoyer les timeouts Google Speech
+     */
+    private fun cleanupTimeouts() {
+        globalTimeoutRunnable?.let { timeoutHandler?.removeCallbacks(it) }
+        speechTimeoutRunnable?.let { timeoutHandler?.removeCallbacks(it) }
+        endOfSpeechTimeoutRunnable?.let { timeoutHandler?.removeCallbacks(it) }
+        globalTimeoutRunnable = null
+        speechTimeoutRunnable = null
+        endOfSpeechTimeoutRunnable = null
+    }
+    
+    /**
+     * Nettoyer le SpeechRecognizer (arrêter + timeouts)
+     */
+    private fun cleanupSpeechRecognizer() {
+        cleanupTimeouts()
+        
+        // CRITIQUE: Arrêter et détruire le SpeechRecognizer pour libérer Google Speech
+        // Cela permet au clavier Google et autres apps d'utiliser la reconnaissance vocale
+        if (speechRecognizer != null) {
+            try {
+                speechRecognizer?.stopListening()
+                android.util.Log.d(TAG, "🛑 Voice recognition stopped")
+                // Note: On ne détruit pas speechRecognizer ici car il peut être réutilisé
+                // On le détruit seulement dans destroy() pour libérer complètement la ressource
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "Warning stopping speechRecognizer: ${e.message}")
+            }
+        }
         isListening = false
-        android.util.Log.d(TAG, "🛑 Voice recognition stopped")
     }
     
     // ════════════════════════════════════════════════════════════════════════
@@ -326,7 +470,9 @@ class KittVoiceManager(
      * Utilise le SpeechRecognizer séparé (vuMeterRecognizer)
      * Capture RMS audio en continu
      * 
-     * ⚠️⚠️⚠️ COPIÉ À 100% DE V1 - NE PAS MODIFIER ⚠️⚠️⚠️
+     * ⚠️ CRITIQUE: Ne PAS démarrer si Google Speech est utilisé (pas Whisper)
+     * Google Speech ne peut être utilisé que par une seule app à la fois
+     * Le VU-meter monopoliserait la ressource et empêcherait le clavier Google de fonctionner
      */
     fun startMicrophoneListening() {
         if (useWhisperServer) {
@@ -335,6 +481,15 @@ class KittVoiceManager(
         }
         if (isMicrophoneListening) return
         
+        // CRITIQUE: Ne PAS démarrer le VU-meter si Google Speech est utilisé
+        // Le VU-meter utilise vuMeterRecognizer qui monopolise Google Speech
+        // Cela empêche le clavier Google et autres apps d'utiliser la reconnaissance vocale
+        android.util.Log.w(TAG, "⚠️ VU-meter désactivé avec Google Speech (monopolise la ressource)")
+        android.util.Log.w(TAG, "⚠️ Utilisez Whisper pour avoir le VU-meter sans monopoliser Google Speech")
+        return
+        
+        // Code original commenté - ne pas utiliser avec Google Speech
+        /*
         isMicrophoneListening = true
         
         // Démarrer une reconnaissance continue pour capturer les niveaux audio
@@ -353,6 +508,7 @@ class KittVoiceManager(
             // Erreur silencieuse - pas d'affichage
             android.util.Log.w(TAG, "Warning starting microphone: ${e.message}")
         }
+        */
     }
     
     /**

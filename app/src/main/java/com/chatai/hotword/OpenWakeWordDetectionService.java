@@ -24,11 +24,15 @@ public class OpenWakeWordDetectionService implements HotwordDetector {
     private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO;
     private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
     private static final int BUFFER_SIZE = 2048;
-    private static final long DEFAULT_DEBOUNCE_MS = 750;
+    // Debounce minimum entre deux détections du même modèle (ms)
+    // Augmenté à 2500ms pour éviter déclenchements multiples rapides après première détection
+    // Recommandé: 2000-3000ms (minimum 1500ms pour éviter doubles détections)
+    private static final long DEFAULT_DEBOUNCE_MS = 2500;
 
     private final Context context;
     private final HotwordPreferences prefs;
     private final Handler mainHandler;
+    private long debounceMs = DEFAULT_DEBOUNCE_MS;
 
     private final List<WakeWordModel> models = new ArrayList<>();
     private HotwordDetectionService.HotwordCallback callback;
@@ -38,7 +42,8 @@ public class OpenWakeWordDetectionService implements HotwordDetector {
     private volatile boolean isRunning = false;
     private volatile boolean isPaused = false;
     private long lastScoreLogMs = 0;
-    private static final long SCORE_LOG_INTERVAL_MS = 1000;
+    private static final long SCORE_LOG_INTERVAL_MS = 3000;
+    private boolean debugScores = false;
 
     public OpenWakeWordDetectionService(Context context, HotwordPreferences prefs) {
         this.context = context;
@@ -62,6 +67,26 @@ public class OpenWakeWordDetectionService implements HotwordDetector {
             Interpreter.Options options = new Interpreter.Options();
             options.setNumThreads(2);
 
+            // Lire debugScores et debounceMs depuis la configuration (ai_config.json)
+            try {
+                org.json.JSONObject cfg = com.chatai.AiConfigManager.loadConfig(context);
+                org.json.JSONObject hotword = cfg != null ? cfg.optJSONObject("hotword") : null;
+                if (hotword != null) {
+                    this.debugScores = hotword.optBoolean("debugScores", false);
+                    // Debounce configurable depuis webapp (défaut: 2500ms)
+                    this.debounceMs = hotword.optLong("debounceMs", DEFAULT_DEBOUNCE_MS);
+                    // Valider que debounce est raisonnable (min 1000ms, max 10000ms)
+                    if (this.debounceMs < 1000) {
+                        this.debounceMs = 1000;
+                    } else if (this.debounceMs > 10000) {
+                        this.debounceMs = 10000;
+                    }
+                    Log.i(TAG, "Debounce configuré: " + this.debounceMs + "ms");
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Erreur lecture config hotword, utilisation valeurs par défaut", e);
+            }
+
             for (HotwordPreferences.ModelConfig config : configs) {
                 // Profil de prétraitement dépendant du modèle
                 OpenWakeWordPreprocessor.Profile profile;
@@ -79,7 +104,7 @@ public class OpenWakeWordDetectionService implements HotwordDetector {
                 Interpreter interpreter = new Interpreter(mapped, options);
                 int[] inputShape = interpreter.getInputTensor(0).shape();
                 int requiredFrames = inputShape.length >= 2 ? inputShape[1] : 16;
-                models.add(new WakeWordModel(config.name, interpreter, requiredFrames, config.threshold, preproc));
+                models.add(new WakeWordModel(config.name, interpreter, requiredFrames, config.threshold, preproc, debounceMs));
                 Log.i(TAG, "Model loaded: " + config.name + " (" + requiredFrames + " frames, threshold " + config.threshold + ")"
                         + " preproc={fmax=" + profile.fMaxHz + ", preEmp=" + profile.usePreEmphasis
                         + ", cmvn=" + profile.useCmvn + ", div10+2=" + profile.useLogDiv10Plus2 + "}");
@@ -188,7 +213,7 @@ public class OpenWakeWordDetectionService implements HotwordDetector {
                 float score = model.run(featureWindow);
                 model.updateScoreHistory(score);
                 long now = SystemClock.elapsedRealtime();
-                if (now - lastScoreLogMs >= SCORE_LOG_INTERVAL_MS) {
+                if (debugScores && now - lastScoreLogMs >= SCORE_LOG_INTERVAL_MS && score > 0.05f) {
                     if (model.name.toLowerCase(java.util.Locale.ROOT).contains("hey_kitt")) {
                         Log.d(TAG, "score " + model.name + " = " + String.format(java.util.Locale.US, "%.3f", score)
                                 + " avg=" + String.format(java.util.Locale.US, "%.3f", model.getAverageScore())
@@ -224,6 +249,7 @@ public class OpenWakeWordDetectionService implements HotwordDetector {
         final float threshold;
         private long lastTriggerMs = 0;
         final OpenWakeWordPreprocessor preprocessor;
+        private final long debounceMs; // Debounce configurable depuis config
         // Lissage + adaptation
         private final java.util.ArrayDeque<Float> recentScores = new java.util.ArrayDeque<>();
         private static final int WINDOW_SIZE = 12; // fenêtre plus courte pour capter les pics
@@ -233,12 +259,13 @@ public class OpenWakeWordDetectionService implements HotwordDetector {
         private long lastAdaptiveUpdateMs = 0;
         private static final long ADAPT_INTERVAL_MS = 4000;
 
-        WakeWordModel(String name, Interpreter interpreter, int requiredFrames, float threshold, OpenWakeWordPreprocessor preprocessor) {
+        WakeWordModel(String name, Interpreter interpreter, int requiredFrames, float threshold, OpenWakeWordPreprocessor preprocessor, long debounceMs) {
             this.name = name;
             this.interpreter = interpreter;
             this.requiredFrames = requiredFrames;
             this.threshold = threshold;
             this.preprocessor = preprocessor;
+            this.debounceMs = debounceMs;
             this.adaptiveThreshold = Math.max(MIN_THR, Math.min(MAX_THR, threshold));
         }
 
@@ -301,7 +328,8 @@ public class OpenWakeWordDetectionService implements HotwordDetector {
         }
 
         boolean canTrigger() {
-            return SystemClock.elapsedRealtime() - lastTriggerMs > DEFAULT_DEBOUNCE_MS;
+            // Utiliser debounce configurable passé au constructeur
+            return SystemClock.elapsedRealtime() - lastTriggerMs > debounceMs;
         }
 
         void markTrigger() {

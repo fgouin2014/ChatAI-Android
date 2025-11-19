@@ -7,9 +7,1326 @@
     <meta name="description" content="Assistant IA mobile intelligent et sécurisé">
     <title>Chat IA Mobile</title>
     <link rel="manifest" href="/manifest.json">
-    <link rel="stylesheet" href="glass-neon-styles.css">
     <style>
-        /* Styles inline supplémentaires si nécessaire - tout est dans glass-neon-styles.css */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea, #764ba2);
+            --secondary-gradient: linear-gradient(135deg, #4ECDC4, #44A08D);
+            --accent-gradient: linear-gradient(135deg, #FF6B6B, #4ECDC4);
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+            --border-color: #e0e0e0;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        /* S'assurer que les variables CSS sont héritées partout */
+        html, body {
+            --primary-gradient: linear-gradient(135deg, #667eea, #764ba2);
+            --secondary-gradient: linear-gradient(135deg, #4ECDC4, #44A08D);
+            --accent-gradient: linear-gradient(135deg, #FF6B6B, #4ECDC4);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--primary-gradient) !important;
+            background-image: linear-gradient(135deg, #667eea, #764ba2) !important;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .chat-container {
+            width: 100%;
+            height: 100vh;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .chat-header {
+            background: var(--primary-gradient);
+            color: white;
+            padding: 12px 16px 16px;
+            position: relative;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            z-index: 100;
+        }
+        
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 40px;
+        }
+        
+        .chat-title {
+            font-size: 18px;
+            font-weight: 700;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            letter-spacing: 0.5px;
+        }
+        
+        .header-controls-row {
+            margin-top: 8px;
+            display: flex;
+            justify-content: flex-end;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        
+        .header-controls-row::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .header-controls {
+            display: flex;
+            gap: 6px;
+            flex-wrap: nowrap;
+        }
+        
+        .header-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 4px;
+            border-radius: 50%;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 28px;
+            min-height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .header-btn:active {
+            transform: scale(0.9);
+            background: rgba(255,255,255,0.35);
+        }
+        
+        .personality-selector {
+            display: flex;
+            gap: 5px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+            margin-top: 12px;
+            scrollbar-width: none;
+        }
+        
+        .personality-selector::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .personality-btn {
+            padding: 5px 12px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 11px;
+            white-space: nowrap;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+        }
+        
+        .personality-btn.active {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.05);
+        }
+        
+        .main-nav {
+            display: flex;
+            gap: 8px;
+            padding: 12px 16px;
+            background: #f5f7fb;
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        
+        .main-nav::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .main-nav-btn {
+            padding: 6px 12px;
+            border: 1px solid #c7cffb;
+            background: #eef1ff;
+            color: #2c2d33;
+            border-radius: 999px;
+            font-size: 12px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+        }
+        
+        .main-nav-btn.active {
+            background: #2f3fbb;
+            color: #ffffff;
+            border-color: #2f3fbb;
+            box-shadow: 0 6px 16px rgba(47,63,187,0.25);
+            transform: translateY(-1px);
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .view {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .view.active {
+            display: flex;
+            opacity: 1;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background: var(--bg-color);
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+        }
+        
+        .message {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .message.user {
+            flex-direction: row-reverse;
+        }
+        
+        .message-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            position: relative;
+            word-wrap: break-word;
+            line-height: 1.5;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .message.user .message-bubble {
+            background: var(--primary-gradient);
+            color: white;
+        }
+        
+        .message.ai .message-bubble {
+            background: white;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+        
+        .message-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+            opacity: 0.7;
+        }
+        
+        .message-btn {
+            background: none;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .message-btn:active {
+            transform: scale(0.9);
+            opacity: 1;
+        }
+        
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .message.user .message-avatar {
+            background: var(--accent-gradient);
+            color: white;
+        }
+        
+        .message.ai .message-avatar {
+            background: var(--secondary-gradient);
+            color: white;
+        }
+        
+        .typing-indicator {
+            display: none;
+            padding: 10px;
+        }
+        
+        .typing-dots {
+            display: inline-flex;
+            gap: 2px;
+        }
+        
+        .typing-dots span {
+            width: 6px;
+            height: 6px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        
+        .chat-input-container {
+            background: white;
+            border-top: 1px solid var(--border-color);
+            padding: 10px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .plugins-bar {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .plugins-bar::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .plugin-btn {
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 15px;
+            font-size: 11px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+        }
+        
+        .plugin-btn:active {
+            background: #ddd;
+            transform: scale(0.95);
+        }
+        
+        .input-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        
+        .input-field {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 16px;
+            outline: none;
+            resize: none;
+            max-height: 120px;
+            min-height: 44px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+        
+        .input-field:focus {
+            border-color: #667eea;
+        }
+        
+        .input-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .control-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        .send-btn {
+            background: var(--primary-gradient);
+            color: white;
+        }
+        
+        .voice-btn {
+            background: #4ECDC4;
+            color: white;
+        }
+        
+        .voice-btn.recording {
+            background: #ff4757;
+            animation: pulse 1s infinite;
+        }
+        
+        .control-btn:active {
+            transform: scale(0.9);
+        }
+        
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: #f7f8fb;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .panel-section {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #00f2fe, #00ffff);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 0 10px rgba(0,242,254,0.5);
+        }
+
+        .panel-section:hover {
+            background: rgba(255, 255, 255, 0.35);
+            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.5);
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .panel-section:hover::before {
+            opacity: 1;
+        }
+        
+        .panel-section h3 {
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: #1e293b;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            letter-spacing: -0.02em;
+            padding-bottom: 12px;
+            border-bottom: 2px solid rgba(102,126,234,0.1);
+        }
+        
+        .panel-section h4 {
+            font-size: 17px;
+            margin-bottom: 16px;
+            color: #1e293b;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            letter-spacing: -0.01em;
+            padding-bottom: 12px;
+            border-bottom: 2px solid rgba(102,126,234,0.1);
+        }
+        
+        /* Tabs Navigation (Alternative to Accordion) */
+        .config-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid rgba(148,163,184,0.2);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .config-tab {
+            padding: 10px 16px;
+            background: rgba(148,163,184,0.1);
+            border: none;
+            border-radius: 8px 8px 0 0;
+            font-size: 13px;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .config-tab:hover {
+            background: rgba(148,163,184,0.15);
+            color: #475569;
+        }
+        
+        .config-tab.active {
+            background: var(--primary-gradient);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .config-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary-gradient);
+        }
+        
+        .config-tab-content {
+            display: none;
+        }
+        
+        .config-tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        /* Legacy Accordion (disabled by default) */
+        .panel-content {
+            transition: height 0.2s ease, opacity 0.2s ease;
+        }
+        .panel-section.collapsed .panel-content {
+            display: none;
+        }
+        .accordion-caret {
+            font-size: 14px;
+            color: #64748b;
+            margin-left: 8px;
+            user-select: none;
+            display: none; /* Hide accordion caret */
+        }
+        
+        /* Disable accordion click on headers */
+        .panel-section h3,
+        .panel-section h4 {
+            cursor: default;
+        }
+        
+        .panel-placeholder {
+            color: #475569;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+        
+        .form-grid label {
+            display: flex;
+            flex-direction: column;
+            min-height: 60px;
+            padding: 12px;
+            background: rgba(255,255,255,0.6);
+            border-radius: 10px;
+            border: 1px solid rgba(148,163,184,0.2);
+            transition: all 0.2s ease;
+        }
+
+        .form-grid label:hover {
+            background: rgba(255,255,255,0.9);
+            border-color: rgba(102,126,234,0.3);
+            box-shadow: 0 2px 8px rgba(102,126,234,0.1);
+        }
+        
+        .form-grid label:has(input[type="checkbox"]) {
+            flex-direction: row;
+            align-items: center;
+            min-height: auto;
+            gap: 10px;
+            padding: 10px 12px;
+        }
+        
+        .form-grid label:has(input[type="checkbox"]) input[type="checkbox"] {
+            width: auto;
+            margin-top: 0;
+            flex-shrink: 0;
+            transform: scale(1.1);
+        }
+
+        .form-grid input,
+        .form-grid select,
+        .form-grid textarea {
+            width: 100%;
+            margin-top: 6px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 2px solid rgba(148,163,184,0.3);
+            font-size: 14px;
+            background: #ffffff;
+            color: #1e293b;
+            transition: all 0.2s ease;
+        }
+
+        .form-grid input:focus,
+        .form-grid select:focus,
+        .form-grid textarea:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+
+        .custom-input {
+            margin-top: 6px;
+        }
+
+        .custom-input.hidden {
+            display: none;
+        }
+
+        .porcupine-only.hidden {
+            display: none;
+        }
+
+        .engine-whisper-only.hidden,
+        .engine-legacy-only.hidden {
+            display: none;
+        }
+
+        /* Hotword Model Cards */
+        .hotword-models-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+            margin-top: 16px;
+        }
+
+        .hotword-model-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 2px solid rgba(102,126,234,0.2);
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hotword-model-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-gradient);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .hotword-model-card:hover {
+            box-shadow: 0 8px 24px rgba(102,126,234,0.2), 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-4px);
+            border-color: rgba(102,126,234,0.4);
+        }
+
+        .hotword-model-card:hover::before {
+            opacity: 1;
+        }
+
+        .hotword-model-card.disabled {
+            opacity: 0.6;
+            background: rgba(247,248,251,0.8);
+        }
+
+        .hotword-model-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid rgba(102,126,234,0.1);
+        }
+
+        .hotword-model-card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .hotword-model-card-title input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .hotword-model-card-name {
+            font-weight: 700;
+            font-size: 16px;
+            color: #1e293b;
+            flex: 1;
+            min-width: 0;
+            letter-spacing: -0.02em;
+        }
+
+        .hotword-model-card-name input[type="text"] {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid rgba(148,163,184,0.3);
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            background: rgba(247,248,251,0.5);
+        }
+
+        .hotword-model-card-name input[type="text"]:focus {
+            background: white;
+            border-color: #667eea;
+            outline: none;
+        }
+
+        .hotword-model-card-remove {
+            padding: 6px 10px;
+            font-size: 12px;
+            background: rgba(239,68,68,0.1);
+            color: #dc2626;
+            border: 1px solid rgba(239,68,68,0.2);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .hotword-model-card-remove:hover {
+            background: rgba(239,68,68,0.2);
+        }
+
+        .hotword-model-card-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .hotword-model-card-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .hotword-model-card-field label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .hotword-model-card-field input,
+        .hotword-model-card-field select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid rgba(148,163,184,0.3);
+            border-radius: 6px;
+            font-size: 13px;
+            background: white;
+            color: #1e293b;
+            transition: border-color 0.2s;
+        }
+
+        .hotword-model-card-field input:focus,
+        .hotword-model-card-field select:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+
+        .hotword-model-card-field input[readonly] {
+            background: rgba(247,248,251,0.5);
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .hotword-model-card-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+            font-style: italic;
+            background: rgba(247,248,251,0.5);
+            border: 2px dashed rgba(148,163,184,0.3);
+            border-radius: 12px;
+        }
+
+        /* Generic Cards System (réutilisable pour toutes les sections) */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 16px;
+        }
+
+        .card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 2px solid rgba(102,126,234,0.2);
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-gradient);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 8px 24px rgba(102,126,234,0.2), 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-4px);
+            border-color: rgba(102,126,234,0.4);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card.disabled {
+            opacity: 0.6;
+            background: rgba(247,248,251,0.8);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid rgba(102,126,234,0.1);
+        }
+
+        .card-title {
+            font-weight: 700;
+            font-size: 16px;
+            color: #1e293b;
+            flex: 1;
+            min-width: 0;
+            letter-spacing: -0.02em;
+        }
+
+        .card-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .card-field label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .card-field input,
+        .card-field select,
+        .card-field textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid rgba(148,163,184,0.3);
+            border-radius: 6px;
+            font-size: 13px;
+            background: white;
+            color: #1e293b;
+            transition: border-color 0.2s;
+        }
+
+        .card-field input:focus,
+        .card-field select:focus,
+        .card-field textarea:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+
+        .card-field input[readonly] {
+            background: rgba(247,248,251,0.5);
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .card-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+            font-style: italic;
+            background: rgba(247,248,251,0.5);
+            border: 2px dashed rgba(148,163,184,0.3);
+            border-radius: 12px;
+        }
+
+        /* Mini Cards (pour les statuts, infos compactes) */
+        .mini-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .mini-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 2px solid rgba(102,126,234,0.15);
+            border-radius: 14px;
+            padding: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 3px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mini-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary-gradient);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .mini-card:hover {
+            box-shadow: 0 6px 20px rgba(102,126,234,0.15), 0 2px 6px rgba(0,0,0,0.08);
+            transform: translateY(-3px);
+            border-color: rgba(102,126,234,0.3);
+        }
+
+        .mini-card:hover::before {
+            opacity: 1;
+        }
+
+        .mini-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .mini-card-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .mini-card-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-top: 4px;
+        }
+
+        .mini-card-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-left: 8px;
+        }
+
+        .mini-card-status.active {
+            background: #10b981;
+        }
+
+        .mini-card-status.inactive {
+            background: #ef4444;
+        }
+
+        .mini-card-status.warning {
+            background: #f59e0b;
+        }
+        
+        .panel-json {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 300px;
+        }
+        
+        .panel-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .panel-button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            background: var(--primary-gradient);
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+            letter-spacing: 0.01em;
+        }
+
+        .panel-button:hover {
+            box-shadow: 0 6px 16px rgba(102,126,234,0.4);
+            transform: translateY(-2px);
+        }
+        
+        .panel-button.secondary {
+            background: var(--secondary-gradient);
+            box-shadow: 0 4px 12px rgba(78,205,196,0.3);
+        }
+
+        .panel-button.secondary:hover {
+            box-shadow: 0 6px 16px rgba(78,205,196,0.4);
+        }
+        
+        .panel-button:active {
+            transform: scale(0.96) translateY(0);
+        }
+        
+        .panel-button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .panel-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .panel-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(148,163,184,0.25);
+            font-size: 13px;
+            color: #1e293b;
+        }
+        
+        .panel-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .panel-status {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 13px;
+            color: #1e293b;
+        }
+        
+        .status-item span {
+            color: #64748b;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            margin-right: 8px;
+            font-weight: 600;
+        }
+        
+        .plugin-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal-content {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: white;
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .modal-content.large {
+            max-height: 90vh;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            transition: color 0.3s;
+        }
+        
+        .close-btn:active {
+            color: #333;
+        }
+        
+        .language-selector {
+            position: absolute;
+            top: 70px;
+            right: 15px;
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 100;
+            animation: fadeIn 0.2s ease;
+        }
+        
+        .lang-btn {
+            display: block;
+            width: 100%;
+            padding: 8px 15px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            text-align: left;
+            border-radius: 5px;
+            margin: 2px 0;
+            transition: background 0.2s;
+            font-size: 14px;
+        }
+        
+        .lang-btn:hover, 
+        .lang-btn.active {
+            background: #f0f0f0;
+        }
+        
+        @keyframes slideIn {
+            from { 
+                opacity: 0; 
+                transform: translateY(20px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+        
+        @keyframes slideUp {
+            from { 
+                transform: translateY(100%); 
+            }
+            to { 
+                transform: translateY(0); 
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { 
+                opacity: 0; 
+            }
+            to { 
+                opacity: 1; 
+            }
+        }
+        
+        @keyframes typing {
+            0%, 80%, 100% { 
+                transform: scale(0.8); 
+                opacity: 0.5; 
+            }
+            40% { 
+                transform: scale(1); 
+                opacity: 1; 
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { 
+                transform: scale(1); 
+            }
+            50% { 
+                transform: scale(1.1); 
+            }
+        }
+        
+        .chat-messages::-webkit-scrollbar { 
+            width: 3px; 
+        }
+        
+        .chat-messages::-webkit-scrollbar-track { 
+            background: transparent; 
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb { 
+            background: #ccc; 
+            border-radius: 3px; 
+        }
+        
+        /* Améliorations pour mobile */
+        @media (max-width: 480px) {
+            .chat-title {
+                font-size: 16px;
+            }
+            
+            .message-bubble {
+                max-width: 85%;
+            }
+            
+            .header-btn {
+                min-width: 26px;
+                min-height: 26px;
+            }
+        }
+        
+        /* Mode sombre (optionnel) - DÉSACTIVÉ pour préserver le thème violet */
+        /* Si vous voulez activer le mode sombre, décommentez cette section */
+        /*
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #1a1a1a;
+                --text-color: #e0e0e0;
+                --border-color: #333;
+            }
+            
+            body {
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            }
+            
+            .chat-container {
+                background: #0f0f0f;
+            }
+            
+            .chat-header {
+                background: var(--primary-gradient);
+            }
+            
+            .message.ai .message-bubble {
+                background: #1a1a1a;
+                color: #e0e0e0;
+                border-color: #333;
+            }
+            
+            .chat-input-container {
+                background: #1a1a1a;
+                border-top-color: #333;
+            }
+            
+            .input-field {
+                background: #0f0f0f;
+                color: #e0e0e0;
+                border-color: #333;
+            }
+            
+            .panel {
+                background: #0f0f0f;
+            }
+            
+            .panel-section {
+                background: #1a1a1a;
+                border-color: #333;
+            }
+        }
+        */
     </style>
 </head>
 <body>
@@ -101,7 +1418,7 @@
                         <button class="config-tab active" data-tab="general">⚙️ Général</button>
                         <button class="config-tab" data-tab="cloud">☁️ Cloud</button>
                         <button class="config-tab" data-tab="local">💻 Local</button>
-                        <button class="config-tab" data-tab="audio">🎤 AV</button>
+                        <button class="config-tab" data-tab="audio">🎤 Audio</button>
                         <button class="config-tab" data-tab="hotword">🔊 Hotword</button>
                         <button class="config-tab" data-tab="tts">🗣️ TTS</button>
                         <button class="config-tab" data-tab="advanced">🔧 Avancé</button>
@@ -110,7 +1427,7 @@
                     <!-- Tab Content: General -->
                     <div class="config-tab-content active" data-content="general">
                     <div class="panel-section">
-                        <h3>⚙️ Mode général</h3>
+                        <h3>Mode général</h3>
                         <div class="form-grid">
                             <label>Mode
                                 <select id="configModeSelect">
@@ -161,94 +1478,24 @@
                                 <span style="font-weight: 500; margin-bottom: 4px;">Modèle</span>
                                 <select id="configCloudModel">
                                     <option value="">– Choisir –</option>
+                                    <option value="deepseek-r1:7b">DeepSeek R1 7B</option>
+                                    <option value="gpt-oss:120b">GPT-OSS 120B</option>
+                                    <option value="gpt-4o-mini">GPT-4o Mini</option>
+                                    <option value="llama3.2">Llama 3.2</option>
+                                    <option value="mistral-nemo">Mistral Nemo</option>
                                     <option value="custom">Autre (personnalisé)</option>
                                 </select>
-                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Les modèles disponibles seront chargés après le test de connexion</small>
                                 <input type="text" id="configCloudModelCustom" class="custom-input hidden" placeholder="Modèle cloud personnalisé">
                             </label>
                         </div>
-                        
-                        <!-- Zone de résultats des modèles disponibles -->
-                        <div id="cloudModelsResult" style="display: none; margin-top: 12px; max-height: 200px; overflow-y: auto; overflow-x: hidden; padding: 12px; border-radius: 8px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); scrollbar-width: thin; scrollbar-color: rgba(100, 116, 139, 0.5) transparent;">
-                            <style>
-                                #cloudModelsResult::-webkit-scrollbar {
-                                    width: 6px;
-                                }
-                                #cloudModelsResult::-webkit-scrollbar-track {
-                                    background: transparent;
-                                    border-radius: 3px;
-                                }
-                                #cloudModelsResult::-webkit-scrollbar-thumb {
-                                    background: rgba(100, 116, 139, 0.5);
-                                    border-radius: 3px;
-                                }
-                                #cloudModelsResult::-webkit-scrollbar-thumb:hover {
-                                    background: rgba(100, 116, 139, 0.7);
-                                }
-                            </style>
-                            <div id="cloudModelsStatus" style="font-weight: 500; margin-bottom: 8px; color: #7c3aed;"></div>
-                            <div id="cloudModelsList" style="font-size: 12px; color: #64748b; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace;"></div>
-                            <style>
-                                .clickable-model {
-                                    cursor: pointer;
-                                    text-decoration: underline;
-                                    color: #667eea;
-                                    transition: color 0.2s;
-                                }
-                                .clickable-model:hover {
-                                    color: #4f46e5;
-                                }
-                                .clickable-model.selected {
-                                    font-weight: bold;
-                                    color: #10b981;
-                                    text-decoration: none;
-                                }
-                            </style>
-                        </div>
-                        
-                        <!-- Zone de résultats du test de connexion -->
-                        <div id="cloudTestResult" style="display: none; margin-top: 12px; max-height: 400px; overflow-y: auto; overflow-x: hidden; padding: 12px; border-radius: 8px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); scrollbar-width: thin; scrollbar-color: rgba(100, 116, 139, 0.5) transparent;">
-                            <style>
-                                #cloudTestResult::-webkit-scrollbar {
-                                    width: 6px;
-                                }
-                                #cloudTestResult::-webkit-scrollbar-track {
-                                    background: transparent;
-                                    border-radius: 3px;
-                                }
-                                #cloudTestResult::-webkit-scrollbar-thumb {
-                                    background: rgba(100, 116, 139, 0.5);
-                                    border-radius: 3px;
-                                }
-                                #cloudTestResult::-webkit-scrollbar-thumb:hover {
-                                    background: rgba(100, 116, 139, 0.7);
-                                }
-                            </style>
-                            <div id="cloudTestStatus" style="font-weight: 500; margin-bottom: 8px; color: #1e40af;"></div>
-                            <div id="cloudTestDetails" style="font-size: 13px; color: #64748b; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;"></div>
-                            <div id="cloudTestExpand" style="display: none; margin-top: 8px; font-size: 11px; color: #667eea; cursor: pointer; text-align: center; padding: 4px; border-top: 1px solid rgba(100, 116, 139, 0.2);" onclick="expandCloudTestResult()">
-                                ... Voir plus ...
-                            </div>
-                        </div>
-                        
-                        <div style="display: flex; gap: 8px; margin-top: 12px;">
-                            <button class="panel-button" id="listCloudModelsBtn" style="flex: 1; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
-                                📋 Lister les modèles
-                            </button>
-                            <button class="panel-button" id="testCloudConnectionBtn" style="flex: 1; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                                🧪 Tester la connexion
-                            </button>
-                        </div>
-                        <div style="display: flex; gap: 8px; margin-top: 8px;">
-                            <button class="panel-button" id="saveCloudConfigBtn" style="flex: 1;">Sauvegarder</button>
-                        </div>
+                        <button class="panel-button" id="saveCloudConfigBtn">Sauvegarder</button>
                     </div>
                     </div>
                     
                     <!-- Tab Content: Local -->
                     <div class="config-tab-content" data-content="local">
                     <div class="panel-section">
-                        <h4>💻 Serveur local</h4>
+                        <h4>Serveur local</h4>
                         <div class="form-grid">
                             <label>URL
                                 <input type="text" id="configLocalUrl" placeholder="http://127.0.0.1:11434">
@@ -271,33 +1518,37 @@
                     
                     <!-- Tab Content: Audio -->
                     <div class="config-tab-content" data-content="audio">
-                    <!-- Web Search & Thinking -->
                     <div class="panel-section">
-                        <h4>🔍 Web Search & Pensée</h4>
+                        <h4>Web Search & Pensée</h4>
                         <div class="form-grid">
-                            <label style="grid-column: 1 / -1;">
-                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Provider (laisser vide pour désactiver)</span>
+                            <label>
+                                <input type="checkbox" id="configWebSearchEnabled">
+                                Web search activé
+                            </label>
+                            <label>Provider
                                 <input type="text" id="configWebSearchProvider" placeholder="ollama">
                             </label>
-                            <label style="grid-column: 1 / -1;">
-                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Thinking trace</span>
-                                <select id="configThinkingEnabled">
-                                    <option value="">Désactivé</option>
-                                    <option value="auto">Activé (auto)</option>
-                                </select>
+                            <label>
+                                <input type="checkbox" id="configThinkingEnabled">
+                                Thinking trace
+                            </label>
+                            <label>Dernier message
+                                <input type="text" id="configThinkingLast" placeholder="(auto)">
                             </label>
                         </div>
                         <button class="panel-button" id="saveWebThinkingBtn">Sauvegarder</button>
                     </div>
 
-                    <!-- Vision -->
                     <div class="panel-section">
-                        <h4>👁️ Vision</h4>
+                        <h4>Vision & Audio</h4>
                         <div class="form-grid">
-                            <label style="grid-column: 1 / -1;">
-                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle vision</span>
+                            <label>
+                                <input type="checkbox" id="configVisionEnabled">
+                                Vision activée
+                            </label>
+                            <label>Modèle vision
                                 <select id="configVisionModel">
-                                    <option value="">Désactivé</option>
+                                    <option value="">– Choisir –</option>
                                     <option value="llava:13b">LLaVA 13B</option>
                                     <option value="gpt-4o-mini-vision">GPT-4o Mini Vision</option>
                                     <option value="pixtral-12b">Pixtral 12B</option>
@@ -306,64 +1557,43 @@
                                 </select>
                                 <input type="text" id="configVisionModelCustom" class="custom-input hidden" placeholder="Modèle vision personnalisé">
                             </label>
-                        </div>
-                        <button class="panel-button" id="saveVisionBtn">Sauvegarder</button>
-                    </div>
-
-                    <!-- Audio -->
-                    <div class="panel-section">
-                        <h4>🎤 Audio (STT)</h4>
-                        <div class="form-grid">
-                            <label style="grid-column: 1 / -1;">
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-                                    <div>
-                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Moteur STT</span>
-                                        <select id="configAudioEngine">
-                                            <option value="whisper_server">Whisper Server (local HTTP)</option>
-                                            <!-- <option value="legacy_google">Google Speech (Android)</option> --> <!-- DÉSACTIVÉ - Problèmes de reconnaissance vocale -->
-                                        </select>
-                                    </div>
-                                    <div class="engine-whisper-only">
-                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle audio</span>
-                                        <select id="configAudioModel">
-                                            <option value="">Désactivé</option>
-                                            <option value="ggml-small.bin">GGML Small</option>
-                                            <option value="ggml-medium.bin">GGML Medium</option>
-                                            <option value="ggml-large.bin">GGML Large</option>
-                                            <option value="whisper-large-v3">Whisper Large V3</option>
-                                            <option value="custom">Autre (personnalisé)</option>
-                                        </select>
-                                        <input type="text" id="configAudioModelCustom" class="custom-input hidden" placeholder="Modèle audio personnalisé">
-                                    </div>
-                                    <div class="engine-whisper-only">
-                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Endpoint Whisper Server</span>
-                                        <input type="text" id="configAudioEndpoint" placeholder="http://127.0.0.1:11400/inference">
-                                    </div>
-                                    <div class="engine-whisper-only">
-                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Timeout (ms)</span>
-                                        <input type="number" id="configAudioTimeout" placeholder="8000">
-                                    </div>
-                                    <div class="engine-whisper-only">
-                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Silence (dB)</span>
-                                        <input type="number" step="0.1" id="configAudioSilenceDb" placeholder="-45">
-                                    </div>
-                                    <div class="engine-whisper-only">
-                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Silence (ms)</span>
-                                        <input type="number" id="configAudioSilenceMs" placeholder="1200">
-                                    </div>
-                                    <div>
-                                        <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Délai après hotword (ms)</span>
-                                        <input type="number" id="configAudioDelayAfterHotword" placeholder="400" min="0" max="2000">
-                                        <small style="font-size: 10px; color: var(--text-secondary); display: block; margin-top: 4px;">Délai avant démarrage Whisper après hotword (recommandé: 400-500ms)</small>
-                                    </div>
-                                </div>
+                            <label>
+                                <input type="checkbox" id="configAudioEnabled">
+                                Audio activé
+                            </label>
+                            <label>Moteur STT
+                                <select id="configAudioEngine">
+                                    <option value="whisper_server">Whisper Server (local HTTP)</option>
+                                    <option value="legacy_google">Google Speech (Android)</option>
+                                </select>
+                            </label>
+                            <label>Modèle audio
+                                <select id="configAudioModel">
+                                    <option value="">– Choisir –</option>
+                                    <option value="ggml-small.bin">GGML Small</option>
+                                    <option value="ggml-medium.bin">GGML Medium</option>
+                                    <option value="ggml-large.bin">GGML Large</option>
+                                    <option value="whisper-large-v3">Whisper Large V3</option>
+                                    <option value="custom">Autre (personnalisé)</option>
+                                </select>
+                                <input type="text" id="configAudioModelCustom" class="custom-input hidden" placeholder="Modèle audio personnalisé">
+                            </label>
+                            <label class="engine-whisper-only">Endpoint Whisper Server
+                                <input type="text" id="configAudioEndpoint" placeholder="http://127.0.0.1:11400/inference">
+                            </label>
+                            <label>Timeout (ms)
+                                <input type="number" id="configAudioTimeout" placeholder="8000">
+                            </label>
+                            <label>Silence (dB)
+                                <input type="number" step="0.1" id="configAudioSilenceDb" placeholder="-45">
+                            </label>
+                            <label>Silence (ms)
+                                <input type="number" id="configAudioSilenceMs" placeholder="1200">
                             </label>
                         </div>
-                        <div class="panel-actions" style="margin-top: 16px;">
-                            <button class="panel-button" id="saveAudioBtn">Sauvegarder</button>
-                        </div>
+                        <button class="panel-button" id="saveVisionAudioBtn">Sauvegarder</button>
                         <div class="panel-actions" style="margin-top:10px;">
-                            <button class="panel-button secondary engine-whisper-only" onclick="sttPingAction()">Ping Whisper</button>
+                            <button class="panel-button secondary" onclick="sttPingAction()">Ping Whisper</button>
                             <button class="panel-button" onclick="sttTestOnceAction()">Tester STT</button>
                         </div>
                     </div>
@@ -394,11 +1624,6 @@
                                     <input type="checkbox" id="configHotwordDebugScores">
                                     <span>Logs score (debug)</span>
                                 </label>
-                                <label>
-                                    <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Debounce (ms)</span>
-                                    <input type="number" id="configHotwordDebounce" placeholder="2500" min="1000" max="10000">
-                                    <small style="font-size: 10px; color: var(--text-secondary); display: block; margin-top: 4px;">Délai minimum entre deux détections (recommandé: 2000-3000ms)</small>
-                                </label>
                                 <label class="porcupine-only">
                                     <span style="font-weight: 500; margin-bottom: 4px;">Access Key (Porcupine)</span>
                                     <input type="text" id="configHotwordAccessKey" placeholder="Porcupine access key">
@@ -417,13 +1642,10 @@
                             </div>
                             <div class="panel-actions" style="margin-top: 16px;">
                                 <button class="panel-button" id="saveHotwordBtn">Sauvegarder la configuration</button>
-                                <button class="panel-button" id="hotwordStartBtn" style="margin-left: 8px;">▶️ Démarrer</button>
-                                <button class="panel-button secondary" id="hotwordStopBtn" style="margin-left: 8px;">⏹️ Arrêter</button>
-                                <button class="panel-button" id="hotwordRestartBtn" style="margin-left: 8px;">🔄 Redémarrer</button>
                             </div>
                         </div>
 
-                        <!-- Liste des modèles et ajout -->
+                        <!-- Liste des modèles -->
                         <div class="panel-section">
                             <h4>📋 Modèles Hotword</h4>
                             <div class="hotword-models-grid" id="hotwordModelsGrid">
@@ -431,31 +1653,38 @@
                                     Aucun modèle configuré. Utilisez "Importer depuis assets" ou "Ajouter un modèle" ci-dessous.
                                 </div>
                             </div>
-                            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
-                                <h5 class="add-model-toggle" style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none;">
-                                    <span class="toggle-icon" style="transition: transform 0.3s ease; display: inline-block;">▼</span>
-                                    <span>➕ Ajouter un modèle</span>
-                                </h5>
-                                <div class="add-model-content" style="display: none;">
-                                    <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
-                                        <label>
-                                            <span style="font-weight: 500; margin-bottom: 4px;">Nom du modèle</span>
-                                            <input type="text" id="hotwordNewName" placeholder="hey_kitt">
-                                        </label>
-                                        <label>
-                                            <span style="font-weight: 500; margin-bottom: 4px;">Chemin asset</span>
-                                            <input type="text" id="hotwordNewAsset" placeholder="hotwords/.../file.tflite">
-                                        </label>
-                                        <label>
-                                            <span style="font-weight: 500; margin-bottom: 4px;">Seuil de détection</span>
-                                            <input type="number" step="0.01" id="hotwordNewThreshold" placeholder="0.55" min="0" max="1">
-                                        </label>
-                                    </div>
-                                    <div class="panel-actions" style="margin-top: 16px;">
-                                        <button class="panel-button secondary" id="importHotwordAssetsBtn">📥 Importer depuis assets</button>
-                                        <button class="panel-button secondary" id="addHotwordModelBtn">➕ Ajouter le modèle</button>
-                                    </div>
-                                </div>
+                        </div>
+
+                        <!-- Ajouter un nouveau modèle -->
+                        <div class="panel-section">
+                            <h4>➕ Ajouter un modèle</h4>
+                            <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 12px;">
+                                <label>
+                                    <span style="font-weight: 500; margin-bottom: 4px;">Nom du modèle</span>
+                                    <input type="text" id="hotwordNewName" placeholder="hey_kitt">
+                                </label>
+                                <label>
+                                    <span style="font-weight: 500; margin-bottom: 4px;">Chemin asset</span>
+                                    <input type="text" id="hotwordNewAsset" placeholder="hotwords/.../file.tflite">
+                                </label>
+                                <label>
+                                    <span style="font-weight: 500; margin-bottom: 4px;">Seuil de détection</span>
+                                    <input type="number" step="0.01" id="hotwordNewThreshold" placeholder="0.55" min="0" max="1">
+                                </label>
+                            </div>
+                            <div class="panel-actions" style="margin-top: 16px;">
+                                <button class="panel-button secondary" id="importHotwordAssetsBtn">📥 Importer depuis assets</button>
+                                <button class="panel-button secondary" id="addHotwordModelBtn">➕ Ajouter le modèle</button>
+                            </div>
+                        </div>
+
+                        <!-- Contrôles du service -->
+                        <div class="panel-section">
+                            <h4>🎮 Contrôles du service</h4>
+                            <div class="panel-actions" style="margin-top: 12px;">
+                                <button class="panel-button" id="hotwordStartBtn">▶️ Démarrer</button>
+                                <button class="panel-button secondary" id="hotwordStopBtn">⏹️ Arrêter</button>
+                                <button class="panel-button" id="hotwordRestartBtn">🔄 Redémarrer</button>
                             </div>
                         </div>
                     </div>
@@ -463,7 +1692,7 @@
                     <!-- Tab Content: TTS -->
                     <div class="config-tab-content" data-content="tts">
                     <div class="panel-section">
-                        <h4>🎙️ TTS</h4>
+                        <h4>TTS</h4>
                         <div class="form-grid">
                             <label>Mode
                                 <input type="text" id="configTtsMode" placeholder="local">
@@ -488,7 +1717,7 @@
                     <!-- Tab Content: Advanced -->
                     <div class="config-tab-content" data-content="advanced">
                     <div class="panel-section">
-                        <h4>🔧 Prompts & Contraintes</h4>
+                        <h4>Prompts personnalisés</h4>
                         <div class="form-grid">
                             <label>Prompt KITT
                                 <textarea id="configPromptKitt" rows="2"></textarea>
@@ -499,6 +1728,13 @@
                             <label>Prompt KARR
                                 <textarea id="configPromptKarr" rows="2"></textarea>
                             </label>
+                        </div>
+                        <button class="panel-button" id="savePromptsBtn">Sauvegarder</button>
+                    </div>
+
+                    <div class="panel-section">
+                        <h4>Contraintes</h4>
+                        <div class="form-grid">
                             <label>Max context tokens
                                 <input type="number" id="configMaxContext" placeholder="8192">
                             </label>
@@ -506,10 +1742,7 @@
                                 <input type="number" id="configMaxResponse" placeholder="2048">
                             </label>
                         </div>
-                        <div class="panel-actions" style="margin-top: 16px;">
-                            <button class="panel-button" id="savePromptsBtn">Sauvegarder prompts</button>
-                            <button class="panel-button" id="saveConstraintsBtn">Sauvegarder contraintes</button>
-                        </div>
+                        <button class="panel-button" id="saveConstraintsBtn">Sauvegarder</button>
                     </div>
 
                     <div class="panel-section">
@@ -1050,557 +2283,7 @@
             if (serverBtn) {
                 serverBtn.addEventListener('click', openServers);
             }
-            
-          // Lister les modèles Ollama Cloud
-          const listModelsBtn = document.getElementById('listCloudModelsBtn');
-          if (listModelsBtn) {
-              listModelsBtn.addEventListener('click', listCloudModels);
-          }
-          
-          // Test de connexion Ollama Cloud
-          const testCloudBtn = document.getElementById('testCloudConnectionBtn');
-          if (testCloudBtn) {
-              testCloudBtn.addEventListener('click', testOllamaCloudConnection);
-          }
-          
-          // Gérer l'affichage/masquage de l'input personnalisé pour le modèle Cloud
-          const cloudModelSelect = document.getElementById('configCloudModel');
-          const cloudModelCustomInput = document.getElementById('configCloudModelCustom');
-          if (cloudModelSelect && cloudModelCustomInput) {
-              cloudModelSelect.addEventListener('change', function() {
-                  if (this.value === 'custom') {
-                      cloudModelCustomInput.classList.remove('hidden');
-                      cloudModelCustomInput.focus();
-                  } else {
-                      cloudModelCustomInput.classList.add('hidden');
-                      cloudModelCustomInput.value = '';
-                  }
-                  
-                  // Mettre à jour le style dans la liste (si elle existe)
-                  const modelsListDiv = document.getElementById('cloudModelsList');
-                  if (modelsListDiv && this.value && this.value !== 'custom') {
-                      const allSpans = modelsListDiv.querySelectorAll('.clickable-model');
-                      allSpans.forEach(span => {
-                          const spanModel = span.getAttribute('data-model');
-                          const unescapedSpanModel = spanModel ? spanModel.replace(/\\'/g, "'").replace(/&quot;/g, '"') : '';
-                          if (unescapedSpanModel === this.value) {
-                              span.classList.add('selected');
-                          } else {
-                              span.classList.remove('selected');
-                          }
-                      });
-                  }
-              });
-              
-              // Charger les modèles sauvegardés au démarrage
-              const savedModels = loadCloudModelsFromStorage();
-              if (savedModels && savedModels.length > 0) {
-                  populateCloudModelDropdown(savedModels);
-              }
-          }
-      });
-
-        // Fonction pour lister les modèles disponibles (sans test de connexion)
-        async function listCloudModels() {
-            const apiKey = document.getElementById('configCloudApiKey').value.trim();
-            
-            const modelsResultDiv = document.getElementById('cloudModelsResult');
-            const modelsStatusDiv = document.getElementById('cloudModelsStatus');
-            const modelsListDiv = document.getElementById('cloudModelsList');
-            const listBtn = document.getElementById('listCloudModelsBtn');
-            
-            if (!apiKey) {
-                modelsResultDiv.style.display = 'block';
-                modelsResultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
-                modelsResultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                modelsStatusDiv.innerHTML = '❌ Clé API manquante';
-                modelsStatusDiv.style.color = '#dc2626';
-                modelsListDiv.textContent = 'Veuillez entrer votre clé API Ollama Cloud';
-                return;
-            }
-            
-            // Nettoyer la clé API (supprimer espaces, caractères de contrôle)
-            const cleanApiKey = apiKey.replace(/\s+/g, '').replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
-            
-            if (!cleanApiKey) {
-                modelsResultDiv.style.display = 'block';
-                modelsResultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
-                modelsResultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                modelsStatusDiv.innerHTML = '❌ Clé API invalide';
-                modelsStatusDiv.style.color = '#dc2626';
-                modelsListDiv.textContent = 'La clé API ne peut pas être vide après nettoyage';
-                return;
-            }
-            
-            // Afficher "Récupération en cours..."
-            modelsResultDiv.style.display = 'block';
-            modelsResultDiv.style.background = 'rgba(139, 92, 246, 0.1)';
-            modelsResultDiv.style.borderColor = 'rgba(139, 92, 246, 0.3)';
-            modelsStatusDiv.innerHTML = '⏳ Récupération des modèles disponibles...';
-            modelsStatusDiv.style.color = '#7c3aed';
-            modelsListDiv.textContent = '';
-            listBtn.disabled = true;
-            listBtn.innerHTML = '⏳ Récupération...';
-            
-            const startTime = Date.now();
-            
-            try {
-                // Récupérer la liste des modèles disponibles
-                const tagsResponse = await fetch('https://ollama.com/api/tags', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${cleanApiKey}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (!tagsResponse.ok) {
-                    if (tagsResponse.status === 401) {
-                        throw new Error('UNAUTHORIZED');
-                    }
-                    throw new Error(`HTTP ${tagsResponse.status}`);
-                }
-                
-                const tagsData = await tagsResponse.json();
-                const availableModels = (tagsData.models || []).map(m => {
-                    // Retirer le suffixe :latest si présent
-                    const name = m.name || '';
-                    return name.replace(/:latest$/, '');
-                });
-                
-                const elapsedTime = Date.now() - startTime;
-                
-                // Sauvegarder la liste des modèles dans localStorage pour persistance
-                saveCloudModelsToStorage(availableModels);
-                
-                // Peupler le dropdown avec les modèles découverts
-                populateCloudModelDropdown(availableModels);
-                
-                // Afficher les modèles disponibles dans la zone dédiée (cliquables)
-                modelsResultDiv.style.background = 'rgba(139, 92, 246, 0.1)';
-                modelsResultDiv.style.borderColor = 'rgba(139, 92, 246, 0.3)';
-                modelsStatusDiv.innerHTML = `✅ ${availableModels.length} modèle(s) disponible(s) (${elapsedTime}ms)`;
-                modelsStatusDiv.style.color = '#059669';
-                
-                // Récupérer le modèle actuellement sélectionné
-                const modelSelect = document.getElementById('configCloudModel');
-                const modelCustom = document.getElementById('configCloudModelCustom');
-                const currentModel = (modelSelect && modelSelect.value && modelSelect.value !== 'custom') 
-                    ? modelSelect.value 
-                    : (modelCustom && modelCustom.value ? modelCustom.value : null);
-                
-                const modelsList = availableModels.map(m => {
-                    const isSelected = m === currentModel;
-                    const modelClass = isSelected ? 'clickable-model selected' : 'clickable-model';
-                    const indent = isSelected ? '' : '  ';
-                    // Échapper les guillemets simples pour éviter les erreurs JavaScript
-                    const escapedModel = m.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    return `${indent}<span class="${modelClass}" data-model="${escapedModel}" onclick="selectModelFromList('${escapedModel}')">${m}</span>`;
-                }).join('<br>');
-                modelsListDiv.innerHTML = modelsList;
-                
-            } catch (error) {
-                const elapsedTime = Date.now() - startTime;
-                modelsResultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
-                modelsResultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                modelsStatusDiv.style.color = '#dc2626';
-                
-                if (error.message === 'UNAUTHORIZED') {
-                    modelsStatusDiv.innerHTML = '❌ Non autorisé (401)';
-                    modelsListDiv.innerHTML = 'Clé API invalide ou expirée.<br>' +
-                        '<a href="https://ollama.com/account" target="_blank" style="color: #667eea; text-decoration: underline;">Obtenez une nouvelle clé sur ollama.com/account</a>';
-                } else {
-                    modelsStatusDiv.innerHTML = `❌ Erreur (${elapsedTime}ms)`;
-                    modelsListDiv.textContent = error.message || 'Erreur inconnue';
-                }
-            } finally {
-                listBtn.disabled = false;
-                listBtn.innerHTML = '📋 Lister les modèles';
-            }
-        }
-        
-        // Fonction de test de connexion Ollama Cloud (liste + test chat)
-        async function testOllamaCloudConnection() {
-            const apiKey = document.getElementById('configCloudApiKey').value.trim();
-            const modelSelect = document.getElementById('configCloudModel');
-            const modelCustom = document.getElementById('configCloudModelCustom');
-            const model = (modelSelect && modelSelect.value && modelSelect.value !== 'custom') 
-                ? modelSelect.value 
-                : (modelCustom && modelCustom.value ? modelCustom.value : 'gpt-oss:120b');
-            
-            const modelsResultDiv = document.getElementById('cloudModelsResult');
-            const modelsStatusDiv = document.getElementById('cloudModelsStatus');
-            const modelsListDiv = document.getElementById('cloudModelsList');
-            
-            const resultDiv = document.getElementById('cloudTestResult');
-            const statusDiv = document.getElementById('cloudTestStatus');
-            const detailsDiv = document.getElementById('cloudTestDetails');
-            const testBtn = document.getElementById('testCloudConnectionBtn');
-            
-            if (!apiKey) {
-                modelsResultDiv.style.display = 'none';
-                resultDiv.style.display = 'block';
-                resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
-                resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                statusDiv.innerHTML = '❌ Clé API manquante';
-                statusDiv.style.color = '#dc2626';
-                detailsDiv.textContent = 'Veuillez entrer votre clé API Ollama Cloud';
-                return;
-            }
-            
-            // Nettoyer la clé API (supprimer espaces, caractères de contrôle)
-            const cleanApiKey = apiKey.replace(/\s+/g, '').replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
-            
-            if (!cleanApiKey) {
-                modelsResultDiv.style.display = 'none';
-                resultDiv.style.display = 'block';
-                resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
-                resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                statusDiv.innerHTML = '❌ Clé API invalide';
-                statusDiv.style.color = '#dc2626';
-                detailsDiv.textContent = 'La clé API ne peut pas être vide après nettoyage';
-                return;
-            }
-            
-            // Afficher "Test en cours..."
-            modelsResultDiv.style.display = 'block';
-            modelsStatusDiv.innerHTML = '⏳ Récupération des modèles disponibles...';
-            modelsStatusDiv.style.color = '#7c3aed';
-            modelsListDiv.textContent = '';
-            
-            resultDiv.style.display = 'block';
-            resultDiv.style.background = 'rgba(59, 130, 246, 0.1)';
-            resultDiv.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-            statusDiv.innerHTML = '⏳ Test de connexion en cours...';
-            statusDiv.style.color = '#1e40af';
-            detailsDiv.textContent = '';
-            testBtn.disabled = true;
-            testBtn.innerHTML = '⏳ Test en cours...';
-            
-            const startTime = Date.now();
-            
-            try {
-                // Étape 1: Lister les modèles disponibles
-                const tagsResponse = await fetch('https://ollama.com/api/tags', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${cleanApiKey}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (!tagsResponse.ok) {
-                    if (tagsResponse.status === 401) {
-                        throw new Error('UNAUTHORIZED');
-                    }
-                    throw new Error(`HTTP ${tagsResponse.status}`);
-                }
-                
-                const tagsData = await tagsResponse.json();
-                const availableModels = (tagsData.models || []).map(m => {
-                    // Retirer le suffixe :latest si présent
-                    const name = m.name || '';
-                    return name.replace(/:latest$/, '');
-                });
-                
-                // Sauvegarder la liste des modèles dans localStorage pour persistance
-                saveCloudModelsToStorage(availableModels);
-                
-                // Peupler le dropdown avec les modèles découverts
-                populateCloudModelDropdown(availableModels);
-                
-                // Afficher les modèles disponibles dans la zone dédiée (cliquables)
-                modelsStatusDiv.innerHTML = `✅ ${availableModels.length} modèle(s) disponible(s)`;
-                modelsStatusDiv.style.color = '#059669';
-                
-                const modelsList = availableModels.map(m => {
-                    const isSelected = m === model;
-                    const modelClass = isSelected ? 'clickable-model selected' : 'clickable-model';
-                    const indent = isSelected ? '' : '  ';
-                    // Échapper les guillemets simples pour éviter les erreurs JavaScript
-                    const escapedModel = m.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    return `${indent}<span class="${modelClass}" data-model="${escapedModel}" onclick="selectModelFromList('${escapedModel}')">${m}</span>`;
-                }).join('<br>');
-                modelsListDiv.innerHTML = modelsList;
-                
-                // Vérifier si le modèle demandé est disponible
-                const modelAvailable = availableModels.includes(model);
-                
-                if (!modelAvailable && availableModels.length > 0) {
-                    detailsDiv.innerHTML = `⚠️ Le modèle "<strong>${model}</strong>" n'est pas disponible.<br>Sélectionnez un modèle depuis la liste ci-dessus.`;
-                }
-                
-                // Étape 2: Tester une requête chat
-                detailsDiv.innerHTML += '<br>⏳ Test de la connexion chat...';
-                
-                const chatResponse = await fetch('https://ollama.com/api/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${cleanApiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: model,
-                        messages: [
-                            {
-                                role: 'system',
-                                content: 'Tu es un assistant IA technique spécialisé dans le développement logiciel, l\'architecture système et le support technique avancé. Tu fournis des réponses précises, structurées et professionnelles. Tu utilises un vocabulaire technique approprié et des explications claires. Tu réponds TOUJOURS exclusivement en français. Tes réponses sont concises mais complètes, avec une attention particulière à la précision technique et à l\'utilité pratique.'
-                            },
-                            {
-                                role: 'user',
-                                content: 'Confirme ta disponibilité en décrivant brièvement tes capacités techniques actuelles (architecture, langages supportés, méthodologies). Réponds en français.'
-                            }
-                        ],
-                        stream: false,
-                        think: true
-                    })
-                });
-                
-                const elapsedTime = Date.now() - startTime;
-                
-                if (!chatResponse.ok) {
-                    const errorBody = await chatResponse.text();
-                    
-                    if (chatResponse.status === 401) {
-                        throw new Error('UNAUTHORIZED');
-                    } else if (chatResponse.status === 400) {
-                        throw new Error(`BAD_REQUEST: ${errorBody.substring(0, 200)}`);
-                    } else if (chatResponse.status === 429) {
-                        throw new Error('RATE_LIMIT');
-                    } else if (chatResponse.status === 502 || chatResponse.status === 503) {
-                        throw new Error(`QUOTA_ERROR: HTTP ${chatResponse.status}`);
-                    }
-                    
-                    throw new Error(`HTTP ${chatResponse.status}: ${errorBody.substring(0, 200)}`);
-                }
-                
-                const chatData = await chatResponse.json();
-                const responseContent = chatData.message?.content || '';
-                const thinking = chatData.message?.thinking || '';
-                
-                // Succès!
-                resultDiv.style.background = 'rgba(16, 185, 129, 0.1)';
-                resultDiv.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-                statusDiv.innerHTML = `✅ Connexion OK (${elapsedTime}ms)`;
-                statusDiv.style.color = '#059669';
-                detailsDiv.innerHTML = `Modèle testé: <strong>${model}</strong><br>` +
-                    `Réponse: "<strong>${responseContent}</strong>"` +
-                    (thinking ? `<br><small style="color: #64748b; margin-top: 4px; display: block;">💭 Thinking: ${thinking}</small>` : '');
-                
-                // Afficher le bouton "Voir plus" si le contenu dépasse la hauteur max
-                setTimeout(() => {
-                    checkCloudTestExpand();
-                }, 100);
-                
-            } catch (error) {
-                const elapsedTime = Date.now() - startTime;
-                
-                // Si l'erreur survient lors de la récupération des modèles, masquer la zone modèles
-                if (error.message === 'UNAUTHORIZED' || error.message.startsWith('HTTP')) {
-                    modelsResultDiv.style.display = 'none';
-                }
-                
-                resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
-                resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                statusDiv.style.color = '#dc2626';
-                
-                if (error.message === 'UNAUTHORIZED') {
-                    statusDiv.innerHTML = '❌ Non autorisé (401)';
-                    detailsDiv.innerHTML = 'Clé API invalide ou expirée.<br>' +
-                        '<a href="https://ollama.com/account" target="_blank" style="color: #667eea; text-decoration: underline;">Obtenez une nouvelle clé sur ollama.com/account</a>';
-                } else if (error.message === 'RATE_LIMIT') {
-                    statusDiv.innerHTML = '⚠️ Rate limit (429)';
-                    detailsDiv.textContent = 'Trop de requêtes. Attendez quelques minutes avant de réessayer.';
-                } else if (error.message.startsWith('QUOTA_ERROR')) {
-                    statusDiv.innerHTML = '⚠️ Quota atteint';
-                    detailsDiv.innerHTML = 'Vérifiez votre quota sur <a href="https://ollama.com/account" target="_blank" style="color: #667eea; text-decoration: underline;">ollama.com/account</a>';
-                } else if (error.message.startsWith('BAD_REQUEST')) {
-                    statusDiv.innerHTML = '❌ Requête invalide (400)';
-                    detailsDiv.textContent = error.message.replace('BAD_REQUEST: ', '');
-                } else {
-                    statusDiv.innerHTML = `❌ Erreur (${elapsedTime}ms)`;
-                    detailsDiv.textContent = error.message || 'Erreur inconnue';
-                }
-            } finally {
-                testBtn.disabled = false;
-                testBtn.innerHTML = '🧪 Tester la connexion';
-                
-                // Afficher le bouton "Voir plus" si nécessaire
-                setTimeout(() => {
-                    checkCloudTestExpand();
-                }, 100);
-            }
-        }
-        
-        // Fonction pour vérifier si le contenu dépasse et afficher "Voir plus"
-        function checkCloudTestExpand() {
-            const resultDiv = document.getElementById('cloudTestResult');
-            const expandBtn = document.getElementById('cloudTestExpand');
-            
-            if (!resultDiv || !expandBtn) return;
-            
-            // Vérifier si le contenu dépasse la hauteur maximale
-            if (resultDiv.scrollHeight > resultDiv.clientHeight) {
-                expandBtn.style.display = 'block';
-            } else {
-                expandBtn.style.display = 'none';
-            }
-        }
-        
-        // Fonction pour développer/réduire la zone de diagnostic
-        function expandCloudTestResult() {
-            const resultDiv = document.getElementById('cloudTestResult');
-            const expandBtn = document.getElementById('cloudTestExpand');
-            
-            if (!resultDiv || !expandBtn) return;
-            
-            if (resultDiv.style.maxHeight === 'none' || resultDiv.style.maxHeight === '') {
-                // Réduire
-                resultDiv.style.maxHeight = '400px';
-                expandBtn.innerHTML = '... Voir plus ...';
-            } else {
-                // Développer
-                resultDiv.style.maxHeight = 'none';
-                expandBtn.innerHTML = '... Réduire ...';
-            }
-        }
-        
-        // Fonction pour sauvegarder la liste des modèles dans localStorage
-        function saveCloudModelsToStorage(models) {
-            try {
-                localStorage.setItem('ollama_cloud_models', JSON.stringify(models));
-                localStorage.setItem('ollama_cloud_models_timestamp', Date.now().toString());
-            } catch (e) {
-                console.warn('Impossible de sauvegarder les modèles dans localStorage:', e);
-            }
-        }
-        
-        // Fonction pour charger la liste des modèles depuis localStorage
-        function loadCloudModelsFromStorage() {
-            try {
-                const modelsJson = localStorage.getItem('ollama_cloud_models');
-                const timestamp = localStorage.getItem('ollama_cloud_models_timestamp');
-                
-                if (modelsJson) {
-                    const models = JSON.parse(modelsJson);
-                    // Vérifier que la liste n'est pas trop ancienne (max 7 jours)
-                    const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 jours en millisecondes
-                    const age = timestamp ? Date.now() - parseInt(timestamp, 10) : Infinity;
-                    
-                    if (age < maxAge && Array.isArray(models) && models.length > 0) {
-                        return models;
-                    } else {
-                        // Liste trop ancienne, la supprimer
-                        localStorage.removeItem('ollama_cloud_models');
-                        localStorage.removeItem('ollama_cloud_models_timestamp');
-                    }
-                }
-            } catch (e) {
-                console.warn('Impossible de charger les modèles depuis localStorage:', e);
-            }
-            return null;
-        }
-        
-        // Fonction pour peupler le dropdown avec les modèles découverts
-        function populateCloudModelDropdown(models) {
-            const dropdown = document.getElementById('configCloudModel');
-            if (!dropdown) return;
-            
-            // Sauvegarder la valeur actuelle si elle existe
-            const currentValue = dropdown.value;
-            
-            // Vider le dropdown (garder seulement "– Choisir –" et "Autre (personnalisé)")
-            while (dropdown.children.length > 0) {
-                dropdown.removeChild(dropdown.firstChild);
-            }
-            
-            // Ajouter "– Choisir –"
-            const chooseOption = document.createElement('option');
-            chooseOption.value = '';
-            chooseOption.textContent = '– Choisir –';
-            dropdown.appendChild(chooseOption);
-            
-            // Ajouter tous les modèles découverts
-            models.forEach(modelName => {
-                const option = document.createElement('option');
-                option.value = modelName;
-                // Formater le nom pour l'affichage (première lettre en majuscule, etc.)
-                const displayName = modelName
-                    .split(':')[0]
-                    .split('-')
-                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                    .join(' ');
-                option.textContent = displayName;
-                dropdown.appendChild(option);
-            });
-            
-            // Ajouter "Autre (personnalisé)"
-            const customOption = document.createElement('option');
-            customOption.value = 'custom';
-            customOption.textContent = 'Autre (personnalisé)';
-            dropdown.appendChild(customOption);
-            
-            // Restaurer la valeur si elle existe encore dans la liste
-            if (currentValue && models.includes(currentValue)) {
-                dropdown.value = currentValue;
-            } else if (currentValue === 'custom') {
-                dropdown.value = 'custom';
-            }
-        }
-        
-        // Fonction pour sélectionner un modèle depuis la liste
-        function selectModelFromList(modelName) {
-            const dropdown = document.getElementById('configCloudModel');
-            const customInput = document.getElementById('configCloudModelCustom');
-            
-            if (!dropdown) return;
-            
-            // Déséchapper le nom du modèle (si nécessaire)
-            const unescapedModelName = modelName.replace(/\\'/g, "'").replace(/&quot;/g, '"');
-            
-            // Vérifier si le modèle est dans le dropdown
-            const option = Array.from(dropdown.options).find(opt => opt.value === unescapedModelName);
-            
-            if (option) {
-                // Sélectionner dans le dropdown
-                dropdown.value = unescapedModelName;
-                
-                // Masquer l'input personnalisé si nécessaire
-                if (customInput && !customInput.classList.contains('hidden')) {
-                    customInput.classList.add('hidden');
-                    customInput.value = '';
-                }
-                
-                // Déclencher l'événement change pour mettre à jour l'UI
-                dropdown.dispatchEvent(new Event('change'));
-            } else {
-                // Modèle non dans le dropdown - utiliser l'input personnalisé
-                dropdown.value = 'custom';
-                
-                if (customInput) {
-                    customInput.value = unescapedModelName;
-                    customInput.classList.remove('hidden');
-                    customInput.focus();
-                }
-                
-                // Déclencher l'événement change pour mettre à jour l'UI
-                dropdown.dispatchEvent(new Event('change'));
-            }
-            
-            // Mettre à jour le style dans la liste (re-sélection)
-            const modelsListDiv = document.getElementById('cloudModelsList');
-            if (modelsListDiv) {
-                const allSpans = modelsListDiv.querySelectorAll('.clickable-model');
-                allSpans.forEach(span => {
-                    const spanModel = span.getAttribute('data-model');
-                    if (spanModel === modelName || spanModel === unescapedModelName) {
-                        span.classList.add('selected');
-                    } else {
-                        span.classList.remove('selected');
-                    }
-                });
-            }
-        }
+        });
     </script>
 </body>
 </html>

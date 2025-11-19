@@ -123,11 +123,15 @@ class SecureMobileAIChat {
             configLocalModel: 'configLocalModel',
             configLocalModelCustom: 'configLocalModelCustom',
             saveLocalConfigBtn: 'saveLocalConfigBtn',
+            configWebSearchEnabled: 'configWebSearchEnabled',
             configWebSearchProvider: 'configWebSearchProvider',
             configThinkingEnabled: 'configThinkingEnabled',
+            configThinkingLast: 'configThinkingLast',
             saveWebThinkingBtn: 'saveWebThinkingBtn',
+            configVisionEnabled: 'configVisionEnabled',
             configVisionModel: 'configVisionModel',
             configVisionModelCustom: 'configVisionModelCustom',
+            configAudioEnabled: 'configAudioEnabled',
             configAudioEngine: 'configAudioEngine',
             configAudioModel: 'configAudioModel',
             configAudioModelCustom: 'configAudioModelCustom',
@@ -135,7 +139,7 @@ class SecureMobileAIChat {
             configAudioTimeout: 'configAudioTimeout',
             configAudioSilenceDb: 'configAudioSilenceDb',
             configAudioSilenceMs: 'configAudioSilenceMs',
-            configAudioDelayAfterHotword: 'configAudioDelayAfterHotword',
+            saveVisionAudioBtn: 'saveVisionAudioBtn',
             saveVisionBtn: 'saveVisionBtn',
             saveAudioBtn: 'saveAudioBtn',
             configHotwordEnabled: 'configHotwordEnabled',
@@ -144,7 +148,6 @@ class SecureMobileAIChat {
             configHotwordKeyword: 'configHotwordKeyword',
             configHotwordAutoListen: 'configHotwordAutoListen',
             configHotwordDebugScores: 'configHotwordDebugScores',
-            configHotwordDebounce: 'configHotwordDebounce',
             hotwordNewName: 'hotwordNewName',
             hotwordNewAsset: 'hotwordNewAsset',
             hotwordNewThreshold: 'hotwordNewThreshold',
@@ -184,10 +187,14 @@ class SecureMobileAIChat {
             localUrl: this.configLocalUrl,
             localModel: this.configLocalModel,
             localModelCustom: this.configLocalModelCustom,
+            webSearchEnabled: this.configWebSearchEnabled,
             webSearchProvider: this.configWebSearchProvider,
             thinkingEnabled: this.configThinkingEnabled,
+            thinkingLast: this.configThinkingLast,
+            visionEnabled: this.configVisionEnabled,
             visionModel: this.configVisionModel,
             visionModelCustom: this.configVisionModelCustom,
+            audioEnabled: this.configAudioEnabled,
             audioEngine: this.configAudioEngine,
             audioModel: this.configAudioModel,
             audioModelCustom: this.configAudioModelCustom,
@@ -195,7 +202,6 @@ class SecureMobileAIChat {
             audioTimeout: this.configAudioTimeout,
             audioSilenceDb: this.configAudioSilenceDb,
             audioSilenceMs: this.configAudioSilenceMs,
-            audioDelayAfterHotword: this.configAudioDelayAfterHotword,
             hotwordEnabled: this.configHotwordEnabled,
             hotwordEngine: this.configHotwordEngine,
             hotwordAccessKey: this.configHotwordAccessKey,
@@ -301,6 +307,7 @@ class SecureMobileAIChat {
             { element: this.saveCloudConfigBtn, section: 'cloud' },
             { element: this.saveLocalConfigBtn, section: 'local' },
             { element: this.saveWebThinkingBtn, section: 'thinking' },
+            { element: this.saveVisionAudioBtn, section: 'sensors' },
             { element: this.saveVisionBtn, section: 'vision' },
             { element: this.saveAudioBtn, section: 'audio' },
             { element: this.saveHotwordBtn, section: 'hotword' },
@@ -340,20 +347,6 @@ class SecureMobileAIChat {
 
         if (this.configHotwordEngine) {
             this.addListener(this.configHotwordEngine, 'change', () => this.updateHotwordEngineView());
-        }
-
-        // Toggle pour "Ajouter un modèle"
-        const addModelToggle = document.querySelector('.add-model-toggle');
-        if (addModelToggle) {
-            this.addListener(addModelToggle, 'click', () => {
-                const content = addModelToggle.nextElementSibling;
-                const icon = addModelToggle.querySelector('.toggle-icon');
-                if (content && icon) {
-                    const isHidden = content.style.display === 'none';
-                    content.style.display = isHidden ? 'block' : 'none';
-                    icon.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
-                }
-            });
         }
 
         this.updateHotwordEngineView();
@@ -511,9 +504,6 @@ class SecureMobileAIChat {
             this.configAudioTimeout.value = cfg.audio.captureTimeoutMs ?? '';
             this.configAudioSilenceDb.value = cfg.audio.silenceThresholdDb ?? '';
             this.configAudioSilenceMs.value = cfg.audio.silenceDurationMs ?? '';
-            if (this.configAudioDelayAfterHotword) {
-                this.configAudioDelayAfterHotword.value = cfg.audio.delayAfterHotwordMs ?? '400';
-            }
         }
         this.updateAudioEngineView();
 
@@ -531,9 +521,6 @@ class SecureMobileAIChat {
         }
         if (this.configHotwordDebugScores) {
             this.configHotwordDebugScores.checked = !!hotword.debugScores;
-        }
-        if (this.configHotwordDebounce) {
-            this.configHotwordDebounce.value = hotword.debounceMs ?? '2500';
         }
 
         this.hotwordModels = Array.isArray(hotword.models) ? [...hotword.models] : [];
@@ -836,19 +823,7 @@ class SecureMobileAIChat {
             case 'cloud':
                 cfg.cloud = cfg.cloud || {};
                 cfg.cloud.provider = this.getSelectValue(this.configCloudProvider, this.configCloudProviderCustom);
-                // Ne sauvegarder la clé API que si elle a été modifiée (pas de * = nouvelle clé)
-                const cloudApiKeyValue = this.configCloudApiKey.value || '';
-                if (cloudApiKeyValue && !cloudApiKeyValue.includes('*')) {
-                    // Nouvelle clé entrée par l'utilisateur
-                    cfg.cloud.apiKey = cloudApiKeyValue;
-                } else if (cloudApiKeyValue === '') {
-                    // Champ vide = supprimer la clé explicitement
-                    cfg.cloud.apiKey = '';
-                } else {
-                    // Champ contient des * = clé masquée, pas modifiée
-                    // Supprimer la propriété apiKey du JSON pour ne pas la modifier côté Android
-                    delete cfg.cloud.apiKey;
-                }
+                cfg.cloud.apiKey = this.configCloudApiKey.value || '';
                 cfg.cloud.selectedModel = this.getSelectValue(this.configCloudModel, this.configCloudModelCustom);
                 break;
             case 'local':
@@ -884,7 +859,6 @@ class SecureMobileAIChat {
                 cfg.audio.captureTimeoutMs = parseInt(this.configAudioTimeout.value || '8000', 10);
                 cfg.audio.silenceThresholdDb = parseFloat(this.configAudioSilenceDb.value || '-45');
                 cfg.audio.silenceDurationMs = parseInt(this.configAudioSilenceMs.value || '1200', 10);
-                cfg.audio.delayAfterHotwordMs = parseInt(this.configAudioDelayAfterHotword?.value || '400', 10);
                 break;
             case 'vision':
                 cfg.vision = cfg.vision || {};
@@ -906,7 +880,6 @@ class SecureMobileAIChat {
                 cfg.audio.captureTimeoutMs = parseInt(this.configAudioTimeout.value || '8000', 10);
                 cfg.audio.silenceThresholdDb = parseFloat(this.configAudioSilenceDb.value || '-45');
                 cfg.audio.silenceDurationMs = parseInt(this.configAudioSilenceMs.value || '1200', 10);
-                cfg.audio.delayAfterHotwordMs = parseInt(this.configAudioDelayAfterHotword?.value || '400', 10);
                 break;
             case 'hotword':
                 cfg.hotword = cfg.hotword || {};
@@ -919,9 +892,6 @@ class SecureMobileAIChat {
                 cfg.hotword.commModeDefault = this.configHotwordCommMode?.value || 'respond_ai_outside_kitt';
                 cfg.hotword.autoListen = !!this.configHotwordAutoListen?.checked;
                 cfg.hotword.debugScores = !!this.configHotwordDebugScores?.checked;
-                if (this.configHotwordDebounce) {
-                    cfg.hotword.debounceMs = parseInt(this.configHotwordDebounce.value || '2500', 10);
-                }
                 if (Array.isArray(this.hotwordModels)) {
                     const actions = {};
                     this.hotwordModels.forEach(m => {

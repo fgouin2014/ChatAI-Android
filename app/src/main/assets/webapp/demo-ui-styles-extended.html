@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Démo Styles UI Étendue - 8 Styles Modernes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+            font-size: 36px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 40px;
+            font-size: 18px;
+        }
+
+        .demo-section {
+            margin-bottom: 80px;
+        }
+
+        .demo-title {
+            color: white;
+            font-size: 28px;
+            margin-bottom: 30px;
+            text-align: center;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .card-base {
+            border-radius: 20px;
+            padding: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .card-base h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .card-base p {
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        /* ========== 1. GLASSMORPHISM ========== */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.35);
+            transform: translateY(-5px);
+        }
+
+        .glass-card h3, .glass-card p {
+            color: white;
+        }
+
+        .glass-input, .glass-button {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .glass-button {
+            background: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .glass-button:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* ========== 2. NEUMORPHISM ========== */
+        .neumorphic-bg {
+            background: #e0e5ec;
+            padding: 40px;
+            border-radius: 30px;
+        }
+
+        .neumorphic-card {
+            background: #e0e5ec;
+            box-shadow: 
+                9px 9px 16px rgba(163, 177, 198, 0.6),
+                -9px -9px 16px rgba(255, 255, 255, 0.5);
+        }
+
+        .neumorphic-card:hover {
+            box-shadow: 
+                inset 9px 9px 16px rgba(163, 177, 198, 0.6),
+                inset -9px -9px 16px rgba(255, 255, 255, 0.5);
+        }
+
+        .neumorphic-card h3 {
+            color: #4a5568;
+        }
+
+        .neumorphic-card p {
+            color: #718096;
+        }
+
+        .neumorphic-input, .neumorphic-button {
+            width: 100%;
+            padding: 12px;
+            background: #e0e5ec;
+            border: none;
+            border-radius: 15px;
+            color: #4a5568;
+            font-size: 14px;
+            margin-bottom: 10px;
+            box-shadow: 
+                inset 6px 6px 12px rgba(163, 177, 198, 0.6),
+                inset -6px -6px 12px rgba(255, 255, 255, 0.5);
+        }
+
+        .neumorphic-button {
+            box-shadow: 
+                6px 6px 12px rgba(163, 177, 198, 0.6),
+                -6px -6px 12px rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .neumorphic-button:hover {
+            box-shadow: 
+                inset 6px 6px 12px rgba(163, 177, 198, 0.6),
+                inset -6px -6px 12px rgba(255, 255, 255, 0.5);
+        }
+
+        /* ========== 3. BRUTALISM ========== */
+        .brutal-card {
+            background: #ff6b6b;
+            border: 4px solid #000;
+            box-shadow: 8px 8px 0px #000;
+            transform: rotate(-1deg);
+        }
+
+        .brutal-card:hover {
+            transform: rotate(0deg) translateY(-5px);
+            box-shadow: 12px 12px 0px #000;
+        }
+
+        .brutal-card h3 {
+            color: #000;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .brutal-card p {
+            color: #000;
+            font-weight: 600;
+        }
+
+        .brutal-input, .brutal-button {
+            width: 100%;
+            padding: 14px;
+            background: #fff;
+            border: 3px solid #000;
+            border-radius: 0;
+            color: #000;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .brutal-button {
+            background: #000;
+            color: #ff6b6b;
+            cursor: pointer;
+            box-shadow: 4px 4px 0px #000;
+        }
+
+        .brutal-button:hover {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px #000;
+        }
+
+        /* ========== 4. SKEUOMORPHISM ========== */
+        .skeuo-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border: 1px solid rgba(0,0,0,0.1);
+            box-shadow: 
+                0 10px 30px rgba(0,0,0,0.2),
+                inset 0 1px 0 rgba(255,255,255,0.6),
+                inset 0 -1px 0 rgba(0,0,0,0.1);
+        }
+
+        .skeuo-card:hover {
+            box-shadow: 
+                0 15px 40px rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.6),
+                inset 0 -1px 0 rgba(0,0,0,0.1);
+        }
+
+        .skeuo-card h3 {
+            color: #2d3748;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+        }
+
+        .skeuo-card p {
+            color: #4a5568;
+        }
+
+        .skeuo-input, .skeuo-button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(to bottom, #fff 0%, #f7fafc 100%);
+            border: 1px solid rgba(0,0,0,0.2);
+            border-radius: 8px;
+            color: #2d3748;
+            font-size: 14px;
+            margin-bottom: 10px;
+            box-shadow: 
+                inset 0 2px 4px rgba(0,0,0,0.1),
+                0 1px 0 rgba(255,255,255,0.8);
+        }
+
+        .skeuo-button {
+            background: linear-gradient(to bottom, #4299e1 0%, #3182ce 100%);
+            color: white;
+            border: 1px solid rgba(0,0,0,0.2);
+            cursor: pointer;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            box-shadow: 
+                0 4px 6px rgba(0,0,0,0.2),
+                inset 0 1px 0 rgba(255,255,255,0.3);
+        }
+
+        .skeuo-button:hover {
+            background: linear-gradient(to bottom, #3182ce 0%, #2c5282 100%);
+        }
+
+        .skeuo-button:active {
+            box-shadow: 
+                inset 0 2px 4px rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+
+        /* ========== 5. FLAT DESIGN ========== */
+        .flat-card {
+            background: #ffffff;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .flat-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .flat-card h3 {
+            color: #1a202c;
+        }
+
+        .flat-card p {
+            color: #4a5568;
+        }
+
+        .flat-input, .flat-button {
+            width: 100%;
+            padding: 12px;
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            color: #1a202c;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .flat-button {
+            background: #4299e1;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .flat-button:hover {
+            background: #3182ce;
+        }
+
+        /* ========== 6. MATERIAL DESIGN 3 ========== */
+        .material3-card {
+            background: #ffffff;
+            border: none;
+            box-shadow: 
+                0 1px 3px rgba(0,0,0,0.12),
+                0 1px 2px rgba(0,0,0,0.24);
+            border-radius: 28px;
+        }
+
+        .material3-card:hover {
+            box-shadow: 
+                0 10px 20px rgba(0,0,0,0.15),
+                0 3px 6px rgba(0,0,0,0.1);
+        }
+
+        .material3-card h3 {
+            color: #1c1b1f;
+            font-weight: 500;
+        }
+
+        .material3-card p {
+            color: #49454f;
+        }
+
+        .material3-input {
+            width: 100%;
+            padding: 16px;
+            background: transparent;
+            border: 1px solid #79747e;
+            border-radius: 4px 4px 0 0;
+            border-bottom: 2px solid #79747e;
+            color: #1c1b1f;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .material3-input:focus {
+            border-bottom-color: #6750a4;
+            outline: none;
+        }
+
+        .material3-button {
+            width: 100%;
+            padding: 12px 24px;
+            background: #6750a4;
+            border: none;
+            border-radius: 20px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .material3-button:hover {
+            background: #7c6ba8;
+            box-shadow: 0 2px 4px rgba(103,80,164,0.3);
+        }
+
+        /* ========== 7. GRADIENT MESH ========== */
+        .gradient-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+            border: none;
+            box-shadow: 0 10px 30px rgba(102,126,234,0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .gradient-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .gradient-card h3, .gradient-card p {
+            color: white;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .gradient-input, .gradient-button {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            color: white;
+            font-size: 14px;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .gradient-button {
+            background: rgba(255,255,255,0.3);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .gradient-button:hover {
+            background: rgba(255,255,255,0.4);
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* ========== 8. DARK MODE NEON ========== */
+        .neon-bg {
+            background: #0a0a0a;
+            padding: 40px;
+            border-radius: 20px;
+        }
+
+        .neon-card {
+            background: #1a1a2e;
+            border: 2px solid #00f2fe;
+            box-shadow: 
+                0 0 10px rgba(0,242,254,0.5),
+                0 0 20px rgba(0,242,254,0.3),
+                inset 0 0 10px rgba(0,242,254,0.1);
+        }
+
+        .neon-card:hover {
+            box-shadow: 
+                0 0 20px rgba(0,242,254,0.8),
+                0 0 40px rgba(0,242,254,0.5),
+                inset 0 0 20px rgba(0,242,254,0.2);
+            border-color: #00ffff;
+        }
+
+        .neon-card h3 {
+            color: #00f2fe;
+            text-shadow: 0 0 10px rgba(0,242,254,0.8);
+        }
+
+        .neon-card p {
+            color: #a0a0a0;
+        }
+
+        .neon-input, .neon-button {
+            width: 100%;
+            padding: 12px;
+            background: #0f0f1e;
+            border: 1px solid #00f2fe;
+            border-radius: 8px;
+            color: #00f2fe;
+            font-size: 14px;
+            margin-bottom: 10px;
+            box-shadow: 0 0 5px rgba(0,242,254,0.3);
+        }
+
+        .neon-input:focus {
+            outline: none;
+            box-shadow: 0 0 10px rgba(0,242,254,0.5);
+        }
+
+        .neon-button {
+            background: #00f2fe;
+            color: #0a0a0a;
+            cursor: pointer;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 0 15px rgba(0,242,254,0.6);
+        }
+
+        .neon-button:hover {
+            background: #00ffff;
+            box-shadow: 0 0 25px rgba(0,242,254,0.9);
+        }
+
+        .info-box {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 40px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+
+        .info-box h2 {
+            color: #1e293b;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+
+        .info-box p {
+            color: #64748b;
+            line-height: 1.8;
+            margin-bottom: 10px;
+        }
+
+        .info-box strong {
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Démonstration Styles UI Étendue</h1>
+        <p class="subtitle">8 styles modernes comparés côte à côte</p>
+
+        <div class="info-box">
+            <h2>📚 Guide des Styles</h2>
+            <p><strong>1. Glassmorphism</strong> : Verre dépoli, transparence + flou. Style iOS/Windows 11.</p>
+            <p><strong>2. Neumorphism</strong> : 3D doux, ombres intérieures/extérieures. Style tactile.</p>
+            <p><strong>3. Brutalism</strong> : Angles vifs, couleurs vives, ombres dures. Style punk/rebelle.</p>
+            <p><strong>4. Skeuomorphism</strong> : Réaliste, textures, profondeur. Style iOS ancien.</p>
+            <p><strong>5. Flat Design</strong> : Minimaliste, pas d'ombres, couleurs plates. Style moderne simple.</p>
+            <p><strong>6. Material Design 3</strong> : Dernière version Google, arrondis, élévation. Style actuel Android.</p>
+            <p><strong>7. Gradient Mesh</strong> : Gradients animés, couleurs fluides. Style très moderne.</p>
+            <p><strong>8. Dark Mode Neon</strong> : Cyberpunk, néons, fond sombre. Style futuriste.</p>
+        </div>
+
+        <!-- 1. GLASSMORPHISM -->
+        <div class="demo-section">
+            <h2 class="demo-title">🔮 1. Glassmorphism</h2>
+            <div class="cards-container">
+                <div class="card-base glass-card">
+                    <h3>Card Glassmorphism</h3>
+                    <p>Effet de verre dépoli avec transparence et flou d'arrière-plan. Style moderne et élégant, très populaire.</p>
+                    <input type="text" class="glass-input" placeholder="Entrez du texte...">
+                    <button class="glass-button">Bouton Glass</button>
+                </div>
+                <div class="card-base glass-card">
+                    <h3>Configuration</h3>
+                    <p>Parfait pour les overlays, modals et interfaces modernes. Très utilisé sur iOS Big Sur et Windows 11.</p>
+                    <input type="text" class="glass-input" placeholder="API Key...">
+                    <button class="glass-button">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. NEUMORPHISM -->
+        <div class="demo-section">
+            <h2 class="demo-title">🎯 2. Neumorphism</h2>
+            <div class="neumorphic-bg">
+                <div class="cards-container">
+                    <div class="card-base neumorphic-card">
+                        <h3>Card Neumorphism</h3>
+                        <p>Effet 3D doux avec ombres intérieures et extérieures. Style tactile et minimaliste, très tendance.</p>
+                        <input type="text" class="neumorphic-input" placeholder="Entrez du texte...">
+                        <button class="neumorphic-button">Bouton Neumorphic</button>
+                    </div>
+                    <div class="card-base neumorphic-card">
+                        <h3>Configuration</h3>
+                        <p>Idéal pour les interfaces minimalistes. Effet "pressé" au hover, très tactile et moderne.</p>
+                        <input type="text" class="neumorphic-input" placeholder="API Key...">
+                        <button class="neumorphic-button">Sauvegarder</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. BRUTALISM -->
+        <div class="demo-section">
+            <h2 class="demo-title">💥 3. Brutalism</h2>
+            <div class="cards-container">
+                <div class="card-base brutal-card">
+                    <h3>Card Brutalism</h3>
+                    <p>Angles vifs, couleurs vives, ombres dures. Style punk et rebelle, très expressif et direct.</p>
+                    <input type="text" class="brutal-input" placeholder="ENTREZ DU TEXTE">
+                    <button class="brutal-button">Bouton Brutal</button>
+                </div>
+                <div class="card-base brutal-card">
+                    <h3>Configuration</h3>
+                    <p>Style très marqué, parfait pour les sites créatifs ou artistiques. Impact visuel maximum.</p>
+                    <input type="text" class="brutal-input" placeholder="API KEY">
+                    <button class="brutal-button">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. SKEUOMORPHISM -->
+        <div class="demo-section">
+            <h2 class="demo-title">📱 4. Skeuomorphism</h2>
+            <div class="cards-container">
+                <div class="card-base skeuo-card">
+                    <h3>Card Skeuomorphism</h3>
+                    <p>Style réaliste avec textures et profondeur. Rappelle les interfaces iOS anciennes, très tactile.</p>
+                    <input type="text" class="skeuo-input" placeholder="Entrez du texte...">
+                    <button class="skeuo-button">Bouton Skeuo</button>
+                </div>
+                <div class="card-base skeuo-card">
+                    <h3>Configuration</h3>
+                    <p>Gradients subtils, ombres douces, bordures réalistes. Style classique et rassurant.</p>
+                    <input type="text" class="skeuo-input" placeholder="API Key...">
+                    <button class="skeuo-button">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. FLAT DESIGN -->
+        <div class="demo-section">
+            <h2 class="demo-title">📐 5. Flat Design</h2>
+            <div class="cards-container">
+                <div class="card-base flat-card">
+                    <h3>Card Flat Design</h3>
+                    <p>Style minimaliste, pas d'ombres complexes, couleurs plates. Très lisible et moderne, style Windows 8.</p>
+                    <input type="text" class="flat-input" placeholder="Entrez du texte...">
+                    <button class="flat-button">Bouton Flat</button>
+                </div>
+                <div class="card-base flat-card">
+                    <h3>Configuration</h3>
+                    <p>Simplicité maximale, focus sur le contenu. Style épuré et professionnel, très accessible.</p>
+                    <input type="text" class="flat-input" placeholder="API Key...">
+                    <button class="flat-button">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. MATERIAL DESIGN 3 -->
+        <div class="demo-section">
+            <h2 class="demo-title">🎨 6. Material Design 3</h2>
+            <div class="cards-container">
+                <div class="card-base material3-card">
+                    <h3>Card Material Design 3</h3>
+                    <p>Dernière version de Google Material Design. Arrondis généreux, élévation subtile, style Android 12+.</p>
+                    <input type="text" class="material3-input" placeholder="Entrez du texte...">
+                    <button class="material3-button">Bouton Material 3</button>
+                </div>
+                <div class="card-base material3-card">
+                    <h3>Configuration</h3>
+                    <p>Design system complet de Google. Cohérent, accessible, et optimisé pour mobile et desktop.</p>
+                    <input type="text" class="material3-input" placeholder="API Key...">
+                    <button class="material3-button">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. GRADIENT MESH -->
+        <div class="demo-section">
+            <h2 class="demo-title">🌈 7. Gradient Mesh</h2>
+            <div class="cards-container">
+                <div class="card-base gradient-card">
+                    <h3>Card Gradient Mesh</h3>
+                    <p>Gradients animés et fluides, couleurs qui changent. Style très moderne et dynamique, très visuel.</p>
+                    <input type="text" class="gradient-input" placeholder="Entrez du texte...">
+                    <button class="gradient-button">Bouton Gradient</button>
+                </div>
+                <div class="card-base gradient-card">
+                    <h3>Configuration</h3>
+                    <p>Animation continue des couleurs, effet hypnotique. Parfait pour les interfaces premium et créatives.</p>
+                    <input type="text" class="gradient-input" placeholder="API Key...">
+                    <button class="gradient-button">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. DARK MODE NEON -->
+        <div class="demo-section">
+            <h2 class="demo-title">⚡ 8. Dark Mode Neon</h2>
+            <div class="neon-bg">
+                <div class="cards-container">
+                    <div class="card-base neon-card">
+                        <h3>Card Dark Neon</h3>
+                        <p>Style cyberpunk avec néons et fond sombre. Effet futuriste et high-tech, très immersif.</p>
+                        <input type="text" class="neon-input" placeholder="Entrez du texte...">
+                        <button class="neon-button">Bouton Neon</button>
+                    </div>
+                    <div class="card-base neon-card">
+                        <h3>Configuration</h3>
+                        <p>Bordure néon, ombres colorées, fond sombre. Parfait pour les apps gaming ou tech avancées.</p>
+                        <input type="text" class="neon-input" placeholder="API Key...">
+                        <button class="neon-button">Sauvegarder</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h2>💡 Recommandations par Usage</h2>
+            <p><strong>Applications professionnelles</strong> : Material Design 3, Flat Design</p>
+            <p><strong>Applications créatives</strong> : Gradient Mesh, Brutalism, Dark Neon</p>
+            <p><strong>Applications modernes</strong> : Glassmorphism, Neumorphism</p>
+            <p><strong>Applications classiques</strong> : Skeuomorphism, Flat Design</p>
+            <p><strong>Applications gaming/tech</strong> : Dark Neon, Brutalism, Gradient Mesh</p>
+        </div>
+    </div>
+</body>
+</html>
+

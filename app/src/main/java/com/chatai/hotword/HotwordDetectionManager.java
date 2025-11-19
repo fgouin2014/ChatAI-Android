@@ -31,10 +31,12 @@ public class HotwordDetectionManager {
     }
     
     private StateListener stateListener;
+    private HotwordActionRouter actionRouter;
     
     public HotwordDetectionManager(Context context) {
         this.context = context;
         this.prefs = new HotwordPreferences(context);
+        this.actionRouter = new HotwordActionRouter(context);
     }
     
     public void setStateListener(StateListener listener) {
@@ -84,6 +86,13 @@ public class HotwordDetectionManager {
             detectionService.setCallback(keyword -> {
                 Log.i(TAG, "Hotword detected - " + keyword);
                 onHotwordDetected(keyword);
+            try {
+                if (actionRouter != null) {
+                    actionRouter.route(keyword);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Router error for keyword: " + keyword, e);
+            }
             });
 
             if (!detectionService.initialize()) {
@@ -147,7 +156,19 @@ public class HotwordDetectionManager {
      */
     private void onHotwordDetected(String keyword) {
         Log.i(TAG, "🔥 HOTWORD DETECTED - " + keyword);
-        
+        // Bref beep pour indiquer que l'app écoute la question
+        try {
+            android.media.ToneGenerator tg = new android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 60);
+            tg.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 120);
+            // Libérer la ressource après un court délai pour éviter les timeouts
+            android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+            handler.postDelayed(() -> {
+                try {
+                    tg.release();
+                } catch (Throwable ignored) {}
+            }, 150); // Libérer après 150ms (le beep dure 120ms)
+        } catch (Throwable ignored) {}
+
         // ICI: Tu peux ajouter l'action à effectuer
         // Par exemple: ouvrir KITT, activer l'écoute vocale, etc.
         // MAIS: L'utilisateur a dit que le hotword ne doit PAS être attaché à KITT/IA

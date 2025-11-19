@@ -18,6 +18,11 @@ import org.json.JSONObject;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import java.util.ArrayList;
+import java.util.Locale;
 
 import com.chatai.hotword.HotwordAssetProvider;
 
@@ -296,16 +301,62 @@ public class WebAppInterface {
     
     /**
      * Fournit le token API de manière sécurisée
+     * Vérifie SecureConfig (API token générique) puis Ollama Cloud API key
      */
     @JavascriptInterface
     public String getSecureApiToken() {
+        Log.d(TAG, "getSecureApiToken() appelé - recherche de la clé API...");
+        
+        // 1. Vérifier SecureConfig (token API générique)
+        Log.d(TAG, "Étape 1: Vérification token API générique dans SecureConfig...");
         if (secureConfig.hasApiToken()) {
-            Log.d(TAG, "Token API fourni de manière sécurisée");
-            return secureConfig.getApiToken();
-        } else {
-            Log.w(TAG, "Aucun token API configuré");
-            return null;
+            String token = secureConfig.getApiToken();
+            Log.i(TAG, "Token API trouvé (générique SecureConfig, " + (token != null ? token.length() : 0) + " chars)");
+            return token;
         }
+        Log.d(TAG, "Aucun token API générique trouvé dans SecureConfig");
+        
+        // 2. Vérifier Ollama Cloud API key (unifié dans SecureConfig)
+        // La méthode getOllamaCloudApiKey() fait automatiquement la migration depuis SharedPreferences
+        Log.d(TAG, "Étape 2: Vérification clé Ollama Cloud dans SecureConfig...");
+        String ollamaCloudKey = secureConfig.getOllamaCloudApiKey();
+        if (ollamaCloudKey != null && !ollamaCloudKey.trim().isEmpty()) {
+            Log.i(TAG, "Token API trouvé (Ollama Cloud via SecureConfig, " + ollamaCloudKey.length() + " chars)");
+            return ollamaCloudKey.trim();
+        }
+        Log.d(TAG, "Aucune clé Ollama Cloud trouvée dans SecureConfig");
+        
+        // 3. Vérification supplémentaire: peut-être que la clé est dans SharedPreferences mais pas encore migrée
+        // (au cas où la migration n'a pas été déclenchée)
+        Log.d(TAG, "Étape 3: Vérification SharedPreferences pour migration...");
+        try {
+            SharedPreferences legacyPrefs = mContext.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE);
+            String legacyKey = legacyPrefs.getString("ollama_cloud_api_key", null);
+            boolean found = (legacyKey != null && !legacyKey.trim().isEmpty());
+            Log.d(TAG, "SharedPreferences 'chatai_ai_config': clé trouvée = " + found + (found ? " (" + legacyKey.length() + " chars)" : ""));
+            if (found) {
+                Log.i(TAG, "Clé Ollama Cloud trouvée dans SharedPreferences (non migrée), migration automatique...");
+                secureConfig.setOllamaCloudApiKey(legacyKey);
+                return legacyKey.trim();
+            }
+            
+            // Vérifier aussi dans le SharedPreferences par défaut (au cas où)
+            SharedPreferences defaultPrefs = mContext.getSharedPreferences("com.chatai_preferences", Context.MODE_PRIVATE);
+            String defaultKey = defaultPrefs.getString("ollama_cloud_api_key", null);
+            boolean foundDefault = (defaultKey != null && !defaultKey.trim().isEmpty());
+            Log.d(TAG, "SharedPreferences 'com.chatai_preferences': clé trouvée = " + foundDefault + (foundDefault ? " (" + defaultKey.length() + " chars)" : ""));
+            if (foundDefault) {
+                Log.i(TAG, "Clé Ollama Cloud trouvée dans SharedPreferences par défaut, migration automatique...");
+                secureConfig.setOllamaCloudApiKey(defaultKey);
+                return defaultKey.trim();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de la vérification SharedPreferences: " + e.getMessage(), e);
+        }
+        
+        // 4. Aucun token trouvé
+        Log.w(TAG, "Aucun token API configuré - aucune clé trouvée dans SecureConfig ni SharedPreferences");
+        return null;
     }
 
     /**
@@ -404,6 +455,193 @@ public class WebAppInterface {
                 }
             }
 
+            // ========== STT (Whisper Server) OUTILS ==========
+            @JavascriptInterface
+            public boolean sttPing() {
+                try {
+                    Log.i(TAG, "sttPing: Démarrage");
+                    com.chatai.audio.AudioEngineConfig cfg = com.chatai.audio.AudioEngineConfig.Companion.fromContext(mContext);
+                    String url = cfg.getEndpoint();
+                    if (url == null || url.trim().isEmpty()) {
+                        Log.w(TAG, "sttPing: Endpoint is empty or null");
+                        return false;
+                    }
+                    Log.d(TAG, "sttPing: Endpoint configuré = " + url);
+                    
+                    // Extraire l'URL de base (sans /inference)
+                    String baseUrl;
+                    if (url.contains("/inference")) {
+                        baseUrl = url.substring(0, url.lastIndexOf("/inference"));
+                    } else if (url.contains("/")) {
+                        int lastSlash = url.lastIndexOf("/");
+                        baseUrl = url.substring(0, lastSlash);
+                    } else {
+                        baseUrl = url;
+                    }
+                    Log.d(TAG, "sttPing: URL de base = " + baseUrl);
+                    
+                    okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                            .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+                            .readTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+                            .build();
+                    
+                    // Essayer de pinger la racine
+                    okhttp3.Request req = new okhttp3.Request.Builder()
+                            .url(baseUrl)
+                            .head()  // HEAD request au lieu de GET (plus léger)
+                            .build();
+                    
+                    Log.d(TAG, "sttPing: Envoi HEAD request vers " + baseUrl);
+                    try (okhttp3.Response resp = client.newCall(req).execute()) {
+                        int code = resp.code();
+                        Log.i(TAG, "sttPing: Response code " + code + " pour " + baseUrl);
+                        // Accepter 200, 404 (serveur répond), ou 405 (Method Not Allowed = serveur actif)
+                        boolean success = (code == 200 || code == 404 || code == 405);
+                        if (success) {
+                            Log.i(TAG, "sttPing: ✅ Serveur Whisper accessible");
+                        } else {
+                            Log.w(TAG, "sttPing: ❌ Serveur répond mais code inattendu: " + code);
+                        }
+                        return success;
+                    }
+                } catch (java.net.ConnectException e) {
+                    Log.w(TAG, "sttPing: ❌ Connexion refusée - serveur probablement arrêté", e);
+                    return false;
+                } catch (java.net.SocketTimeoutException e) {
+                    Log.w(TAG, "sttPing: ❌ Timeout - serveur ne répond pas", e);
+                    return false;
+                } catch (Exception e) {
+                    Log.w(TAG, "sttPing: ❌ Erreur inattendue", e);
+                    return false;
+                }
+            }
+
+            @JavascriptInterface
+            public void sttTestOnce() {
+                try {
+                    com.chatai.audio.AudioEngineConfig cfg = com.chatai.audio.AudioEngineConfig.Companion.fromContext(mContext);
+                    String engine = cfg.getEngine();
+                    
+                    if ("whisper_server".equalsIgnoreCase(engine)) {
+                        // === WHISPER SERVER ===
+                        // CRITIQUE: Arrêter Google Speech s'il est actif (il monopolise le microphone)
+                        // Whisper et Google Speech ne peuvent PAS être actifs en même temps
+                        Intent stopGoogleIntent = new Intent(mContext, BackgroundService.class);
+                        stopGoogleIntent.setAction(BackgroundService.ACTION_STOP_GOOGLE_SPEECH);
+                        mContext.startService(stopGoogleIntent);
+                        Log.i(TAG, "STT Test (Whisper): Arrêt de Google Speech si actif");
+                        
+                        // Créer client OkHttp avec timeouts configurés (120s read, 150s call)
+                        okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                                .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                                .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                                .callTimeout(150, java.util.concurrent.TimeUnit.SECONDS)
+                                .build();
+                        com.chatai.audio.WhisperServerRecognizer rec = new com.chatai.audio.WhisperServerRecognizer(
+                                cfg,
+                                new com.chatai.audio.WhisperServerRecognizer.Callback() {
+                                    @Override public void onReady() { Log.i(TAG, "STT Test (Whisper): ready"); }
+                                    @Override public void onSpeechStart() { Log.i(TAG, "STT Test (Whisper): speech start"); }
+                                    @Override public void onRmsChanged(float rmsDb) { /* no-op */ }
+                                    @Override public void onResult(String text) {
+                                        Log.i(TAG, "STT Test (Whisper) result: " + text);
+                                        showToast("STT: " + text);
+                                    }
+                                    @Override public void onError(String message) {
+                                        Log.e(TAG, "STT Test (Whisper) error: " + message);
+                                        showToast("STT error: " + message);
+                                    }
+                                },
+                                client
+                        );
+                        rec.startListening();
+                    } else if ("legacy_google".equalsIgnoreCase(engine)) {
+                        // === GOOGLE SPEECH ===
+                        // CRITIQUE: Arrêter Whisper s'il est actif (il monopolise le microphone)
+                        // Whisper et Google Speech ne peuvent PAS être actifs en même temps
+                        Intent stopWhisperIntent = new Intent(mContext, BackgroundService.class);
+                        stopWhisperIntent.setAction(BackgroundService.ACTION_STOP_WHISPER);
+                        mContext.startService(stopWhisperIntent);
+                        Log.i(TAG, "STT Test (Google Speech): Arrêt de Whisper si actif");
+                        
+                        // SpeechRecognizer doit être créé et utilisé depuis le main thread
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            SpeechRecognizer recognizer = null;
+                            Handler timeoutHandler = null;
+                            Runnable timeoutRunnable = null;
+                            try {
+                                // Vérifier si Google Speech est disponible
+                                if (!SpeechRecognizer.isRecognitionAvailable(mContext)) {
+                                    Log.e(TAG, "STT Test (Google Speech): Google Speech non disponible sur ce device");
+                                    showToast("Google Speech non disponible");
+                                    return;
+                                }
+                                
+                                recognizer = SpeechRecognizer.createSpeechRecognizer(mContext);
+                                if (recognizer == null) {
+                                    Log.e(TAG, "STT Test (Google Speech): SpeechRecognizer.createSpeechRecognizer() retourne null");
+                                    showToast("Google Speech non disponible (null)");
+                                    return;
+                                }
+                                
+                                Log.i(TAG, "STT Test (Google Speech): SpeechRecognizer créé avec succès");
+                                
+                                // Créer le listener avec référence au recognizer et contexte
+                                GoogleSpeechTestListener listener = new GoogleSpeechTestListener(recognizer, mContext);
+                                
+                                // TIMEOUT: Forcer l'arrêt après 12 secondes si aucun résultat
+                                timeoutHandler = new Handler(Looper.getMainLooper());
+                                final SpeechRecognizer finalRecognizer = recognizer;
+                                final GoogleSpeechTestListener finalListener = listener;
+                                timeoutRunnable = () -> {
+                                    if (finalRecognizer != null && !finalListener.isDestroyed()) {
+                                        Log.w(TAG, "STT Test (Google Speech): timeout global (12s) - arrêt forcé");
+                                        try {
+                                            finalRecognizer.stopListening();
+                                        } catch (Throwable ignored) {}
+                                        try {
+                                            finalRecognizer.destroy();
+                                            finalListener.setDestroyed(true);
+                                        } catch (Throwable ignored) {}
+                                        showToast("STT test timeout (12s)");
+                                    }
+                                };
+                                timeoutHandler.postDelayed(timeoutRunnable, 12000); // 12 secondes maximum
+                                
+                                // Stocker la référence au timeout dans le listener pour annulation
+                                listener.setTimeoutHandler(timeoutHandler);
+                                listener.setTimeoutRunnable(timeoutRunnable);
+                                
+                                recognizer.setRecognitionListener(listener);
+                                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.FRENCH);
+                                intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, mContext.getPackageName());
+                                intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+                                // Note: EXTRA_PROMPT non utilisé avec SpeechRecognizer (seulement pour startActivityForResult)
+                                recognizer.startListening(intent);
+                                Log.i(TAG, "STT Test (Google Speech): started (timeout global: 12s, après parole: 7s)");
+                            } catch (Exception e) {
+                                Log.e(TAG, "Failed to start Google Speech test", e);
+                                showToast("Erreur Google Speech: " + e.getMessage());
+                                // Nettoyer en cas d'erreur
+                                if (timeoutHandler != null && timeoutRunnable != null) {
+                                    timeoutHandler.removeCallbacks(timeoutRunnable);
+                                }
+                                if (recognizer != null) {
+                                    try { recognizer.destroy(); } catch (Throwable ignored) {}
+                                }
+                            }
+                        });
+                    } else {
+                        showToast("Engine STT inconnu: " + engine);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "sttTestOnce error", e);
+                    showToast("STT test error: " + e.getMessage());
+                }
+            }
             /**
              * Obtient l'URL du serveur HTTP local
              */
@@ -731,4 +969,182 @@ public class WebAppInterface {
                     Log.e(TAG, "Error sending message via bridge", e);
                 }
             }
+    
+    /**
+     * RecognitionListener pour test Google Speech (classe interne statique pour éviter problèmes KSP)
+     */
+    private static class GoogleSpeechTestListener implements RecognitionListener {
+        private final SpeechRecognizer recognizer;
+        private final Context context;
+        private Handler timeoutHandler;
+        private Runnable timeoutRunnable;
+        private Runnable speechTimeoutRunnable;
+        private boolean destroyed = false;
+        
+        GoogleSpeechTestListener(SpeechRecognizer recognizer, Context context) {
+            this.recognizer = recognizer;
+            this.context = context;
+        }
+        
+        void setTimeoutHandler(Handler handler) {
+            this.timeoutHandler = handler;
+        }
+        
+        void setTimeoutRunnable(Runnable runnable) {
+            this.timeoutRunnable = runnable;
+        }
+        
+        boolean isDestroyed() {
+            return destroyed;
+        }
+        
+        void setDestroyed(boolean destroyed) {
+            this.destroyed = destroyed;
+        }
+        
+        private void cleanup() {
+            if (destroyed) {
+                return; // Déjà nettoyé
+            }
+            destroyed = true;
+            
+            // Annuler tous les timeouts
+            if (timeoutHandler != null) {
+                if (timeoutRunnable != null) {
+                    timeoutHandler.removeCallbacks(timeoutRunnable);
+                }
+                if (speechTimeoutRunnable != null) {
+                    timeoutHandler.removeCallbacks(speechTimeoutRunnable);
+                }
+            }
+            
+            // Détruire le recognizer
+            if (recognizer != null) {
+                try {
+                    recognizer.stopListening();
+                } catch (Throwable ignored) {}
+                try {
+                    recognizer.destroy();
+                    Log.i("WebAppInterface", "STT Test (Google Speech): recognizer destroyed");
+                } catch (Throwable e) {
+                    Log.w("WebAppInterface", "STT Test (Google Speech): error destroying recognizer", e);
+                }
+            }
+        }
+        
+        @Override
+        public void onReadyForSpeech(android.os.Bundle params) {
+            Log.i("WebAppInterface", "STT Test (Google Speech): ready - microphone accessible");
+            // Si onReadyForSpeech est appelé, le microphone est accessible
+            // Cela signifie qu'aucun autre processus (comme Whisper avec AudioRecord) ne le monopolise
+        }
+        
+        @Override
+        public void onBeginningOfSpeech() {
+            Log.i("WebAppInterface", "STT Test (Google Speech): speech start");
+            // TIMEOUT: Si aucun résultat après 12 secondes depuis le début de la parole, forcer l'arrêt
+            // (augmenté de 7s à 12s car Google Speech peut prendre plus de temps pour traiter)
+            if (timeoutHandler != null && !destroyed) {
+                final GoogleSpeechTestListener self = this;
+                speechTimeoutRunnable = () -> {
+                    if (!self.isDestroyed()) {
+                        Log.w("WebAppInterface", "STT Test (Google Speech): timeout après début de parole (12s) - arrêt forcé");
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            Toast.makeText(context, "STT: Timeout après parole (12s)", Toast.LENGTH_SHORT).show();
+                        });
+                        cleanup();
+                    }
+                };
+                timeoutHandler.postDelayed(speechTimeoutRunnable, 12000); // 12 secondes après début de parole
+            }
+        }
+        
+        @Override
+        public void onRmsChanged(float rmsDb) {
+            // Log RMS toutes les 50 fois pour diagnostic
+            // RMS > -30 dB = parole audible, RMS > -10 dB = parole forte
+            if ((int)(rmsDb * 10) % 50 == 0) {
+                String level = rmsDb > -10 ? "FORT" : (rmsDb > -30 ? "NORMAL" : "FAIBLE");
+                Log.i("WebAppInterface", "🎤 STT Test (Google Speech) RMS: " + String.format("%.1f", rmsDb) + " dB (" + level + ")");
+            }
+        }
+        
+        @Override
+        public void onBufferReceived(byte[] buffer) {
+            // Log buffer reçu (confirme que microphone envoie des données)
+            Log.d("WebAppInterface", "📡 STT Test (Google Speech) buffer received: " + buffer.length + " bytes");
+        }
+        
+        @Override
+        public void onEndOfSpeech() {
+            Log.i("WebAppInterface", "STT Test (Google Speech): speech end");
+        }
+        
+        @Override
+        public void onPartialResults(android.os.Bundle partialResults) {
+            ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+            if (matches != null && !matches.isEmpty()) {
+                String text = matches.get(0);
+                Log.i("WebAppInterface", "✅ STT Test (Google Speech) partial result: '" + text + "' (Google Speech VOUS ENTEND!)");
+                // Afficher aussi dans un Toast pour feedback visuel immédiat
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    Toast.makeText(context, "STT partiel: " + text, Toast.LENGTH_SHORT).show();
+                });
+            } else {
+                Log.d("WebAppInterface", "STT Test (Google Speech) partial results: aucun match (Google Speech traite mais ne reconnaît pas encore)");
+            }
+        }
+        
+        @Override
+        public void onError(int error) {
+            final String errorMsg;
+            switch (error) {
+                case SpeechRecognizer.ERROR_AUDIO: 
+                    errorMsg = "Audio error (microphone peut-être monopolisé par Whisper)"; 
+                    break;
+                case SpeechRecognizer.ERROR_CLIENT: errorMsg = "Client error"; break;
+                case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS: errorMsg = "Insufficient permissions"; break;
+                case SpeechRecognizer.ERROR_NETWORK: errorMsg = "Network error"; break;
+                case SpeechRecognizer.ERROR_NETWORK_TIMEOUT: errorMsg = "Network timeout"; break;
+                case SpeechRecognizer.ERROR_NO_MATCH: errorMsg = "No match"; break;
+                case SpeechRecognizer.ERROR_RECOGNIZER_BUSY: 
+                    errorMsg = "Recognizer busy (peut-être que Whisper monopolise le microphone)"; 
+                    break;
+                case SpeechRecognizer.ERROR_SERVER: errorMsg = "Server error"; break;
+                case SpeechRecognizer.ERROR_SPEECH_TIMEOUT: errorMsg = "Speech timeout"; break;
+                default: errorMsg = "Unknown error"; break;
+            }
+            Log.e("WebAppInterface", "STT Test (Google Speech) error: " + errorMsg + " (" + error + ")");
+            if (error == SpeechRecognizer.ERROR_AUDIO || error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    Toast.makeText(context, "STT error: " + errorMsg + " - Arrêtez Whisper si actif", Toast.LENGTH_LONG).show();
+                });
+            }
+            cleanup();
+        }
+        
+        @Override
+        public void onResults(android.os.Bundle results) {
+            ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+            if (matches != null && !matches.isEmpty()) {
+                String text = matches.get(0);
+                Log.i("WebAppInterface", "STT Test (Google Speech) result: " + text + " (matches: " + matches.size() + ")");
+                // Afficher le résultat à l'utilisateur (comme pour Whisper)
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    Toast.makeText(context, "STT: " + text, Toast.LENGTH_LONG).show();
+                });
+            } else {
+                Log.w("WebAppInterface", "STT Test (Google Speech): no matches");
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    Toast.makeText(context, "STT: Aucun résultat", Toast.LENGTH_SHORT).show();
+                });
+            }
+            cleanup();
+        }
+        
+        @Override
+        public void onEvent(int eventType, android.os.Bundle params) {
+            // no-op
+        }
+    }
 }

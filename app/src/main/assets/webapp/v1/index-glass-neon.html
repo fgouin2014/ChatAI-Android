@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#667eea">
+    <meta name="description" content="Assistant IA mobile intelligent et sécurisé">
+    <title>Chat IA Mobile</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="glass-neon-styles.css">
+    <style>
+        /* Styles inline supplémentaires si nécessaire - tout est dans glass-neon-styles.css */
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="header-top">
+                <div class="chat-title">🤖 Assistant IA</div>
+            </div>
+            <div class="header-controls-row">
+                <div class="header-controls">
+                    <button class="header-btn" id="gamesBtn" title="Jeux">🎮</button>
+                    <button class="header-btn" id="settingsBtn" title="Paramètres">⚙️</button>
+                    <button class="header-btn" id="databaseBtn" title="Base de données">💾</button>
+                    <button class="header-btn" id="serverBtn" title="Serveurs">🌐</button>
+                    <button class="header-btn" id="kittBtn" title="Interface KITT">🚗</button>
+                    <button class="header-btn" id="infoBtn" title="Informations">ℹ️</button>
+                    <button class="header-btn" id="langBtn" title="Langue">🌍</button>
+                    <button class="header-btn" id="clearBtn" title="Effacer">🗑️</button>
+                </div>
+            </div>
+            <div class="personality-selector">
+                <button class="personality-btn active" data-personality="casual">😊 Décontracté</button>
+                <button class="personality-btn" data-personality="friendly">🤝 Amical</button>
+                <button class="personality-btn" data-personality="professional">💼 Pro</button>
+                <button class="personality-btn" data-personality="creative">🎨 Créatif</button>
+                <button class="personality-btn" data-personality="funny">😄 Drôle</button>
+            </div>
+        </div>
+
+        <div class="language-selector" id="langSelector">
+            <button class="lang-btn active" data-lang="fr">🇫🇷 Français</button>
+            <button class="lang-btn" data-lang="en">🇺🇸 English</button>
+            <button class="lang-btn" data-lang="auto">🔄 Auto</button>
+        </div>
+
+        <div class="main-nav" id="mainNav">
+            <button class="main-nav-btn active" data-view="view-chat">💬 Chat</button>
+            <button class="main-nav-btn" data-view="view-config">⚙️ Configuration</button>
+            <button class="main-nav-btn" data-view="view-diagnostics">📊 Diagnostics</button>
+        </div>
+
+        <div class="main-content">
+            <div class="view active" id="view-chat">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message ai">
+                        <div class="message-avatar">🤖</div>
+                        <div class="message-bubble">
+                            Salut ! Je suis ton assistant IA décontracté ! 😊 Comment ça va aujourd'hui ?
+                            <div class="message-actions">
+                                <button class="message-btn" title="Écouter">🔊</button>
+                                <button class="message-btn" title="Copier">📋</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="message ai">
+                        <div class="message-avatar">🤖</div>
+                        <div class="message-bubble">
+                            Je réfléchis <div class="typing-dots"><span></span><span></span><span></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-container">
+                    <div class="plugins-bar">
+                        <button class="plugin-btn" onclick="openPlugin('websearch')">🔍 Recherche</button>
+                        <button class="plugin-btn" onclick="openPlugin('calculator')">🔢 Calculette</button>
+                        <button class="plugin-btn" onclick="openPlugin('weather')">🌤️ Météo</button>
+                        <button class="plugin-btn" onclick="openPlugin('jokes')">😂 Blagues</button>
+                        <button class="plugin-btn" onclick="openPlugin('tips')">💡 Conseils</button>
+                    </div>
+                    
+                    <div class="input-row">
+                        <textarea class="input-field" id="messageInput" placeholder="Tape ton message ici..." rows="1"></textarea>
+                        <div class="input-controls">
+                            <button class="control-btn voice-btn" id="voiceBtn" title="Message vocal">🎤</button>
+                            <button class="control-btn send-btn" id="sendBtn" title="Envoyer">📤</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view" id="view-config">
+                <div class="panel">
+                    <!-- Tabs Navigation -->
+                    <div class="config-tabs" id="configTabs">
+                        <button class="config-tab active" data-tab="general">⚙️ Général</button>
+                        <button class="config-tab" data-tab="cloud">☁️ Cloud</button>
+                        <button class="config-tab" data-tab="local">💻 Local</button>
+                        <button class="config-tab" data-tab="audio">🎤 Audio</button>
+                        <button class="config-tab" data-tab="hotword">🔊 Hotword</button>
+                        <button class="config-tab" data-tab="tts">🗣️ TTS</button>
+                        <button class="config-tab" data-tab="advanced">🔧 Avancé</button>
+                    </div>
+                    
+                    <!-- Tab Content: General -->
+                    <div class="config-tab-content active" data-content="general">
+                    <div class="panel-section">
+                        <h3>Mode général</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Mode
+                                    <select id="configModeSelect">
+                                        <option value="cloud">Cloud</option>
+                                        <option value="local">Local</option>
+                                    </select>
+                                </label>
+                                <label>Modèle sélectionné
+                                    <select id="configSelectedModel">
+                                        <option value="">– Choisir –</option>
+                                        <option value="deepseek-r1:7b">DeepSeek R1 7B</option>
+                                        <option value="gpt-oss:120b">GPT-OSS 120B</option>
+                                        <option value="gpt-4o-mini">GPT-4o Mini</option>
+                                        <option value="llama3.2">Llama 3.2</option>
+                                        <option value="mistral-nemo">Mistral Nemo</option>
+                                        <option value="custom">Autre (personnalisé)</option>
+                                    </select>
+                                    <input type="text" id="configSelectedModelCustom" class="custom-input hidden" placeholder="Nom du modèle personnalisé">
+                                </label>
+                            </div>
+                        </div>
+                        <button class="panel-button" id="saveModeConfigBtn">Sauvegarder</button>
+                    </div>
+                    </div>
+                    
+                    <!-- Tab Content: Cloud -->
+                    <div class="config-tab-content" data-content="cloud">
+                    <div class="panel-section">
+                        <h4>☁️ Cloud (Ollama Cloud API)</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>
+                                    <span style="font-weight: 500; margin-bottom: 4px;">Provider</span>
+                                    <select id="configCloudProvider">
+                                        <option value="">– Choisir –</option>
+                                        <option value="ollama">Ollama</option>
+                                        <option value="openai">OpenAI</option>
+                                        <option value="groq">Groq</option>
+                                        <option value="perplexity">Perplexity</option>
+                                        <option value="custom">Autre (personnalisé)</option>
+                                    </select>
+                                    <input type="text" id="configCloudProviderCustom" class="custom-input hidden" placeholder="Provider personnalisé">
+                                </label>
+                                <label>
+                                    <span style="font-weight: 500; margin-bottom: 4px;">🔑 API Key Ollama Cloud</span>
+                                    <input type="password" id="configCloudApiKey" placeholder="Entrez votre clé API Ollama Cloud">
+                                    <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Obtenez votre clé sur <a href="https://ollama.com/account" target="_blank" style="color: #667eea;">ollama.com/account</a></small>
+                                </label>
+                                <label>
+                                    <span style="font-weight: 500; margin-bottom: 4px;">Modèle</span>
+                                    <select id="configCloudModel">
+                                        <option value="">– Choisir –</option>
+                                        <option value="deepseek-r1:7b">DeepSeek R1 7B</option>
+                                        <option value="gpt-oss:120b">GPT-OSS 120B</option>
+                                        <option value="gpt-4o-mini">GPT-4o Mini</option>
+                                        <option value="llama3.2">Llama 3.2</option>
+                                        <option value="mistral-nemo">Mistral Nemo</option>
+                                        <option value="custom">Autre (personnalisé)</option>
+                                    </select>
+                                    <input type="text" id="configCloudModelCustom" class="custom-input hidden" placeholder="Modèle cloud personnalisé">
+                                </label>
+                            </div>
+                        </div>
+                        <button class="panel-button" id="saveCloudConfigBtn">Sauvegarder</button>
+                    </div>
+                    </div>
+                    
+                    <!-- Tab Content: Local -->
+                    <div class="config-tab-content" data-content="local">
+                    <div class="panel-section">
+                        <h4>Serveur local</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>URL
+                                    <input type="text" id="configLocalUrl" placeholder="http://127.0.0.1:11434">
+                                </label>
+                                <label>Modèle
+                                    <select id="configLocalModel">
+                                        <option value="">– Choisir –</option>
+                                        <option value="llama3.2:3b">Llama 3.2 3B</option>
+                                        <option value="phi-4">Phi-4</option>
+                                        <option value="mistral-small">Mistral Small</option>
+                                        <option value="neural-chat">Neural Chat</option>
+                                        <option value="custom">Autre (personnalisé)</option>
+                                    </select>
+                                    <input type="text" id="configLocalModelCustom" class="custom-input hidden" placeholder="Modèle local personnalisé">
+                                </label>
+                            </div>
+                        </div>
+                        <button class="panel-button" id="saveLocalConfigBtn">Sauvegarder</button>
+                    </div>
+                    </div>
+                    
+                    <!-- Tab Content: Audio -->
+                    <div class="config-tab-content" data-content="audio">
+                    <div class="panel-section">
+                        <h4>Web Search & Pensée</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="configWebSearchEnabled">
+                                    Web search activé
+                                </label>
+                                <label>Provider
+                                    <input type="text" id="configWebSearchProvider" placeholder="ollama">
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="configThinkingEnabled">
+                                    Thinking trace
+                                </label>
+                                <label>Dernier message
+                                    <input type="text" id="configThinkingLast" placeholder="(auto)">
+                                </label>
+                            </div>
+                        </div>
+                        <button class="panel-button" id="saveWebThinkingBtn">Sauvegarder</button>
+                    </div>
+
+                    <div class="panel-section">
+                        <h4>Vision & Audio</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="configVisionEnabled">
+                                    Vision activée
+                                </label>
+                                <label>Modèle vision
+                                    <select id="configVisionModel">
+                                        <option value="">– Choisir –</option>
+                                        <option value="llava:13b">LLaVA 13B</option>
+                                        <option value="gpt-4o-mini-vision">GPT-4o Mini Vision</option>
+                                        <option value="pixtral-12b">Pixtral 12B</option>
+                                        <option value="ideogram-v1">Ideogram V1</option>
+                                        <option value="custom">Autre (personnalisé)</option>
+                                    </select>
+                                    <input type="text" id="configVisionModelCustom" class="custom-input hidden" placeholder="Modèle vision personnalisé">
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="configAudioEnabled">
+                                    Audio activé
+                                </label>
+                                <label>Moteur STT
+                                    <select id="configAudioEngine">
+                                        <option value="whisper_server">Whisper Server (local HTTP)</option>
+                                        <option value="legacy_google">Google Speech (Android)</option>
+                                    </select>
+                                </label>
+                                <label>Modèle audio
+                                    <select id="configAudioModel">
+                                        <option value="">– Choisir –</option>
+                                        <option value="ggml-small.bin">GGML Small</option>
+                                        <option value="ggml-medium.bin">GGML Medium</option>
+                                        <option value="ggml-large.bin">GGML Large</option>
+                                        <option value="whisper-large-v3">Whisper Large V3</option>
+                                        <option value="custom">Autre (personnalisé)</option>
+                                    </select>
+                                    <input type="text" id="configAudioModelCustom" class="custom-input hidden" placeholder="Modèle audio personnalisé">
+                                </label>
+                                <label class="engine-whisper-only">Endpoint Whisper Server
+                                    <input type="text" id="configAudioEndpoint" placeholder="http://127.0.0.1:11400/inference">
+                                </label>
+                                <label>Timeout (ms)
+                                    <input type="number" id="configAudioTimeout" placeholder="8000">
+                                </label>
+                                <label>Silence (dB)
+                                    <input type="number" step="0.1" id="configAudioSilenceDb" placeholder="-45">
+                                </label>
+                                <label>Silence (ms)
+                                    <input type="number" id="configAudioSilenceMs" placeholder="1200">
+                                </label>
+                            </div>
+                        </div>
+                        <button class="panel-button" id="saveVisionAudioBtn">Sauvegarder</button>
+                        <div class="panel-actions" style="margin-top:10px;">
+                            <button class="panel-button secondary" onclick="sttPingAction()">Ping Whisper</button>
+                            <button class="panel-button" onclick="sttTestOnceAction()">Tester STT</button>
+                        </div>
+                    </div>
+                    </div>
+                    
+                    <!-- Tab Content: Hotword -->
+                    <div class="config-tab-content" data-content="hotword">
+                        <!-- Configuration générale -->
+                        <div class="panel-section">
+                            <h4>⚙️ Configuration générale</h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label style="min-height: auto;">
+                                        <input type="checkbox" id="configHotwordEnabled">
+                                        <span>Hotword activé</span>
+                                    </label>
+                                    <label>
+                                        <span style="font-weight: 500; margin-bottom: 4px;">Moteur</span>
+                                        <select id="configHotwordEngine">
+                                            <option value="openwakeword">openWakeWord (recommandé)</option>
+                                            <option value="porcupine">Porcupine (legacy)</option>
+                                        </select>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label style="min-height: auto;">
+                                        <input type="checkbox" id="configHotwordAutoListen">
+                                        <span>Ecoute auto après hotword (STT → IA → TTS)</span>
+                                    </label>
+                                    <label style="min-height: auto;">
+                                        <input type="checkbox" id="configHotwordDebugScores">
+                                        <span>Logs score (debug)</span>
+                                    </label>
+                                    <label>
+                                        <span style="font-weight: 500; margin-bottom: 4px;">Mode de communication par défaut</span>
+                                        <select id="configHotwordCommMode">
+                                            <option value="respond_ai_outside_kitt">Réponse IA (hors interface KITT)</option>
+                                            <option value="open_kitt_ui">Ouvrir l'interface KITT (legacy)</option>
+                                        </select>
+                                    </label>
+                                </div>
+                                <div class="form-group porcupine-only">
+                                    <label>
+                                        <span style="font-weight: 500; margin-bottom: 4px;">Access Key (Porcupine)</span>
+                                        <input type="text" id="configHotwordAccessKey" placeholder="Porcupine access key">
+                                    </label>
+                                    <label>
+                                        <span style="font-weight: 500; margin-bottom: 4px;">Fichier keyword (Porcupine)</span>
+                                        <input type="text" id="configHotwordKeyword" placeholder="hotwords/kit-kat_fr_android_v3_0_0.ppn">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="panel-actions" style="margin-top: 16px;">
+                                <button class="panel-button" id="saveHotwordBtn">Sauvegarder la configuration</button>
+                            </div>
+                        </div>
+
+                        <!-- Liste des modèles -->
+                        <div class="panel-section">
+                            <h4>📋 Modèles Hotword</h4>
+                            <div class="hotword-models-grid" id="hotwordModelsGrid">
+                                <div class="hotword-model-card-empty">
+                                    Aucun modèle configuré. Utilisez "Importer depuis assets" ou "Ajouter un modèle" ci-dessous.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ajouter un nouveau modèle -->
+                        <div class="panel-section">
+                            <h4>➕ Ajouter un modèle</h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>
+                                        <span style="font-weight: 500; margin-bottom: 4px;">Nom du modèle</span>
+                                        <input type="text" id="hotwordNewName" placeholder="hey_kitt">
+                                    </label>
+                                    <label>
+                                        <span style="font-weight: 500; margin-bottom: 4px;">Chemin asset</span>
+                                        <input type="text" id="hotwordNewAsset" placeholder="hotwords/.../file.tflite">
+                                    </label>
+                                    <label>
+                                        <span style="font-weight: 500; margin-bottom: 4px;">Seuil de détection</span>
+                                        <input type="number" step="0.01" id="hotwordNewThreshold" placeholder="0.55" min="0" max="1">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="panel-actions" style="margin-top: 16px;">
+                                <button class="panel-button secondary" id="importHotwordAssetsBtn">📥 Importer depuis assets</button>
+                                <button class="panel-button secondary" id="addHotwordModelBtn">➕ Ajouter le modèle</button>
+                            </div>
+                        </div>
+
+                        <!-- Contrôles du service -->
+                        <div class="panel-section">
+                            <h4>🎮 Contrôles du service</h4>
+                            <div class="panel-actions" style="margin-top: 12px;">
+                                <button class="panel-button" id="hotwordStartBtn">▶️ Démarrer</button>
+                                <button class="panel-button secondary" id="hotwordStopBtn">⏹️ Arrêter</button>
+                                <button class="panel-button" id="hotwordRestartBtn">🔄 Redémarrer</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab Content: TTS -->
+                    <div class="config-tab-content" data-content="tts">
+                    <div class="panel-section">
+                        <h4>TTS</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Mode
+                                    <input type="text" id="configTtsMode" placeholder="local">
+                                </label>
+                                <label>Voix
+                                    <select id="configTtsVoice">
+                                        <option value="">– Choisir –</option>
+                                        <option value="kitt">KITT</option>
+                                        <option value="glados">GLaDOS</option>
+                                        <option value="karr">KARR</option>
+                                        <option value="sarah">Sarah</option>
+                                        <option value="jarvis">Jarvis</option>
+                                        <option value="custom">Autre (personnalisé)</option>
+                                    </select>
+                                    <input type="text" id="configTtsVoiceCustom" class="custom-input hidden" placeholder="Voix personnalisée">
+                                </label>
+                            </div>
+                        </div>
+                        <button class="panel-button" id="saveTtsBtn">Sauvegarder</button>
+                    </div>
+                    </div>
+                    
+                    <!-- Tab Content: Advanced -->
+                    <div class="config-tab-content" data-content="advanced">
+                    <div class="panel-section">
+                        <h4>Prompts personnalisés</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Prompt KITT
+                                    <textarea id="configPromptKitt" rows="2"></textarea>
+                                </label>
+                                <label>Prompt GLaDOS
+                                    <textarea id="configPromptGlados" rows="2"></textarea>
+                                </label>
+                                <label>Prompt KARR
+                                    <textarea id="configPromptKarr" rows="2"></textarea>
+                                </label>
+                            </div>
+                        </div>
+                        <button class="panel-button" id="savePromptsBtn">Sauvegarder</button>
+                    </div>
+
+                    <div class="panel-section">
+                        <h4>Contraintes</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Max context tokens
+                                    <input type="number" id="configMaxContext" placeholder="8192">
+                                </label>
+                                <label>Max réponse tokens
+                                    <input type="number" id="configMaxResponse" placeholder="2048">
+                                </label>
+                            </div>
+                        </div>
+                        <button class="panel-button" id="saveConstraintsBtn">Sauvegarder</button>
+                    </div>
+
+                    <div class="panel-section">
+                        <h4>JSON brut</h4>
+                        <p class="panel-placeholder">Aperçu du fichier <code>ai_config.json</code>. Utilisez l’éditeur pour des modifications avancées.</p>
+                        <pre class="panel-json" id="aiConfigPreview">Chargement...</pre>
+                        <div class="panel-actions">
+                            <button class="panel-button" id="aiConfigReloadBtn">Recharger</button>
+                            <button class="panel-button secondary" id="aiConfigEditBtn">Modifier JSON</button>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view" id="view-diagnostics">
+                <div class="panel">
+                    <div class="panel-section">
+                        <h3>Diagnostics</h3>
+                        <p class="panel-placeholder">
+                            Les tests avancés (logs, état des services, réseau) sont disponibles dans l'application principale. Cette vue résume l'état général.
+                        </p>
+                        <div class="panel-actions">
+                            <button class="panel-button" id="diagnosticsRefreshBtn" disabled>Rafraîchir</button>
+                            <button class="panel-button secondary" id="diagnosticsLogsBtn" disabled>Voir les logs</button>
+                        </div>
+                    </div>
+                    <div class="panel-section">
+                        <h4>Statut rapide</h4>
+                        <div class="mini-cards-grid" id="statusCardsGrid">
+                            <div class="mini-card">
+                                <div class="mini-card-header">
+                                    <span class="mini-card-label">Services IA</span>
+                                    <span class="mini-card-status active"></span>
+                                </div>
+                                <div class="mini-card-value">Actifs via l'application</div>
+                            </div>
+                            <div class="mini-card">
+                                <div class="mini-card-header">
+                                    <span class="mini-card-label">WebSocket</span>
+                                    <span class="mini-card-status active"></span>
+                                </div>
+                                <div class="mini-card-value">Bridge Android natif</div>
+                            </div>
+                            <div class="mini-card">
+                                <div class="mini-card-header">
+                                    <span class="mini-card-label">Hotword</span>
+                                    <span class="mini-card-status active"></span>
+                                </div>
+                                <div class="mini-card-value">Détection locale</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="plugin-modal" id="pluginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Plugin</h3>
+                <button class="close-btn" onclick="closePlugin()">×</button>
+            </div>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <div class="plugin-modal" id="infoModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🚀 Informations Système</h3>
+                <button class="close-btn" onclick="closeInfo()">×</button>
+            </div>
+            <div id="infoContent">
+                <div style="padding: 20px; text-align: center;">
+                    <h4>📱 Application ChatAI-Android</h4>
+                    <p style="margin: 10px 0;">Version complète avec toutes les fonctionnalités principales.</p>
+                    
+                    <div style="margin: 20px 0; text-align: left;">
+                        <h5 style="margin-bottom: 10px; color: #667eea;">🌐 Serveurs Locaux :</h5>
+                        <p style="margin: 5px 0;"><strong>HTTP Server :</strong> <span id="httpStatus">Vérification...</span></p>
+                        <p style="margin: 5px 0;"><strong>WebSocket Server :</strong> <span id="wsStatus">Vérification...</span></p>
+                        <p style="margin: 5px 0;"><strong>Service IA :</strong> <span id="aiStatus">Vérification...</span></p>
+                    </div>
+                    
+                    <div style="margin: 20px 0; text-align: left;">
+                        <h5 style="margin-bottom: 10px; color: #667eea;">🔌 Plugins Disponibles :</h5>
+                        <p style="margin: 5px 0;">🔍 Recherche Web | 🔢 Calculette | 🌤️ Météo</p>
+                        <p style="margin: 5px 0;">😂 Blagues | 💡 Conseils</p>
+                    </div>
+                    
+                    <div style="margin: 20px 0; text-align: left;">
+                        <h5 style="margin-bottom: 10px; color: #667eea;">🔒 Sécurité :</h5>
+                        <p style="margin: 5px 0;">✅ Validation XSS</p>
+                        <p style="margin: 5px 0;">✅ Cache sécurisé</p>
+                        <p style="margin: 5px 0;">✅ Gestion des permissions Android</p>
+                    </div>
+                    
+                    <button onclick="testServers()" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #4ECDC4, #44A08D); color: white; border: none; border-radius: 8px; margin-top: 15px; font-weight: 600; cursor: pointer;">🧪 Tester les Serveurs</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="plugin-modal" id="jsonModal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Éditeur ai_config.json</h3>
+                <button class="close-btn" id="closeJsonModal">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 10px; font-size: 12px; color: #94a3b8;">Chemin: /storage/emulated/0/ChatAI-Files/config/ai_config.json</p>
+                <textarea id="aiConfigEditor" style="width: 100%; height: 260px; background: #0f172a; color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 8px; padding: 12px; font-family: 'Fira Code', 'Courier New', monospace; font-size: 12px; resize: vertical;"></textarea>
+                <div class="modal-actions" style="margin-top: 12px; display: flex; gap: 8px;">
+                    <button class="panel-button" id="aiConfigSaveBtn">Sauvegarder</button>
+                    <button class="panel-button secondary" id="aiConfigEditorReloadBtn">Recharger</button>
+                </div>
+                <div id="aiConfigFeedback" style="margin-top: 8px; font-size: 12px; color: #94a3b8;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="chat.js"></script>
+    <script>
+        // Fonctions utilitaires globales pour les plugins
+        
+        function speakText(button) {
+            if ('speechSynthesis' in window && window.secureChatApp) {
+                const messageText = button.closest('.message-bubble').textContent.replace(/[🔊📋]/g, '').trim();
+                window.secureChatApp.speakText(messageText);
+            }
+        }
+
+        function openPlugin(pluginType) {
+            const modal = document.getElementById('pluginModal');
+            const title = document.getElementById('modalTitle');
+            const content = document.getElementById('modalContent');
+            
+            const plugins = {
+                websearch: {
+                    title: '🔍 Recherche Web',
+                    content: `<div style="text-align: center;">
+                        <input type="text" id="searchQuery" placeholder="Bitcoin, météo, actualités..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; font-size: 14px;">
+                        <button onclick="performWebSearch()" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🔍 Rechercher sur le web</button>
+                        <div id="searchResults" style="background: #f8f9fa; padding: 15px; border-radius: 8px; display: none; margin-top: 10px; max-height: 300px; overflow-y: auto; text-align: left; font-size: 13px; line-height: 1.6;"></div>
+                    </div>`
+                },
+                calculator: {
+                    title: '🔢 Calculette',
+                    content: `<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                        <input type="text" id="calcDisplay" readonly style="grid-column: span 4; padding: 15px; font-size: 18px; text-align: right; border: 1px solid #ddd; border-radius: 8px; background: #f8f9fa;">
+                        <button onclick="clearCalc()" style="grid-column: span 2; padding: 15px; background: #ff4757; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">C</button>
+                        <button onclick="deleteLast()" style="grid-column: span 2; padding: 15px; background: #ffa502; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">⌫</button>
+                        <button onclick="addToCalc('7')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">7</button>
+                        <button onclick="addToCalc('8')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">8</button>
+                        <button onclick="addToCalc('9')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">9</button>
+                        <button onclick="addToCalc('/')" style="padding: 15px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">/</button>
+                        <button onclick="addToCalc('4')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">4</button>
+                        <button onclick="addToCalc('5')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">5</button>
+                        <button onclick="addToCalc('6')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">6</button>
+                        <button onclick="addToCalc('*')" style="padding: 15px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">*</button>
+                        <button onclick="addToCalc('1')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">1</button>
+                        <button onclick="addToCalc('2')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">2</button>
+                        <button onclick="addToCalc('3')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">3</button>
+                        <button onclick="addToCalc('-')" style="padding: 15px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">-</button>
+                        <button onclick="addToCalc('0')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">0</button>
+                        <button onclick="addToCalc('.')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">.</button>
+                        <button onclick="calculate()" style="padding: 15px; background: #4ECDC4; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold;">=</button>
+                        <button onclick="addToCalc('+')" style="padding: 15px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">+</button>
+                    </div>`
+                },
+                weather: {
+                    title: '🌤️ Météo',
+                    content: `<div style="text-align: center;">
+                        <input type="text" id="cityInput" placeholder="Entrez une ville..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; font-size: 14px;">
+                        <button onclick="getWeather()" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #4ECDC4, #44A08D); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Obtenir la météo</button>
+                        <div id="weatherResult" style="background: #f8f9fa; padding: 15px; border-radius: 8px; display: none; margin-top: 10px;"></div>
+                    </div>`
+                },
+                jokes: {
+                    title: '😂 Générateur de Blagues',
+                    content: `<div style="text-align: center;">
+                        <button onclick="getRandomJoke()" style="width: 100%; padding: 15px; background: linear-gradient(135deg, #ff6b6b, #ee5a6f); color: white; border: none; border-radius: 8px; margin-bottom: 15px; font-weight: bold; cursor: pointer;">🎲 Blague aléatoire</button>
+                        <div id="jokeResult" style="background: #f8f9fa; padding: 20px; border-radius: 8px; min-height: 80px; display: flex; align-items: center; justify-content: center; font-style: italic; color: #666; line-height: 1.6;">Cliquez pour une blague ! 😄</div>
+                    </div>`
+                },
+                tips: {
+                    title: '💡 Conseils du Jour',
+                    content: `<div style="text-align: center;">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px;">
+                            <button onclick="getTip('productivity')" style="padding: 12px; background: #4ECDC4; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">📈 Productivité</button>
+                            <button onclick="getTip('health')" style="padding: 12px; background: #ff6b6b; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🏃‍♂️ Santé</button>
+                            <button onclick="getTip('tech')" style="padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">💻 Tech</button>
+                            <button onclick="getTip('lifestyle')" style="padding: 12px; background: #ffa502; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🌟 Lifestyle</button>
+                        </div>
+                        <div id="tipResult" style="background: #f8f9fa; padding: 20px; border-radius: 8px; min-height: 100px; display: flex; align-items: center; justify-content: center; font-style: italic; color: #666; line-height: 1.6;">Choisissez une catégorie ! 💡</div>
+                    </div>`
+                }
+            };
+            
+            const plugin = plugins[pluginType];
+            if (plugin) {
+                title.textContent = plugin.title;
+                content.innerHTML = plugin.content;
+                modal.style.display = 'block';
+            }
+        }
+
+        function closePlugin() {
+            document.getElementById('pluginModal').style.display = 'none';
+        }
+
+        // Fonctions de la calculatrice
+        function addToCalc(value) { 
+            const display = document.getElementById('calcDisplay');
+            if (display) display.value += value; 
+        }
+
+        function clearCalc() { 
+            const display = document.getElementById('calcDisplay');
+            if (display) display.value = ''; 
+        }
+
+        function deleteLast() { 
+            const display = document.getElementById('calcDisplay');
+            if (display) display.value = display.value.slice(0, -1); 
+        }
+
+        function calculate() {
+            const display = document.getElementById('calcDisplay');
+            if (!display) return;
+            
+            try {
+                const expression = display.value;
+                if (!/^[0-9+\-*/.() ]+$/.test(expression)) {
+                    display.value = 'Erreur';
+                    return;
+                }
+                
+                const result = Function('"use strict"; return (' + expression + ')')();
+                display.value = result;
+            } catch (error) {
+                display.value = 'Erreur';
+            }
+        }
+
+        // Fonction de recherche web
+        function performWebSearch() {
+            const searchQuery = document.getElementById('searchQuery');
+            const searchResults = document.getElementById('searchResults');
+            if (!searchQuery || !searchResults) return;
+            
+            const query = searchQuery.value.trim();
+            if (!query) return;
+            
+            const safeQuery = query.replace(/[<>]/g, '');
+            
+            searchResults.innerHTML = '<div style="text-align: center; padding: 20px;">🔄 Recherche en cours...</div>';
+            searchResults.style.display = 'block';
+            
+            fetch(`/api/search?q=${encodeURIComponent(safeQuery)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        searchResults.innerHTML = `
+                            <h4 style="margin-bottom: 10px;">🔍 Résultats pour "${data.query}":</h4>
+                            <div style="white-space: pre-wrap;">${data.results}</div>
+                        `;
+                    } else {
+                        searchResults.innerHTML = `<p style="color: #999;">Aucun résultat trouvé pour "${data.query}"</p>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur recherche web:', error);
+                    searchResults.innerHTML = `<p style="color: #ff4757;">❌ Erreur: ${error.message}</p>`;
+                });
+        }
+
+        // Fonction météo
+        function getWeather() {
+            const cityInput = document.getElementById('cityInput');
+            const weatherResult = document.getElementById('weatherResult');
+            if (!cityInput || !weatherResult) return;
+            
+            const city = cityInput.value.trim();
+            if (!city) return;
+            
+            const safeCity = city.replace(/[<>]/g, '');
+            
+            if (window.secureChatApp?.androidInterface?.getHttpServerUrl) {
+                const serverUrl = window.secureChatApp.androidInterface.getHttpServerUrl();
+                fetch(`${serverUrl}/api/weather/${encodeURIComponent(safeCity)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        weatherResult.innerHTML = `
+                            <h3 style="margin-bottom: 10px;">📍 ${data.city}</h3>
+                            <div style="font-size: 32px; margin: 10px 0;">🌡️ ${data.temperature}°C</div>
+                            <div style="font-size: 18px; margin: 5px 0;">${data.condition}</div>
+                            <div style="font-size: 13px; color: #666; margin-top: 10px;">Humidité: ${data.humidity}% | Vent: ${data.wind}</div>
+                        `;
+                        weatherResult.style.display = 'block';
+                    })
+                    .catch(error => {
+                        console.error('Erreur API météo:', error);
+                        getWeatherFallback(safeCity, weatherResult);
+                    });
+            } else {
+                getWeatherFallback(safeCity, weatherResult);
+            }
+        }
+
+        function getWeatherFallback(city, resultElement) {
+            const temp = Math.floor(Math.random() * 25) + 5;
+            const conditions = ['Ensoleillé ☀️', 'Nuageux ☁️', 'Pluvieux 🌧️'];
+            const condition = conditions[Math.floor(Math.random() * conditions.length)];
+            
+            resultElement.innerHTML = `
+                <h3 style="margin-bottom: 10px;">📍 ${city}</h3>
+                <div style="font-size: 32px; margin: 10px 0;">🌡️ ${temp}°C</div>
+                <div style="font-size: 18px;">${condition}</div>
+            `;
+            resultElement.style.display = 'block';
+        }
+
+        // Fonction blagues
+        function getRandomJoke() {
+            const jokeResult = document.getElementById('jokeResult');
+            if (!jokeResult) return;
+            
+            if (window.secureChatApp?.androidInterface?.getHttpServerUrl) {
+                const serverUrl = window.secureChatApp.androidInterface.getHttpServerUrl();
+                fetch(`${serverUrl}/api/jokes/random`)
+                    .then(response => response.json())
+                    .then(data => {
+                        jokeResult.innerHTML = data.joke;
+                    })
+                    .catch(error => {
+                        console.error('Erreur API blagues:', error);
+                        getRandomJokeFallback(jokeResult);
+                    });
+            } else {
+                getRandomJokeFallback(jokeResult);
+            }
+        }
+
+        function getRandomJokeFallback(resultElement) {
+            const jokes = [
+                "Pourquoi les plongeurs plongent-ils toujours en arrière ? Parce que sinon, ils tombent dans le bateau ! 😂",
+                "Comment appelle-t-on un chat tombé dans un pot de peinture ? Un chat-mallow ! 🎨",
+                "Que dit un escargot quand il croise une limace ? 'Regarde le nudiste !' 🐌",
+                "Qu'est-ce qu'un crocodile qui surveille une école ? Un Lacoste Gardien ! 🐊",
+                "Pourquoi les poissons n'aiment pas jouer au tennis ? Parce qu'ils ont peur du filet ! 🐟"
+            ];
+            resultElement.innerHTML = jokes[Math.floor(Math.random() * jokes.length)];
+        }
+
+        // Fonction conseils
+        function getTip(category) {
+            const tipResult = document.getElementById('tipResult');
+            if (!tipResult) return;
+            
+            if (window.secureChatApp?.androidInterface?.getHttpServerUrl) {
+                const serverUrl = window.secureChatApp.androidInterface.getHttpServerUrl();
+                fetch(`${serverUrl}/api/tips/${encodeURIComponent(category)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        tipResult.innerHTML = data.tip;
+                    })
+                    .catch(error => {
+                        console.error('Erreur API conseils:', error);
+                        getTipFallback(category, tipResult);
+                    });
+            } else {
+                getTipFallback(category, tipResult);
+            }
+        }
+
+        function getTipFallback(category, resultElement) {
+            const tips = {
+                productivity: "🏆 Technique Pomodoro : Travaillez 25 minutes, puis faites une pause de 5 minutes. Répétez 4 fois, puis prenez une pause de 15-30 minutes.",
+                health: "💧 Buvez un grand verre d'eau dès le réveil pour réhydrater votre corps après la nuit. Votre cerveau vous remerciera !",
+                tech: "🔐 Utilisez un gestionnaire de mots de passe pour créer et stocker des mots de passe uniques et forts pour chaque compte.",
+                lifestyle: "📚 Lisez 10 pages par jour. En un an, vous aurez lu environ 3650 pages, soit environ 12 livres !"
+            };
+            resultElement.innerHTML = tips[category] || "Conseil non disponible";
+        }
+
+        // Fonctions de navigation
+        function showInfo() {
+            const modal = document.getElementById('infoModal');
+            modal.style.display = 'block';
+            checkServerStatus();
+        }
+
+        function closeInfo() {
+            document.getElementById('infoModal').style.display = 'none';
+        }
+
+        function checkServerStatus() {
+            const httpStatus = document.getElementById('httpStatus');
+            const wsStatus = document.getElementById('wsStatus');
+            const aiStatus = document.getElementById('aiStatus');
+            
+            if (window.secureChatApp?.androidInterface) {
+                try {
+                    const httpUrl = window.secureChatApp.androidInterface.getHttpServerUrl?.();
+                    if (httpUrl) {
+                        httpStatus.innerHTML = '✅ Actif (' + httpUrl + ')';
+                        httpStatus.style.color = 'green';
+                    } else {
+                        httpStatus.innerHTML = '❌ Inactif';
+                        httpStatus.style.color = 'red';
+                    }
+                } catch (e) {
+                    httpStatus.innerHTML = '❌ Erreur';
+                    httpStatus.style.color = 'red';
+                }
+                
+                try {
+                    const wsCount = window.secureChatApp.androidInterface.getWebSocketClientsCount?.() || 'N/A';
+                    wsStatus.innerHTML = '✅ Actif (' + wsCount + ' clients)';
+                    wsStatus.style.color = 'green';
+                } catch (e) {
+                    wsStatus.innerHTML = '❌ Erreur';
+                    wsStatus.style.color = 'red';
+                }
+                
+                try {
+                    const aiStats = window.secureChatApp.androidInterface.getAIServiceStats?.();
+                    if (aiStats && aiStats.includes('healthy')) {
+                        aiStatus.innerHTML = '✅ Actif';
+                        aiStatus.style.color = 'green';
+                    } else {
+                        aiStatus.innerHTML = '❌ Inactif';
+                        aiStatus.style.color = 'red';
+                    }
+                } catch (e) {
+                    aiStatus.innerHTML = '❌ Erreur';
+                    aiStatus.style.color = 'red';
+                }
+            } else {
+                httpStatus.innerHTML = '❌ Interface non disponible';
+                wsStatus.innerHTML = '❌ Interface non disponible';
+                aiStatus.innerHTML = '❌ Interface non disponible';
+            }
+        }
+
+        function testServers() {
+            const button = event.target;
+            button.innerHTML = '🔄 Test en cours...';
+            button.disabled = true;
+            
+            setTimeout(() => {
+                if (window.secureChatApp?.androidInterface) {
+                    const httpUrl = window.secureChatApp.androidInterface.getHttpServerUrl?.();
+                    if (httpUrl) {
+                        fetch(httpUrl + '/api/status')
+                            .then(response => response.json())
+                            .then(data => {
+                                alert('✅ Serveur HTTP : ' + data.server + ' (Version ' + data.version + ')');
+                            })
+                            .catch(error => {
+                                alert('❌ Erreur serveur HTTP : ' + error.message);
+                            });
+                    } else {
+                        alert('❌ Serveur HTTP non disponible');
+                    }
+                } else {
+                    alert('❌ Interface Android non disponible');
+                }
+                
+                button.innerHTML = '🧪 Tester les Serveurs';
+                button.disabled = false;
+            }, 1000);
+        }
+
+        function openSettings() {
+            if (window.secureChatApp?.androidInterface?.openSettingsActivity) {
+                window.secureChatApp.androidInterface.openSettingsActivity();
+            } else {
+                alert('⚙️ Paramètres\n🚧 Fonctionnalité en développement');
+            }
+        }
+
+        function openDatabase() {
+            if (window.secureChatApp?.androidInterface?.openDatabaseActivity) {
+                window.secureChatApp.androidInterface.openDatabaseActivity();
+            } else {
+                alert('💾 Base de données\n🚧 Fonctionnalité en développement');
+            }
+        }
+
+        function openServers() {
+            if (window.secureChatApp?.androidInterface?.openServerActivity) {
+                window.secureChatApp.androidInterface.openServerActivity();
+            } else {
+                alert('🌐 Serveurs\n🚧 Fonctionnalité en développement');
+            }
+        }
+
+        // STT helpers
+        function sttPingAction() {
+            try {
+                const ok = window.secureChatApp?.androidInterface?.sttPing?.();
+                alert(ok ? '✅ Whisper Server disponible' : '❌ Whisper Server indisponible');
+            } catch (e) {
+                alert('❌ Erreur ping STT: ' + e.message);
+            }
+        }
+        function sttTestOnceAction() {
+            try {
+                window.secureChatApp?.androidInterface?.sttTestOnce?.();
+            } catch (e) {
+                alert('❌ Erreur test STT: ' + e.message);
+            }
+        }
+
+        // Ajouter les événements pour les boutons de navigation
+        document.addEventListener('DOMContentLoaded', () => {
+            const infoBtn = document.getElementById('infoBtn');
+            if (infoBtn) {
+                infoBtn.addEventListener('click', showInfo);
+            }
+            
+            const settingsBtn = document.getElementById('settingsBtn');
+            if (settingsBtn) {
+                settingsBtn.addEventListener('click', openSettings);
+            }
+            
+            const databaseBtn = document.getElementById('databaseBtn');
+            if (databaseBtn) {
+                databaseBtn.addEventListener('click', openDatabase);
+            }
+            
+            const serverBtn = document.getElementById('serverBtn');
+            if (serverBtn) {
+                serverBtn.addEventListener('click', openServers);
+            }
+        });
+    </script>
+</body>
+</html>

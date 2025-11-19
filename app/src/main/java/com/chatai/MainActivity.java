@@ -138,7 +138,11 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
             }
         });
 
-        webView.loadUrl("file:///android_asset/webapp/index.html");
+        // Différer le chargement de la WebView pour éviter de bloquer le thread principal
+        // Cela permet au premier frame de s'afficher avant le chargement lourd
+        webView.post(() -> {
+            webView.loadUrl("file:///android_asset/webapp/index.html");
+        });
     }
 
     private void setupKittInterface() {

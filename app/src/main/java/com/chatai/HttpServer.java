@@ -419,9 +419,8 @@ public class HttpServer {
         try {
             String safeCity = SecurityUtils.sanitizeInput(city);
             
-            // Récupérer clé API Ollama depuis SharedPreferences
-            android.content.SharedPreferences prefs = context.getSharedPreferences("chatai_ai_config", android.content.Context.MODE_PRIVATE);
-            String ollamaApiKey = prefs.getString("ollama_cloud_api_key", "");
+            // Récupérer clé API Ollama depuis SecureConfig
+            String ollamaApiKey = secureConfig.getOllamaCloudApiKey() != null ? secureConfig.getOllamaCloudApiKey() : "";
             
             if (ollamaApiKey == null || ollamaApiKey.trim().isEmpty()) {
                 Log.w(TAG, "Ollama API key not configured - Using fallback data");
@@ -460,9 +459,8 @@ public class HttpServer {
             
             String safeQuery = SecurityUtils.sanitizeInput(query);
             
-            // Récupérer clé API Ollama (même SharedPreferences que KittAIService)
-            android.content.SharedPreferences prefs = context.getSharedPreferences("chatai_ai_config", android.content.Context.MODE_PRIVATE);
-            String ollamaApiKey = prefs.getString("ollama_cloud_api_key", "");
+            // Récupérer clé API Ollama depuis SecureConfig
+            String ollamaApiKey = secureConfig.getOllamaCloudApiKey() != null ? secureConfig.getOllamaCloudApiKey() : "";
             
             logVerbose("Generic search - Checking API key in 'chatai_ai_config': " + (ollamaApiKey != null && !ollamaApiKey.isEmpty() ? "FOUND (" + ollamaApiKey.length() + " chars)" : "EMPTY/NULL"));
             

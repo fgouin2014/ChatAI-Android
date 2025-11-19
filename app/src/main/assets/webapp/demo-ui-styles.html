@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Démo Styles UI - Glassmorphism vs Neumorphism</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            font-size: 32px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .demo-section {
+            margin-bottom: 60px;
+        }
+
+        .demo-title {
+            color: white;
+            font-size: 24px;
+            margin-bottom: 30px;
+            text-align: center;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        /* ========== GLASSMORPHISM ========== */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.35);
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.5);
+        }
+
+        .glass-card h3 {
+            color: white;
+            font-size: 20px;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .glass-card p {
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .glass-card .glass-input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .glass-card .glass-input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .glass-card .glass-button {
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .glass-card .glass-button:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(1.05);
+        }
+
+        /* ========== NEUMORPHISM ========== */
+        .neumorphic-container {
+            background: #e0e5ec;
+            padding: 40px;
+            border-radius: 30px;
+        }
+
+        .neumorphic-card {
+            background: #e0e5ec;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 
+                9px 9px 16px rgba(163, 177, 198, 0.6),
+                -9px -9px 16px rgba(255, 255, 255, 0.5);
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .neumorphic-card:hover {
+            box-shadow: 
+                inset 9px 9px 16px rgba(163, 177, 198, 0.6),
+                inset -9px -9px 16px rgba(255, 255, 255, 0.5);
+        }
+
+        .neumorphic-card h3 {
+            color: #4a5568;
+            font-size: 20px;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .neumorphic-card p {
+            color: #718096;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .neumorphic-input {
+            width: 100%;
+            padding: 12px;
+            background: #e0e5ec;
+            border: none;
+            border-radius: 15px;
+            color: #4a5568;
+            font-size: 14px;
+            margin-bottom: 10px;
+            box-shadow: 
+                inset 6px 6px 12px rgba(163, 177, 198, 0.6),
+                inset -6px -6px 12px rgba(255, 255, 255, 0.5);
+        }
+
+        .neumorphic-input:focus {
+            outline: none;
+            box-shadow: 
+                inset 4px 4px 8px rgba(163, 177, 198, 0.6),
+                inset -4px -4px 8px rgba(255, 255, 255, 0.5);
+        }
+
+        .neumorphic-button {
+            padding: 12px 24px;
+            background: #e0e5ec;
+            border: none;
+            border-radius: 15px;
+            color: #4a5568;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 
+                6px 6px 12px rgba(163, 177, 198, 0.6),
+                -6px -6px 12px rgba(255, 255, 255, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .neumorphic-button:hover {
+            box-shadow: 
+                inset 6px 6px 12px rgba(163, 177, 198, 0.6),
+                inset -6px -6px 12px rgba(255, 255, 255, 0.5);
+        }
+
+        .neumorphic-button:active {
+            box-shadow: 
+                inset 4px 4px 8px rgba(163, 177, 198, 0.6),
+                inset -4px -4px 8px rgba(255, 255, 255, 0.5);
+        }
+
+        /* ========== VOTRE STYLE ACTUEL (pour comparaison) ========== */
+        .current-style-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 2px solid rgba(102,126,234,0.2);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .current-style-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .current-style-card:hover {
+            box-shadow: 0 8px 24px rgba(102,126,234,0.2), 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-4px);
+            border-color: rgba(102,126,234,0.4);
+        }
+
+        .current-style-card:hover::before {
+            opacity: 1;
+        }
+
+        .current-style-card h3 {
+            color: #1e293b;
+            font-size: 20px;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .current-style-card p {
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .current-style-card .current-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid rgba(148,163,184,0.3);
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            color: #1e293b;
+            margin-bottom: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .current-style-card .current-input:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+
+        .current-style-card .current-button {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .current-style-card .current-button:hover {
+            box-shadow: 0 6px 16px rgba(102,126,234,0.4);
+            transform: translateY(-2px);
+        }
+
+        .info-box {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .info-box h2 {
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+
+        .info-box p {
+            color: #64748b;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Démonstration Styles UI</h1>
+
+        <div class="info-box">
+            <h2>📚 Explication des styles</h2>
+            <p><strong>Glassmorphism</strong> : Style "verre dépoli" avec transparence et flou d'arrière-plan. Effet moderne et élégant, populaire sur iOS et Windows 11.</p>
+            <p><strong>Neumorphism</strong> : Style "3D doux" avec ombres intérieures/extérieures. Effet tactile, comme des boutons pressés dans la surface.</p>
+            <p><strong>Votre style actuel</strong> : Material Design moderne avec gradients, bordures colorées et animations fluides.</p>
+        </div>
+
+        <!-- GLASSMORPHISM -->
+        <div class="demo-section">
+            <h2 class="demo-title">🔮 Glassmorphism (Glass Morphism)</h2>
+            <div class="cards-container">
+                <div class="glass-card">
+                    <h3>Card Glassmorphism</h3>
+                    <p>Effet de verre dépoli avec transparence et flou d'arrière-plan. Style moderne et élégant.</p>
+                    <input type="text" class="glass-input" placeholder="Entrez du texte...">
+                    <button class="glass-button">Bouton Glass</button>
+                </div>
+                <div class="glass-card">
+                    <h3>Configuration</h3>
+                    <p>Parfait pour les overlays, modals et interfaces modernes. Très populaire sur iOS Big Sur.</p>
+                    <input type="text" class="glass-input" placeholder="API Key...">
+                    <button class="glass-button">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEUMORPHISM -->
+        <div class="demo-section">
+            <h2 class="demo-title">🎯 Neumorphism (Soft UI)</h2>
+            <div class="neumorphic-container">
+                <div class="cards-container">
+                    <div class="neumorphic-card">
+                        <h3>Card Neumorphism</h3>
+                        <p>Effet 3D doux avec ombres intérieures et extérieures. Style tactile et minimaliste.</p>
+                        <input type="text" class="neumorphic-input" placeholder="Entrez du texte...">
+                        <button class="neumorphic-button">Bouton Neumorphic</button>
+                    </div>
+                    <div class="neumorphic-card">
+                        <h3>Configuration</h3>
+                        <p>Idéal pour les interfaces minimalistes. Effet "pressé" au hover, très tactile.</p>
+                        <input type="text" class="neumorphic-input" placeholder="API Key...">
+                        <button class="neumorphic-button">Sauvegarder</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VOTRE STYLE ACTUEL -->
+        <div class="demo-section">
+            <h2 class="demo-title">✨ Votre Style Actuel (Material Design Moderne)</h2>
+            <div class="cards-container">
+                <div class="current-style-card">
+                    <h3>Card Style Actuel</h3>
+                    <p>Gradient de fond, bordures colorées, ombres nettes et animations fluides. Style que vous utilisez actuellement.</p>
+                    <input type="text" class="current-input" placeholder="Entrez du texte...">
+                    <button class="current-button">Bouton Actuel</button>
+                </div>
+                <div class="current-style-card">
+                    <h3>Configuration</h3>
+                    <p>Barre de couleur en haut au hover, transformation au survol. Style cohérent et moderne.</p>
+                    <input type="text" class="current-input" placeholder="API Key...">
+                    <button class="current-button">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h2>💡 Recommandation</h2>
+            <p><strong>Glassmorphism</strong> : Excellent pour les modals, overlays et éléments flottants. Peut être difficile à lire sur fonds complexes.</p>
+            <p><strong>Neumorphism</strong> : Très tactile et moderne, mais nécessite un fond de couleur spécifique. Peut manquer de contraste.</p>
+            <p><strong>Votre style actuel</strong> : Équilibre entre modernité et lisibilité. Fonctionne bien sur tous les fonds.</p>
+        </div>
+    </div>
+</body>
+</html>
+

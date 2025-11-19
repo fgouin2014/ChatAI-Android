@@ -182,7 +182,8 @@
                         android:textColor="@color/kitt_red"
                         android:textSize="12sp"
                         android:fontFamily="monospace"
-                        android:inputType="textPassword" />
+                        android:inputType="textPassword"
+                        app:hintTextColor="@color/kitt_red_light"/>
 
                 </com.google.android.material.textfield.TextInputLayout>
 
