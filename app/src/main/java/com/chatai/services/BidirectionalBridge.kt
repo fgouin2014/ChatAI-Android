@@ -5,8 +5,11 @@ import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.emitAll
 import org.json.JSONObject
 
 /**
@@ -90,19 +93,48 @@ class BidirectionalBridge private constructor(private val context: Context) {
     /**
      * Traite une requête utilisateur avec mode thinking
      * Retourne un flow de chunks (thinking + réponse)
+     * ⭐ INTÉGRATION FUNCTION CALLING: Vérifie d'abord KittAIService pour Function Calling
      */
     suspend fun processWithThinking(
         userInput: String,
         personality: String = "KITT",
         enableThinking: Boolean = true
-    ): kotlinx.coroutines.flow.Flow<ThinkingChunk> {
+    ): Flow<ThinkingChunk> = flow {
         Log.i(TAG, "Processing with thinking mode: enabled=$enableThinking")
         
-        return ollamaThinkingService?.streamWithThinking(
+        // ⭐ FUNCTION CALLING: Vérifier d'abord via KittAIService
+        // (détection heure/date, actions système, etc.)
+        try {
+            // Créer une instance de KittAIService avec la personnalité configurée
+            val kittAIService = KittAIService(context, personality, "web")
+            val functionCallResponse = kittAIService.checkFunctionCalling(userInput)
+            
+            // Si Function Calling a été détecté et exécuté, retourner la réponse directement
+            if (functionCallResponse != null && functionCallResponse.isNotEmpty()) {
+                Log.i(TAG, "Function Calling détecté pour: $userInput → Réponse directe")
+                
+                // Émettre la réponse comme un chunk unique (type RESPONSE)
+                emit(ThinkingChunk(
+                    type = ChunkType.RESPONSE,
+                    content = functionCallResponse,
+                    isComplete = true
+                ))
+                return@flow
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Function Calling check failed, falling back to Ollama: ${e.message}")
+            // Continuer avec Ollama si Function Calling échoue
+        }
+        
+        // Si pas de Function Calling, utiliser Ollama avec thinking
+        val ollamaFlow = ollamaThinkingService?.streamWithThinking(
             userInput = userInput,
             personality = personality,
             enableThinking = enableThinking
         ) ?: throw IllegalStateException("OllamaThinkingService not initialized")
+        
+        // Collecter et émettre tous les chunks du flow Ollama
+        emitAll(ollamaFlow)
     }
     
     /**

@@ -257,6 +257,12 @@ public final class AiConfigManager {
             constraints.put("maxContextTokens", prefs.getInt("max_context_tokens", 8192));
             constraints.put("maxResponseTokens", prefs.getInt("max_response_tokens", 2048));
 
+            // local_server : Configuration du serveur Ollama local + modèle gemma fixé
+            JSONObject localServer = new JSONObject();
+            localServer.put("url", prefs.getString("local_server_url", "http://127.0.0.1:11434/v1/chat/completions"));
+            // CRITIQUE: Modèle local fixé à gemma3-270m.gguf (ignorer toute autre valeur)
+            localServer.put("model", "gemma3-270m.gguf");
+
             root.put("cloud", cloud);
             root.put("webSearch", webSearch);
             root.put("thinkingTrace", thinking);
@@ -266,6 +272,7 @@ public final class AiConfigManager {
             root.put("tts", tts);
             root.put("systemPromptOverrides", overrides);
             root.put("constraints", constraints);
+            root.put("local_server", localServer);
             root.put("updatedAt", updatedAt);
         } catch (JSONException e) {
             Log.e(TAG, "Error building JSON from preferences", e);
@@ -279,9 +286,15 @@ public final class AiConfigManager {
         SharedPreferences.Editor editor = prefs.edit();
 
         putStringIfPresent(editor, "ai_config_version", json, "version");
-        putStringIfPresent(editor, "selected_model", json, "selectedModel");
+        // selectedModel supprimé (non utilisé, redondant avec cloud.selectedModel/local_server.model)
         putStringIfPresent(editor, "ai_mode", json, "mode");
         putLongIfPresent(editor, "config_updated_at", json, "updatedAt");
+        
+        // Convertir ai_mode en use_ollama_cloud (boolean)
+        String aiMode = json.optString("mode", "cloud");
+        boolean useCloud = "cloud".equalsIgnoreCase(aiMode);
+        editor.putBoolean("use_ollama_cloud", useCloud);
+        Log.d(TAG, "Mode configuré: " + aiMode + " → use_ollama_cloud=" + useCloud);
 
         JSONObject cloud = json.optJSONObject("cloud");
         if (cloud != null) {
@@ -316,6 +329,21 @@ public final class AiConfigManager {
             }
             putStringIfPresent(editor, "cloud_selected_model", cloud, "selectedModel");
             putStringIfPresent(editor, "ollama_cloud_model", cloud, "selectedModel");
+        }
+        
+        // Traiter local_server
+        JSONObject localServer = json.optJSONObject("local_server");
+        if (localServer != null) {
+            putStringIfPresent(editor, "local_server_url", localServer, "url");
+            // CRITIQUE: Modèle local fixé à gemma3-270m.gguf (ignorer la valeur du JSON)
+            // Ne pas utiliser putStringIfPresent pour le modèle, forcer gemma3-270m.gguf
+            String jsonModel = localServer.optString("model", "");
+            String fixedModel = "gemma3-270m.gguf";
+            if (!jsonModel.equals(fixedModel)) {
+                Log.d(TAG, "Local server model override: '" + jsonModel + "' → '" + fixedModel + "' (modèle local fixé)");
+            }
+            editor.putString("local_model_name", fixedModel);
+            Log.d(TAG, "Local server config: url=" + localServer.optString("url") + ", model=" + fixedModel + " (fixé)");
         }
 
         JSONObject webSearch = json.optJSONObject("webSearch");

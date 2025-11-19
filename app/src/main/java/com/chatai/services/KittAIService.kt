@@ -962,6 +962,38 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
     }
     
     /**
+     * ⭐ Vérifie uniquement le Function Calling (sans appeler Ollama)
+     * Retourne la réponse si Function Calling détecté, null sinon
+     * Utilisé par BidirectionalBridge pour vérifier avant d'appeler Ollama
+     */
+    suspend fun checkFunctionCalling(userInput: String): String? = withContext(Dispatchers.IO) {
+        try {
+            // ⭐ FUNCTION CALLING #1 - Détection d'actions (App, System, Meta-Control)
+            val actionResponse = detectAndExecuteAction(userInput)
+            if (actionResponse != null) {
+                Log.i(TAG, "🎯 Function Calling (check): Action detected")
+                return@withContext actionResponse
+            }
+            
+            // ⭐ FUNCTION CALLING #2 - Lecture de l'heure du device
+            val lowerInput = userInput.lowercase().trim()
+            if (lowerInput.contains("heure") || lowerInput.contains("temps") || lowerInput.contains("time")) {
+                val timeResponse = handleTimeQuery(userInput)
+                if (timeResponse != null) {
+                    Log.i(TAG, "🕐 Function Calling (check): Time query detected")
+                    return@withContext timeResponse
+                }
+            }
+            
+            // Aucun Function Calling détecté
+            return@withContext null
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur vérification Function Calling", e)
+            return@withContext null
+        }
+    }
+    
+    /**
      * Traite une requête utilisateur avec l'IA générative
      * Function calling pour heure/date (lit le device directement)
      */
@@ -1399,8 +1431,8 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             }
             addDiagnosticLog("    - Key: Configured (${ollamaCloudApiKey.length} chars)")
             
-            // Récupérer le modèle cloud (par défaut: gpt-oss:120b - Stable et performant)
-            val ollamaCloudModel = sharedPreferences.getString("ollama_cloud_model", "gpt-oss:120b")?.trim() ?: "gpt-oss:120b"
+            // Récupérer le modèle cloud (par défaut: qwen3 - Petit modèle rapide pour tests)
+            val ollamaCloudModel = sharedPreferences.getString("ollama_cloud_model", "qwen3")?.trim() ?: "qwen3"
             addDiagnosticLog("    - Model: $ollamaCloudModel")
             
             Log.d(TAG, "Trying Ollama Cloud API...")
