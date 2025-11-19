@@ -117,7 +117,7 @@
             this.navButtons = Array.from(document.querySelectorAll('.main-nav-btn')) || Array.from(document.querySelectorAll('.nav-btn'));
             this.views = Array.from(document.querySelectorAll('.view'));
             
-            // Config DOM - Mode & Models
+            // Config DOM - Mode & Models (Tab General)
             this.configModeSelect = document.getElementById('configModeSelect');
             this.configSelectedModel = document.getElementById('configSelectedModel');
             this.configSelectedModelCustom = document.getElementById('configSelectedModelCustom');

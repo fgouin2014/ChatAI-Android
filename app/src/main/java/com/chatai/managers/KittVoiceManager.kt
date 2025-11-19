@@ -236,15 +236,15 @@ class KittVoiceManager(
                         return@post
                     }
                     
-                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
                     if (speechRecognizer == null) {
                         android.util.Log.e(TAG, "❌ SpeechRecognizer.createSpeechRecognizer() retourne null")
                         listener.onVoiceRecognitionError(-996)
                         return@post
                     }
-                    speechRecognizer?.setRecognitionListener(recognitionListener)
+                speechRecognizer?.setRecognitionListener(recognitionListener)
                     android.util.Log.d(TAG, "✅ SpeechRecognizer principal créé sur main thread")
-                } catch (e: Exception) {
+            } catch (e: Exception) {
                     android.util.Log.e(TAG, "❌ Erreur création SpeechRecognizer principal: ${e.message}", e)
                     listener.onVoiceRecognitionError(-995)
                 }
@@ -263,7 +263,7 @@ class KittVoiceManager(
                     vuMeterRecognizer?.stopListening()
                     vuMeterRecognizer?.destroy()
                     android.util.Log.d(TAG, "🛑 VU-meter SpeechRecognizer détruit (libération Google Speech)")
-                } catch (e: Exception) {
+            } catch (e: Exception) {
                     android.util.Log.w(TAG, "Warning destroying vuMeterRecognizer: ${e.message}")
                 }
                 vuMeterRecognizer = null
@@ -449,7 +449,7 @@ class KittVoiceManager(
         // Cela permet au clavier Google et autres apps d'utiliser la reconnaissance vocale
         if (speechRecognizer != null) {
             try {
-                speechRecognizer?.stopListening()
+        speechRecognizer?.stopListening()
                 android.util.Log.d(TAG, "🛑 Voice recognition stopped")
                 // Note: On ne détruit pas speechRecognizer ici car il peut être réutilisé
                 // On le détruit seulement dans destroy() pour libérer complètement la ressource

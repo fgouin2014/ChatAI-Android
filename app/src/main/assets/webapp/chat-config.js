@@ -129,15 +129,26 @@
             const cfg = this.aiConfigObject;
             const hotword = cfg.hotword || {};
 
+            // Tab General : Mode actif + modèle sélectionné
             this.core.configModeSelect.value = cfg.mode || 'cloud';
             this.setSelectValue(this.core.configSelectedModel, this.core.configSelectedModelCustom, cfg.selectedModel || '');
 
             if (cfg.cloud) {
                 this.setSelectValue(this.core.configCloudProvider, this.core.configCloudProviderCustom, cfg.cloud.provider || '');
                 if (this.core.configCloudApiKey) {
-                    // Masquer la clé API si elle existe (afficher des *)
+                    // Stocker la vraie clé API dans un attribut data pour la conserver
                     const apiKey = cfg.cloud.apiKey || '';
-                    this.core.configCloudApiKey.value = apiKey ? '*'.repeat(Math.min(apiKey.length, 20)) : '';
+                    if (apiKey) {
+                        // Stocker la vraie clé dans data-original-key
+                        this.core.configCloudApiKey.setAttribute('data-original-key', apiKey);
+                        // Masquer la clé API si elle existe (afficher des *)
+                        // Utiliser la vraie longueur, pas limitée à 20
+                        this.core.configCloudApiKey.value = '*'.repeat(apiKey.length);
+                    } else {
+                        // Pas de clé, supprimer l'attribut data-original-key
+                        this.core.configCloudApiKey.removeAttribute('data-original-key');
+                        this.core.configCloudApiKey.value = '';
+                    }
                 }
                 this.setSelectValue(this.core.configCloudModel, this.core.configCloudModelCustom, cfg.cloud.selectedModel || cfg.selectedModel || '');
             }
@@ -145,7 +156,15 @@
             const local = cfg.local_server || cfg.localServer;
             if (local) {
                 if (this.core.configLocalUrl) this.core.configLocalUrl.value = local.url || '';
-                this.setSelectValue(this.core.configLocalModel, this.core.configLocalModelCustom, local.model || '');
+                // Modèle local fixé à gemma3-270m.gguf (readonly dans HTML)
+                if (this.core.configLocalModel) {
+                    this.core.configLocalModel.value = 'gemma3-270m.gguf';
+                }
+            } else {
+                // Initialiser avec valeur par défaut si pas de config
+                if (this.core.configLocalModel) {
+                    this.core.configLocalModel.value = 'gemma3-270m.gguf';
+                }
             }
 
             if (cfg.webSearch) {
@@ -369,26 +388,52 @@
 
             switch (section) {
                 case 'mode':
-                    cfg.mode = core.configModeSelect.value || 'cloud';
+                    // Tab General : Sélection du mode actif (Cloud/Local) + modèle par défaut
+                    cfg.mode = core.configModeSelect?.value || 'cloud';
                     cfg.selectedModel = this.getSelectValue(core.configSelectedModel, core.configSelectedModelCustom);
                     break;
                 case 'cloud':
+                    // Tab Cloud : Configuration détaillée des modèles Cloud disponibles
                     cfg.cloud = cfg.cloud || {};
                     cfg.cloud.provider = this.getSelectValue(core.configCloudProvider, core.configCloudProviderCustom);
                     const cloudApiKeyValue = core.configCloudApiKey?.value || '';
+                    // Si la valeur contient des *, utiliser la vraie clé stockée dans data-original-key
+                    // Sinon, c'est une nouvelle clé saisie par l'utilisateur
                     if (cloudApiKeyValue && !cloudApiKeyValue.includes('*')) {
+                        // Nouvelle clé saisie par l'utilisateur (pas de *)
+                        // Mettre à jour data-original-key avec la nouvelle clé
+                        if (core.configCloudApiKey) {
+                            core.configCloudApiKey.setAttribute('data-original-key', cloudApiKeyValue);
+                        }
                         cfg.cloud.apiKey = cloudApiKeyValue;
+                    } else if (cloudApiKeyValue.includes('*')) {
+                        // Clé masquée : récupérer la vraie clé depuis data-original-key
+                        const originalKey = core.configCloudApiKey?.getAttribute('data-original-key') || '';
+                        if (originalKey) {
+                            // Utiliser la vraie clé stockée (non modifiée)
+                            cfg.cloud.apiKey = originalKey;
+                        } else {
+                            // Pas de clé originale, supprimer du JSON pour conserver celle dans SecureConfig
+                            delete cfg.cloud.apiKey;
+                        }
                     } else if (cloudApiKeyValue === '') {
+                        // Champ vide : supprimer la clé
+                        if (core.configCloudApiKey) {
+                            core.configCloudApiKey.removeAttribute('data-original-key');
+                        }
                         cfg.cloud.apiKey = '';
                     } else {
+                        // Aucune valeur : supprimer du JSON pour conserver celle dans SecureConfig
                         delete cfg.cloud.apiKey;
                     }
                     cfg.cloud.selectedModel = this.getSelectValue(core.configCloudModel, core.configCloudModelCustom);
                     break;
                 case 'local':
+                    // Tab Local : Configuration du serveur Ollama local + modèle gemma
                     cfg.local_server = cfg.local_server || {};
                     cfg.local_server.url = core.configLocalUrl?.value || '';
-                    cfg.local_server.model = this.getSelectValue(core.configLocalModel, core.configLocalModelCustom);
+                    // Modèle local fixé à gemma3-270m.gguf
+                    cfg.local_server.model = 'gemma3-270m.gguf';
                     break;
                 case 'thinking':
                     cfg.webSearch = cfg.webSearch || {};

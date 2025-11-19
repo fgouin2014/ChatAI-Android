@@ -20,18 +20,40 @@
             this.isRecording = false;
             this.recognition = null; // webkitSpeechRecognition (fallback)
             this.useWhisper = false;
+            this.useGoogleSpeech = false;
         }
 
         /**
-         * Initialise la reconnaissance vocale (Whisper ou webkit)
+         * Initialise la reconnaissance vocale (Whisper ou Google Speech selon configuration Audio STT)
          */
         initializeSpeech() {
-            // ✅ Phase 1 : Vérifier si Whisper est disponible via AndroidApp
-            if (this.androidInterface?.isWhisperAvailable?.()) {
-                // Whisper Server disponible → utiliser Whisper
-                this.useWhisper = true;
-                this.setupWhisperListener();
-                console.log('✅ Whisper Server disponible - utilisation de Whisper');
+            // ✅ Lire la configuration Audio STT depuis la webapp
+            const audioEngine = this.getAudioEngineFromConfig();
+            
+            if (audioEngine === 'whisper_server') {
+                // === WHISPER SERVER ===
+                // Vérifier si Whisper est disponible via AndroidApp
+                if (this.androidInterface?.isWhisperAvailable?.()) {
+                    this.useWhisper = true;
+                    this.setupWhisperListener();
+                    console.log('✅ Whisper Server disponible - utilisation de Whisper (config Audio STT)');
+                } else {
+                    console.warn('⚠️ Whisper Server configuré mais non disponible - vérifiez le serveur Whisper');
+                    this.useWhisper = false;
+                    this.useGoogleSpeech = false;
+                }
+            } else if (audioEngine === 'legacy_google') {
+                // === GOOGLE SPEECH ===
+                if (this.androidInterface && android.speech?.SpeechRecognizer?.isRecognitionAvailable) {
+                    this.useWhisper = false;
+                    this.useGoogleSpeech = true;
+                    this.setupWhisperListener(); // Réutilise le même listener pour Google Speech
+                    console.log('✅ Google Speech disponible - utilisation de Google Speech (config Audio STT)');
+                } else {
+                    console.warn('⚠️ Google Speech configuré mais non disponible');
+                    this.useWhisper = false;
+                    this.useGoogleSpeech = false;
+                }
             } else if ('webkitSpeechRecognition' in window) {
                 // Fallback : webkitSpeechRecognition (si pas d'Android ou Whisper non configuré)
                 this.useWhisper = false;
@@ -121,11 +143,35 @@
         }
 
         /**
-         * Démarrer la reconnaissance vocale (Whisper ou webkit)
+         * Obtenir le moteur Audio STT depuis la configuration
+         */
+        getAudioEngineFromConfig() {
+            // Lire depuis la config de la webapp (configAudioEngine)
+            const configAudioEngine = document.getElementById('configAudioEngine');
+            if (configAudioEngine && configAudioEngine.value) {
+                return configAudioEngine.value;
+            }
+            // Fallback: vérifier si Whisper est disponible
+            if (this.androidInterface?.isWhisperAvailable?.()) {
+                return 'whisper_server';
+            }
+            // Fallback par défaut
+            return 'whisper_server';
+        }
+        
+        /**
+         * Démarrer la reconnaissance vocale (Whisper ou Google Speech selon configuration Audio STT)
          */
         startVoiceRecognition() {
-            if (this.useWhisper && this.androidInterface?.sttStartWhisper) {
-                // ✅ Utiliser Whisper Server
+            const audioEngine = this.getAudioEngineFromConfig();
+            
+            if (audioEngine === 'whisper_server' && this.androidInterface?.sttStartWhisper) {
+                // ✅ Utiliser Whisper Server (selon configuration Audio STT)
+                this.androidInterface.sttStartWhisper();
+                this.isRecording = true;
+            } else if (audioEngine === 'legacy_google' && this.androidInterface?.sttStartWhisper) {
+                // ✅ Utiliser Google Speech (selon configuration Audio STT)
+                // sttStartWhisper() gère aussi Google Speech selon la configuration
                 this.androidInterface.sttStartWhisper();
                 this.isRecording = true;
             } else if (this.recognition) {
@@ -142,7 +188,10 @@
          * Arrêter la reconnaissance vocale
          */
         stopVoiceRecognition() {
-            if (this.useWhisper && this.androidInterface?.sttStopWhisper) {
+            const audioEngine = this.getAudioEngineFromConfig();
+            
+            if ((audioEngine === 'whisper_server' || audioEngine === 'legacy_google') && this.androidInterface?.sttStopWhisper) {
+                // Arrêter Whisper ou Google Speech selon la configuration
                 this.androidInterface.sttStopWhisper();
             } else if (this.recognition) {
                 this.recognition.stop();

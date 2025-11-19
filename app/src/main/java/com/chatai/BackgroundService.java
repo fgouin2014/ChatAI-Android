@@ -66,6 +66,11 @@ public class BackgroundService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        
+        // CRITIQUE: Libérer TOUJOURS SpeechRecognizer au démarrage (prévention)
+        // Un SpeechRecognizer pourrait être resté actif d'une session précédente
+        // (crash, kill forcé, etc.) et bloquerait le clavier Google même sans utilisation du hotword
+        cleanupAnyOrphanedSpeechRecognizer("service startup (prévention)");
         Log.i(TAG, "BackgroundService créé");
         createNotificationChannel();
     }
@@ -239,7 +244,7 @@ public class BackgroundService extends Service {
                     handler.postDelayed(() -> {
                         // Vérifier à nouveau avant de démarrer (au cas où une autre détection serait arrivée)
                         if (currentWhisperRecognizer == recognizer) {
-                            recognizer.startListening();
+                    recognizer.startListening();
                         } else {
                             Log.w(TAG, "Whisper start annulé: nouvelle détection hotword arrivée pendant le délai");
                         }
@@ -248,24 +253,53 @@ public class BackgroundService extends Service {
                 } else if ("legacy_google".equalsIgnoreCase(engine)) {
                     // === GOOGLE SPEECH ===
                     // CRITIQUE: SpeechRecognizer DOIT être créé sur le main thread
-                    // C'est probablement la cause principale des problèmes
+                    // CRITIQUE: L'AudioRecord du hotword monopolise le microphone
+                    // Il faut suspendre temporairement le hotword pour libérer le microphone
                     int delayAfterHotword = audioCfg.getDelayAfterHotwordMs();
                     Log.i(TAG, "Hotword detected, starting Google Speech after " + delayAfterHotword + "ms delay");
+                    
+                    // CRITIQUE: Arrêter temporairement le hotword pour libérer l'AudioRecord
+                    // pause() ne libère PAS l'AudioRecord, il reste actif et monopolise le microphone
+                    // Il faut utiliser stop() pour arrêter l'AudioRecord, puis start() pour redémarrer
+                    // Cela permet au clavier Google et autres apps d'utiliser le microphone
+                    boolean hotwordWasRunning = false;
+                    if (hotwordManager != null) {
+                        try {
+                            // Vérifier si le hotword est actif
+                            if (hotwordManager.isRunning()) {
+                                hotwordWasRunning = true;
+                                hotwordManager.stop();  // Arrêter complètement (libère AudioRecord)
+                                Log.i(TAG, "⏸️ Hotword arrêté temporairement (libération AudioRecord pour Google Speech)");
+                            }
+                        } catch (Exception e) {
+                            Log.w(TAG, "Error stopping hotword: " + e.getMessage());
+                        }
+                    }
+                    
+                    final boolean willRestartHotword = hotwordWasRunning;
                     
                     android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
                     mainHandler.post(() -> {
                         try {
-                            // S'assurer qu'aucun recognizer n'est actif (protection supplémentaire)
+                            // CRITIQUE: Libérer TOUJOURS le recognizer existant avant de créer un nouveau
+                            // Évite de laisser un recognizer actif qui monopoliserait la ressource et bloquerait le clavier Google
                             if (currentSpeechRecognizer != null) {
-                                Log.w(TAG, "Google Speech: libération du recognizer existant avant création nouveau");
+                                Log.w(TAG, "⚠️ Google Speech: libération FORCÉE du recognizer existant avant création nouveau (éviter monopolisation)");
                                 try {
                                     currentSpeechRecognizer.stopListening();
                                 } catch (Throwable ignored) {}
                                 try {
                                     currentSpeechRecognizer.destroy();
-                                } catch (Throwable ignored) {}
+                                    Log.i(TAG, "✅ Ancien recognizer libéré");
+                                } catch (Throwable e) {
+                                    Log.w(TAG, "Error destroying old recognizer: " + e.getMessage());
+                                }
                                 currentSpeechRecognizer = null;
                             }
+                            
+                            // Vérifier si un autre app utilise SpeechRecognizer (ERROR_RECOGNIZER_BUSY est géré dans onError)
+                            // On ne peut pas le détecter ici, mais on essaie quand même de créer notre instance
+                            // Si busy, onError sera appelé avec ERROR_RECOGNIZER_BUSY et on libérera immédiatement
                             
                             // Vérifier permission RECORD_AUDIO
                             int permissionCheck = ContextCompat.checkSelfPermission(
@@ -294,7 +328,10 @@ public class BackgroundService extends Service {
                                 return;
                             }
                             Log.i(TAG, "Google Speech recognizer créé sur main thread");
-                            currentSpeechRecognizer.setRecognitionListener(new GoogleSpeechRecognitionListener());
+                            // Créer le listener avec l'info pour redémarrer le hotword après usage
+                            GoogleSpeechRecognitionListener listener = new GoogleSpeechRecognitionListener();
+                            listener.setWillRestartHotword(willRestartHotword);
+                            currentSpeechRecognizer.setRecognitionListener(listener);
                             
                             // Stocker la référence avant le délai
                             final SpeechRecognizer speechRecognizer = currentSpeechRecognizer;
@@ -464,6 +501,28 @@ public class BackgroundService extends Service {
         }
     }
     
+    /**
+     * Libérer tout SpeechRecognizer orphelin (prévention monopolisation)
+     * CRITIQUE: Appelée au démarrage du service pour nettoyer les recognizers restés actifs
+     */
+    private void cleanupAnyOrphanedSpeechRecognizer(String reason) {
+        if (currentSpeechRecognizer != null) {
+            Log.w(TAG, "⚠️ SpeechRecognizer orphelin détecté au démarrage (" + reason + ") - libération FORCÉE");
+            try {
+                currentSpeechRecognizer.stopListening();
+            } catch (Throwable e) {
+                Log.w(TAG, "Error stopping orphaned SpeechRecognizer: " + e.getMessage());
+            }
+            try {
+                currentSpeechRecognizer.destroy();
+                Log.i(TAG, "✅ SpeechRecognizer orphelin libéré (" + reason + ")");
+            } catch (Throwable e) {
+                Log.e(TAG, "Error destroying orphaned SpeechRecognizer: " + e.getMessage());
+            }
+            currentSpeechRecognizer = null;
+        }
+    }
+    
     private void stopServers() {
         try {
             Log.i(TAG, "Arrêt des serveurs...");
@@ -488,19 +547,14 @@ public class BackgroundService extends Service {
                 hotwordManager = null;
             }
             
-            // Libérer les recognizers STT
+            // CRITIQUE: Libérer TOUJOURS les recognizers STT à l'arrêt
+            // Évite qu'ils restent actifs après l'arrêt du service et bloquent le clavier Google
             if (currentWhisperRecognizer != null) {
                 try {
                     currentWhisperRecognizer = null;
                 } catch (Throwable ignored) {}
             }
-            if (currentSpeechRecognizer != null) {
-                try {
-                    currentSpeechRecognizer.stopListening();
-                    currentSpeechRecognizer.destroy();
-                } catch (Throwable ignored) {}
-                currentSpeechRecognizer = null;
-            }
+            cleanupAnyOrphanedSpeechRecognizer("service stop");
             
             Log.i(TAG, "Tous les serveurs arrêtés");
             
@@ -627,54 +681,126 @@ public class BackgroundService extends Service {
     /**
      * RecognitionListener pour Google Speech dans hotword (classe interne non-statique pour éviter problèmes KSP)
      * Timeouts pour éviter que Google Speech reste bloqué si aucun résultat n'est retourné
+     * CRITIQUE: Libération agressive pour éviter de monopoliser SpeechRecognizer et bloquer le clavier Google
      */
     private class GoogleSpeechRecognitionListener implements RecognitionListener {
         private android.os.Handler timeoutHandler;
-        private Runnable speechTimeoutRunnable;
+        private Runnable globalTimeoutRunnable;  // Timeout global après onReadyForSpeech
+        private Runnable speechTimeoutRunnable;  // Timeout après début de parole
+        private long startTimeMs = 0;  // Temps de démarrage pour timeout global
+        
+        // Timeouts réduits pour libération plus agressive (éviter monopolisation clavier Google)
+        private static final long GLOBAL_TIMEOUT_MS = 12000;  // 12s max si aucune parole (réduit de 30s)
+        private static final long SPEECH_START_TIMEOUT_MS = 10000;  // 10s max après début de parole (réduit de 15s)
+        private static final long SPEECH_END_TIMEOUT_MS = 5000;  // 5s max après fin de parole (réduit de 8s)
+        
+        private boolean willRestartHotword = false;  // Track si hotword doit être redémarré après Google Speech
         
         GoogleSpeechRecognitionListener() {
             this.timeoutHandler = new android.os.Handler(android.os.Looper.getMainLooper());
         }
         
+        /**
+         * Définir si le hotword doit être redémarré après libération Google Speech
+         */
+        public void setWillRestartHotword(boolean willRestart) {
+            this.willRestartHotword = willRestart;
+        }
+        
         private void cleanupTimeouts() {
+            if (globalTimeoutRunnable != null) {
+                timeoutHandler.removeCallbacks(globalTimeoutRunnable);
+                globalTimeoutRunnable = null;
+            }
             if (speechTimeoutRunnable != null) {
                 timeoutHandler.removeCallbacks(speechTimeoutRunnable);
                 speechTimeoutRunnable = null;
             }
         }
         
+        /**
+         * Force la libération du SpeechRecognizer (helper centralisé)
+         * CRITIQUE: Appelée dans tous les cas pour éviter monopolisation
+         * CRITIQUE: Redémarre le hotword si il avait été arrêté pour Google Speech
+         */
+        private void forceReleaseRecognizer(String reason) {
+            cleanupTimeouts();
+            boolean shouldRestartHotword = this.willRestartHotword;  // Sauvegarder avant reset
+            this.willRestartHotword = false;  // Reset immédiatement
+            
+            if (currentSpeechRecognizer != null) {
+                Log.i("BackgroundService", "🔓 Force release Google Speech recognizer: " + reason);
+                SpeechRecognizer toDestroy = currentSpeechRecognizer;
+                currentSpeechRecognizer = null;  // Set à null IMMÉDIATEMENT pour éviter réutilisation
+                if (toDestroy != null) {
+                    try {
+                        toDestroy.stopListening();
+                    } catch (Throwable e) {
+                        Log.w("BackgroundService", "Error stopping Google Speech: " + e.getMessage());
+                    }
+                    try {
+                        toDestroy.destroy();
+                        Log.i("BackgroundService", "✅ Google Speech recognizer libéré (" + reason + ")");
+                    } catch (Throwable e) {
+                        Log.e("BackgroundService", "Error destroying Google Speech: " + e.getMessage());
+                    }
+                }
+            }
+            
+            // CRITIQUE: Redémarrer le hotword après libération du SpeechRecognizer
+            // L'AudioRecord est maintenant libre, le hotword peut reprendre la détection
+            if (shouldRestartHotword && hotwordManager != null) {
+                try {
+                    // Petit délai pour s'assurer que le microphone est complètement libéré
+                    timeoutHandler.postDelayed(() -> {
+                        try {
+                            hotwordManager.start();
+                            Log.i("BackgroundService", "▶️ Hotword redémarré après libération Google Speech (microphone libre)");
+                        } catch (Exception e) {
+                            Log.w("BackgroundService", "Error restarting hotword: " + e.getMessage());
+                        }
+                    }, 200);  // 200ms délai pour libération complète du microphone
+                } catch (Exception e) {
+                    Log.w("BackgroundService", "Error scheduling hotword restart: " + e.getMessage());
+                }
+            }
+        }
+        
         @Override
         public void onReadyForSpeech(android.os.Bundle params) {
             Log.i("BackgroundService", "AutoSTT (Google Speech) ready - microphone accessible, waiting for speech...");
+            startTimeMs = System.currentTimeMillis();
+            
+            // TIMEOUT GLOBAL: Si aucune parole détectée après 12 secondes, forcer libération
+            // CRITIQUE: Évite que SpeechRecognizer reste actif indéfiniment et bloque le clavier Google
+            cleanupTimeouts();
+            globalTimeoutRunnable = () -> {
+                long elapsed = System.currentTimeMillis() - startTimeMs;
+                if (currentSpeechRecognizer != null && elapsed >= GLOBAL_TIMEOUT_MS - 500) {  // Marge de 500ms
+                    Log.w("BackgroundService", "⏱️ AutoSTT (Google Speech): timeout global (" + GLOBAL_TIMEOUT_MS + "ms) - aucune parole détectée, libération");
+                    forceReleaseRecognizer("timeout global (aucune parole)");
+                    toast("STT timeout: aucune parole détectée");
+                }
+            };
+            timeoutHandler.postDelayed(globalTimeoutRunnable, GLOBAL_TIMEOUT_MS);
         }
         
         @Override
         public void onBeginningOfSpeech() {
             Log.i("BackgroundService", "AutoSTT (Google Speech) speech start - Google Speech A DÉTECTÉ DE LA PAROLE");
-            // TIMEOUT: Si aucun résultat après 15 secondes depuis le début de la parole, forcer l'arrêt
-            // (augmenté à 15s car Google Speech offline peut prendre plus de temps pour traiter)
+            // Annuler le timeout global (on a détecté de la parole)
             cleanupTimeouts();
-            final GoogleSpeechRecognitionListener self = this;
+            
+            // TIMEOUT: Si aucun résultat après 10 secondes depuis le début de la parole, forcer l'arrêt
+            // Réduit à 10s pour libération plus agressive et éviter monopolisation clavier Google
             speechTimeoutRunnable = () -> {
                 if (currentSpeechRecognizer != null) {
-                    Log.w("BackgroundService", "AutoSTT (Google Speech): timeout après début de parole (15s) - arrêt forcé");
-                    SpeechRecognizer toDestroy = currentSpeechRecognizer;
-                    currentSpeechRecognizer = null;
-                    if (toDestroy != null) {
-                        try {
-                            toDestroy.stopListening();
-                        } catch (Throwable ignored) {}
-                        try {
-                            toDestroy.destroy();
-                            Log.i("BackgroundService", "Google Speech recognizer libéré (timeout)");
-                        } catch (Throwable e) {
-                            Log.e("BackgroundService", "Error destroying Google Speech recognizer: " + e.getMessage());
-                        }
-                    }
-                    toast("STT timeout (15s)");
+                    Log.w("BackgroundService", "⏱️ AutoSTT (Google Speech): timeout après début de parole (" + SPEECH_START_TIMEOUT_MS + "ms) - arrêt forcé");
+                    forceReleaseRecognizer("timeout après début de parole");
+                    toast("STT timeout (" + (SPEECH_START_TIMEOUT_MS / 1000) + "s)");
                 }
             };
-            timeoutHandler.postDelayed(speechTimeoutRunnable, 15000); // 15 secondes après début de parole (augmenté)
+            timeoutHandler.postDelayed(speechTimeoutRunnable, SPEECH_START_TIMEOUT_MS);
         }
         
         @Override
@@ -703,35 +829,20 @@ public class BackgroundService extends Service {
             // Annuler le timeout après début de parole (on a détecté la fin de parole)
             cleanupTimeouts();
             
-            // TIMEOUT: Si aucun résultat après 8 secondes depuis la fin de la parole, forcer l'arrêt
-            // (augmenté à 8s car Google Speech offline peut prendre plus de temps pour traiter après onEndOfSpeech)
-            final GoogleSpeechRecognitionListener self = this;
+            // TIMEOUT: Si aucun résultat après 5 secondes depuis la fin de la parole, forcer l'arrêt
+            // Réduit à 5s pour libération plus agressive et éviter monopolisation clavier Google
             speechTimeoutRunnable = () -> {
                 if (currentSpeechRecognizer != null) {
-                    Log.w("BackgroundService", "AutoSTT (Google Speech): timeout après fin de parole (8s) - arrêt forcé");
-                    SpeechRecognizer toDestroy = currentSpeechRecognizer;
-                    currentSpeechRecognizer = null;
-                    if (toDestroy != null) {
-                        try {
-                            toDestroy.stopListening();
-                        } catch (Throwable ignored) {}
-                        try {
-                            toDestroy.destroy();
-                            Log.i("BackgroundService", "Google Speech recognizer libéré (timeout après fin)");
-                        } catch (Throwable e) {
-                            Log.e("BackgroundService", "Error destroying Google Speech recognizer: " + e.getMessage());
-                        }
-                    }
-                    toast("STT timeout après fin de parole (8s)");
+                    Log.w("BackgroundService", "⏱️ AutoSTT (Google Speech): timeout après fin de parole (" + SPEECH_END_TIMEOUT_MS + "ms) - arrêt forcé");
+                    forceReleaseRecognizer("timeout après fin de parole");
+                    toast("STT timeout après fin de parole (" + (SPEECH_END_TIMEOUT_MS / 1000) + "s)");
                 }
             };
-            timeoutHandler.postDelayed(speechTimeoutRunnable, 8000); // 8 secondes après fin de parole (augmenté)
+            timeoutHandler.postDelayed(speechTimeoutRunnable, SPEECH_END_TIMEOUT_MS);
         }
         
         @Override
         public void onError(int error) {
-            cleanupTimeouts();
-            
             String errorMsg = "Unknown error";
             switch (error) {
                 case SpeechRecognizer.ERROR_AUDIO: errorMsg = "Audio error"; break;
@@ -740,54 +851,48 @@ public class BackgroundService extends Service {
                 case SpeechRecognizer.ERROR_NETWORK: errorMsg = "Network error"; break;
                 case SpeechRecognizer.ERROR_NETWORK_TIMEOUT: errorMsg = "Network timeout"; break;
                 case SpeechRecognizer.ERROR_NO_MATCH: errorMsg = "No match"; break;
-                case SpeechRecognizer.ERROR_RECOGNIZER_BUSY: errorMsg = "Recognizer busy"; break;
+                case SpeechRecognizer.ERROR_RECOGNIZER_BUSY: 
+                    errorMsg = "Recognizer busy"; 
+                    // CRITIQUE: Si le recognizer est occupé, c'est peut-être parce que l'AudioRecord du hotword monopolise le microphone
+                    // Arrêter temporairement le hotword pour libérer l'AudioRecord et permettre à Google Speech d'accéder au microphone
+                    if (hotwordManager != null && hotwordManager.isRunning()) {
+                        Log.w("BackgroundService", "⚠️ ERROR_RECOGNIZER_BUSY - Le hotword monopolise peut-être le microphone");
+                        Log.w("BackgroundService", "⏸️ Arrêt temporaire du hotword pour libérer le microphone");
+                        try {
+                            hotwordManager.stop();
+                            // Programmer un redémarrage après 2 secondes (donner le temps à Google Speech d'utiliser le microphone)
+                            timeoutHandler.postDelayed(() -> {
+                                if (hotwordManager != null && !hotwordManager.isRunning()) {
+                                    try {
+                                        hotwordManager.start();
+                                        Log.i("BackgroundService", "▶️ Hotword redémarré après ERROR_RECOGNIZER_BUSY");
+                                    } catch (Exception e) {
+                                        Log.w("BackgroundService", "Error restarting hotword after ERROR_RECOGNIZER_BUSY: " + e.getMessage());
+                                    }
+                                }
+                            }, 2000);  // 2 secondes pour permettre à Google Speech d'utiliser le microphone
+                        } catch (Exception e) {
+                            Log.w("BackgroundService", "Error stopping hotword on ERROR_RECOGNIZER_BUSY: " + e.getMessage());
+                        }
+                    }
+                    break;
                 case SpeechRecognizer.ERROR_SERVER: errorMsg = "Server error"; break;
                 case SpeechRecognizer.ERROR_SPEECH_TIMEOUT: errorMsg = "Speech timeout"; break;
             }
             Log.e("BackgroundService", "AutoSTT (Google Speech) error: " + errorMsg + " (" + error + ")");
-            // Libérer le recognizer après erreur
-            SpeechRecognizer toDestroy = currentSpeechRecognizer;
-            currentSpeechRecognizer = null;
-            if (toDestroy != null) {
-                try {
-                    toDestroy.stopListening();
-                } catch (Throwable e) {
-                    Log.w("BackgroundService", "Error stopping Google Speech recognizer: " + e.getMessage());
-                }
-                try {
-                    toDestroy.destroy();
-                    Log.i("BackgroundService", "Google Speech recognizer libéré (error)");
-                } catch (Throwable e) {
-                    Log.e("BackgroundService", "Error destroying Google Speech recognizer: " + e.getMessage());
-                }
-            }
+            // Libérer le recognizer après erreur (utilisation helper centralisé)
+            forceReleaseRecognizer("error: " + errorMsg);
             toast("STT error: " + errorMsg);
         }
         
         @Override
         public void onResults(android.os.Bundle results) {
-            cleanupTimeouts();
-            
             ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
             if (matches != null && !matches.isEmpty()) {
                 String text = matches.get(0);
                 Log.i("BackgroundService", "AutoSTT (Google Speech) result: " + text + " (matches: " + matches.size() + ")");
-                // Libérer le recognizer après résultat
-                SpeechRecognizer toDestroy = currentSpeechRecognizer;
-                currentSpeechRecognizer = null;
-                if (toDestroy != null) {
-                    try {
-                        toDestroy.stopListening();
-                    } catch (Throwable e) {
-                        Log.w("BackgroundService", "Error stopping Google Speech recognizer: " + e.getMessage());
-                    }
-                    try {
-                        toDestroy.destroy();
-                        Log.i("BackgroundService", "Google Speech recognizer libéré (result)");
-                    } catch (Throwable e) {
-                        Log.e("BackgroundService", "Error destroying Google Speech recognizer: " + e.getMessage());
-                    }
-                }
+                // Libérer le recognizer après résultat (utilisation helper centralisé)
+                forceReleaseRecognizer("result reçu");
                 if (aiService != null && aiService.isHealthy()) {
                     aiService.processAIRequest(text, "kitt");
                 } else {

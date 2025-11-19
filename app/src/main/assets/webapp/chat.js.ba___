@@ -1,0 +1,2349 @@
+/**
+ * Chat IA Mobile - Version Optimisée et Sécurisée
+ * Améliorations: Performance, UX, Sécurité, Code Clean
+ */
+class SecureMobileAIChat {
+    constructor() {
+        // Configuration de base
+        this.currentModel = 'microsoft/DialoGPT-medium';
+        this.personality = 'casual';
+        this.language = 'fr';
+        this.isRecording = false;
+        this.recognition = null;
+        this.conversationHistory = [];
+        this.androidInterface = window.AndroidApp || null;
+        this.apiToken = null;
+        this.websocket = null;
+        this.lastAIResponse = null;
+        this.aiConfigCache = '';
+        this.aiConfigObject = null;
+        this.configInputs = {};
+        this.hotwordModels = [];
+        this.customSelects = [];
+        
+        // Cache pour optimisation
+        this.messageCache = new Map();
+        this.requestQueue = [];
+        this.isProcessing = false;
+        
+        // Throttling et debouncing
+        this.scrollThrottle = this.throttle(() => this.handleScroll(), 100);
+        this.typingDebounce = this.debounce(() => this.handleTypingEnd(), 500);
+        
+        // Initialisation
+        this.initialize();
+    }
+
+    /**
+     * Initialisation centralisée
+     */
+    async initialize() {
+        try {
+            await this.initializeSecureConfig();
+        this.initializeElements();
+        this.attachEventListeners();
+            this.setupConfigFormListeners();
+            this.initCustomSelects();
+        this.initializeSpeech();
+        this.adjustTextareaHeight();
+        this.connectWebSocket();
+            this.setupNavigation();
+            this.setupServiceWorker();
+            this.loadConversationHistory();
+        } catch (error) {
+            console.error('Erreur lors de l\'initialisation:', error);
+            this.showSecureMessage('ai', 'Erreur lors du démarrage. Veuillez rafraîchir la page.');
+        }
+    }
+
+    /**
+     * Service Worker pour le mode hors ligne
+     */
+    setupServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(() => console.log('Service Worker enregistré'))
+                .catch(err => console.log('Erreur Service Worker:', err));
+        }
+    }
+
+    /**
+     * Initialisation sécurisée de la configuration
+     */
+    async initializeSecureConfig() {
+        try {
+            if (this.androidInterface && typeof this.androidInterface.getSecureApiToken === 'function') {
+                this.apiToken = await this.androidInterface.getSecureApiToken();
+            } else {
+                this.apiToken = null;
+                console.warn('Configuration sécurisée non disponible');
+            }
+        } catch (error) {
+            console.error('Erreur initialisation sécurisée:', error);
+            this.apiToken = null;
+        }
+    }
+
+    /**
+     * Initialisation des éléments DOM avec validation
+     */
+    initializeElements() {
+        const elements = {
+            chatMessages: 'chatMessages',
+            messageInput: 'messageInput',
+            sendBtn: 'sendBtn',
+            voiceBtn: 'voiceBtn',
+            typingIndicator: 'typingIndicator',
+            langBtn: 'langBtn',
+            langSelector: 'langSelector',
+            clearBtn: 'clearBtn',
+            kittBtn: 'kittBtn',
+            pluginModal: 'pluginModal',
+            gamesBtn: 'gamesBtn',
+            aiConfigPreview: 'aiConfigPreview',
+            aiConfigReloadBtn: 'aiConfigReloadBtn',
+            aiConfigEditBtn: 'aiConfigEditBtn',
+            jsonModal: 'jsonModal',
+            closeJsonModalBtn: 'closeJsonModal',
+            aiConfigEditor: 'aiConfigEditor',
+            aiConfigSaveBtn: 'aiConfigSaveBtn',
+            aiConfigEditorReloadBtn: 'aiConfigEditorReloadBtn',
+            aiConfigFeedback: 'aiConfigFeedback',
+            configModeSelect: 'configModeSelect',
+            configSelectedModel: 'configSelectedModel',
+            configSelectedModelCustom: 'configSelectedModelCustom',
+            saveModeConfigBtn: 'saveModeConfigBtn',
+            configCloudProvider: 'configCloudProvider',
+            configCloudProviderCustom: 'configCloudProviderCustom',
+            configCloudApiKey: 'configCloudApiKey',
+            configCloudModel: 'configCloudModel',
+            configCloudModelCustom: 'configCloudModelCustom',
+            saveCloudConfigBtn: 'saveCloudConfigBtn',
+            configLocalUrl: 'configLocalUrl',
+            configLocalModel: 'configLocalModel',
+            configLocalModelCustom: 'configLocalModelCustom',
+            saveLocalConfigBtn: 'saveLocalConfigBtn',
+            configWebSearchProvider: 'configWebSearchProvider',
+            configThinkingEnabled: 'configThinkingEnabled',
+            saveWebThinkingBtn: 'saveWebThinkingBtn',
+            configVisionModel: 'configVisionModel',
+            configVisionModelCustom: 'configVisionModelCustom',
+            configAudioEngine: 'configAudioEngine',
+            configAudioModel: 'configAudioModel',
+            configAudioModelCustom: 'configAudioModelCustom',
+            configAudioEndpoint: 'configAudioEndpoint',
+            configAudioTimeout: 'configAudioTimeout',
+            configAudioSilenceDb: 'configAudioSilenceDb',
+            configAudioSilenceMs: 'configAudioSilenceMs',
+            configAudioDelayAfterHotword: 'configAudioDelayAfterHotword',
+            saveVisionBtn: 'saveVisionBtn',
+            saveAudioBtn: 'saveAudioBtn',
+            configHotwordEnabled: 'configHotwordEnabled',
+            configHotwordEngine: 'configHotwordEngine',
+            configHotwordAccessKey: 'configHotwordAccessKey',
+            configHotwordKeyword: 'configHotwordKeyword',
+            configHotwordAutoListen: 'configHotwordAutoListen',
+            configHotwordDebugScores: 'configHotwordDebugScores',
+            configHotwordDebounce: 'configHotwordDebounce',
+            hotwordNewName: 'hotwordNewName',
+            hotwordNewAsset: 'hotwordNewAsset',
+            hotwordNewThreshold: 'hotwordNewThreshold',
+            configHotwordCommMode: 'configHotwordCommMode',
+            addHotwordModelBtn: 'addHotwordModelBtn',
+            importHotwordAssetsBtn: 'importHotwordAssetsBtn',
+            saveHotwordBtn: 'saveHotwordBtn',
+            configTtsMode: 'configTtsMode',
+            configTtsVoice: 'configTtsVoice',
+            configTtsVoiceCustom: 'configTtsVoiceCustom',
+            saveTtsBtn: 'saveTtsBtn',
+            configPromptKitt: 'configPromptKitt',
+            configPromptGlados: 'configPromptGlados',
+            configPromptKarr: 'configPromptKarr',
+            savePromptsBtn: 'savePromptsBtn',
+            configMaxContext: 'configMaxContext',
+            configMaxResponse: 'configMaxResponse',
+            saveConstraintsBtn: 'saveConstraintsBtn'
+        };
+
+        for (const [key, id] of Object.entries(elements)) {
+            this[key] = document.getElementById(id);
+            if (!this[key]) {
+                console.warn(`Élément ${id} non trouvé`);
+            }
+        }
+
+        this.configInputs = {
+            modeSelect: this.configModeSelect,
+            selectedModel: this.configSelectedModel,
+            selectedModelCustom: this.configSelectedModelCustom,
+            cloudProvider: this.configCloudProvider,
+            cloudProviderCustom: this.configCloudProviderCustom,
+            cloudApiKey: this.configCloudApiKey,
+            cloudModel: this.configCloudModel,
+            cloudModelCustom: this.configCloudModelCustom,
+            localUrl: this.configLocalUrl,
+            localModel: this.configLocalModel,
+            localModelCustom: this.configLocalModelCustom,
+            webSearchProvider: this.configWebSearchProvider,
+            thinkingEnabled: this.configThinkingEnabled,
+            visionModel: this.configVisionModel,
+            visionModelCustom: this.configVisionModelCustom,
+            audioEngine: this.configAudioEngine,
+            audioModel: this.configAudioModel,
+            audioModelCustom: this.configAudioModelCustom,
+            audioEndpoint: this.configAudioEndpoint,
+            audioTimeout: this.configAudioTimeout,
+            audioSilenceDb: this.configAudioSilenceDb,
+            audioSilenceMs: this.configAudioSilenceMs,
+            audioDelayAfterHotword: this.configAudioDelayAfterHotword,
+            hotwordEnabled: this.configHotwordEnabled,
+            hotwordEngine: this.configHotwordEngine,
+            hotwordAccessKey: this.configHotwordAccessKey,
+            hotwordKeyword: this.configHotwordKeyword,
+            hotwordNewName: this.hotwordNewName,
+            hotwordNewAsset: this.hotwordNewAsset,
+            hotwordNewThreshold: this.hotwordNewThreshold,
+            ttsMode: this.configTtsMode,
+            ttsVoice: this.configTtsVoice,
+            ttsVoiceCustom: this.configTtsVoiceCustom,
+            promptKitt: this.configPromptKitt,
+            promptGlados: this.configPromptGlados,
+            promptKarr: this.configPromptKarr,
+            maxContext: this.configMaxContext,
+            maxResponse: this.configMaxResponse
+        };
+
+        this.personalityBtns = document.querySelectorAll('.personality-btn');
+        this.navButtons = document.querySelectorAll('.main-nav-btn');
+        this.views = document.querySelectorAll('.view');
+        this.porcupineFields = document.querySelectorAll('.porcupine-only');
+    }
+
+    /**
+     * Attachement des événements avec gestion d'erreurs
+     */
+    attachEventListeners() {
+        // Événements principaux
+        this.addListener(this.sendBtn, 'click', () => this.sendMessage());
+        this.addListener(this.voiceBtn, 'click', () => this.toggleVoiceRecording());
+        this.addListener(this.clearBtn, 'click', () => this.confirmClearChat());
+        this.addListener(this.langBtn, 'click', () => this.toggleLanguageSelector());
+        this.addListener(this.kittBtn, 'click', () => this.openKittInterface());
+        
+        // Événements de saisie
+        this.addListener(this.messageInput, 'input', () => {
+            this.adjustTextareaHeight();
+            this.typingDebounce();
+        });
+        
+        this.addListener(this.messageInput, 'keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+
+        // Personnalités
+        this.personalityBtns.forEach(btn => {
+            this.addListener(btn, 'click', () => this.changePersonality(btn));
+        });
+
+        // Langues
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            this.addListener(btn, 'click', () => this.changeLanguage(btn));
+        });
+
+        // Fermeture du sélecteur de langue
+        document.addEventListener('click', (e) => {
+            if (this.langSelector && 
+                !this.langSelector.contains(e.target) && 
+                e.target !== this.langBtn) {
+                this.langSelector.style.display = 'none';
+            }
+        });
+
+        // Modal plugins
+        this.addListener(this.pluginModal, 'click', (e) => {
+            if (e.target === this.pluginModal) closePlugin();
+        });
+
+        // Boutons de configuration
+        this.addListener(this.gamesBtn, 'click', () => this.handleGamesButton());
+        this.addListener(this.aiConfigReloadBtn, 'click', () => this.loadAiConfigPreview(true));
+        this.addListener(this.aiConfigEditBtn, 'click', () => this.openAiConfigEditor());
+        this.addListener(this.aiConfigSaveBtn, 'click', () => this.saveAiConfig());
+        this.addListener(this.aiConfigEditorReloadBtn, 'click', () => this.reloadAiConfigEditor());
+        this.addListener(this.closeJsonModalBtn, 'click', () => this.closeAiConfigEditor());
+
+        // Modal JSON
+        this.addListener(this.jsonModal, 'click', (event) => {
+            if (event.target === this.jsonModal) {
+                this.closeAiConfigEditor();
+            }
+        });
+
+        // Navigation
+        this.navButtons.forEach(btn => {
+            this.addListener(btn, 'click', () => {
+                this.switchView(btn.dataset.view);
+            });
+        });
+
+        // Scroll optimisé
+        if (this.chatMessages) {
+            this.chatMessages.addEventListener('scroll', this.scrollThrottle);
+        }
+    }
+
+    setupConfigFormListeners() {
+        const buttonBindings = [
+            { element: this.saveModeConfigBtn, section: 'mode' },
+            { element: this.saveCloudConfigBtn, section: 'cloud' },
+            { element: this.saveLocalConfigBtn, section: 'local' },
+            { element: this.saveWebThinkingBtn, section: 'thinking' },
+            { element: this.saveVisionBtn, section: 'vision' },
+            { element: this.saveAudioBtn, section: 'audio' },
+            { element: this.saveHotwordBtn, section: 'hotword' },
+            { element: this.saveTtsBtn, section: 'tts' },
+            { element: this.savePromptsBtn, section: 'prompts' },
+            { element: this.saveConstraintsBtn, section: 'constraints' }
+        ];
+
+        buttonBindings.forEach(({ element, section }) => {
+            if (element) {
+                this.addListener(element, 'click', () => this.saveConfigSection(section));
+            }
+        });
+
+        // Boutons contrôle Hotword
+        const hotwordStartBtn = document.getElementById('hotwordStartBtn');
+        const hotwordStopBtn = document.getElementById('hotwordStopBtn');
+        const hotwordRestartBtn = document.getElementById('hotwordRestartBtn');
+        if (hotwordStartBtn) {
+            this.addListener(hotwordStartBtn, 'click', () => this.hotwordStart());
+        }
+        if (hotwordStopBtn) {
+            this.addListener(hotwordStopBtn, 'click', () => this.hotwordStop());
+        }
+        if (hotwordRestartBtn) {
+            this.addListener(hotwordRestartBtn, 'click', () => this.hotwordRestart());
+        }
+
+        if (this.addHotwordModelBtn) {
+            this.addListener(this.addHotwordModelBtn, 'click', () => this.handleAddHotwordModel());
+        }
+        if (this.importHotwordAssetsBtn) {
+            this.addListener(this.importHotwordAssetsBtn, 'click', () => this.importHotwordAssets());
+        }
+
+        // Les événements des cartes hotword sont gérés dans renderHotwordModelsTable()
+
+        if (this.configHotwordEngine) {
+            this.addListener(this.configHotwordEngine, 'change', () => this.updateHotwordEngineView());
+        }
+
+        // Toggle pour "Ajouter un modèle"
+        const addModelToggle = document.querySelector('.add-model-toggle');
+        if (addModelToggle) {
+            this.addListener(addModelToggle, 'click', () => {
+                const content = addModelToggle.nextElementSibling;
+                const icon = addModelToggle.querySelector('.toggle-icon');
+                if (content && icon) {
+                    const isHidden = content.style.display === 'none';
+                    content.style.display = isHidden ? 'block' : 'none';
+                    icon.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
+                }
+            });
+        }
+
+        this.updateHotwordEngineView();
+
+        if (this.configAudioEngine) {
+            this.addListener(this.configAudioEngine, 'change', () => this.updateAudioEngineView());
+        }
+        this.updateAudioEngineView();
+    }
+
+    hotwordStart() {
+        try {
+            if (this.androidInterface?.hotwordStart) {
+                this.androidInterface.hotwordStart();
+                this.showConfigFeedback('Hotword: démarrage demandé.');
+            } else {
+                this.showConfigFeedback('Interface Android indisponible', true);
+            }
+        } catch (e) {
+            console.error('hotwordStart error', e);
+            this.showConfigFeedback('Erreur démarrage hotword', true);
+        }
+    }
+
+    hotwordStop() {
+        try {
+            if (this.androidInterface?.hotwordStop) {
+                this.androidInterface.hotwordStop();
+                this.showConfigFeedback('Hotword: arrêt demandé.');
+            } else {
+                this.showConfigFeedback('Interface Android indisponible', true);
+            }
+        } catch (e) {
+            console.error('hotwordStop error', e);
+            this.showConfigFeedback('Erreur arrêt hotword', true);
+        }
+    }
+
+    hotwordRestart() {
+        try {
+            if (this.androidInterface?.hotwordRestart) {
+                this.androidInterface.hotwordRestart();
+                this.showConfigFeedback('Hotword: redémarrage demandé.');
+            } else {
+                this.showConfigFeedback('Interface Android indisponible', true);
+            }
+        } catch (e) {
+            console.error('hotwordRestart error', e);
+            this.showConfigFeedback('Erreur redémarrage hotword', true);
+        }
+    }
+
+    initCustomSelects() {
+        this.customSelects = [
+            { select: this.configSelectedModel, custom: this.configSelectedModelCustom },
+            { select: this.configCloudProvider, custom: this.configCloudProviderCustom },
+            { select: this.configCloudModel, custom: this.configCloudModelCustom },
+            { select: this.configLocalModel, custom: this.configLocalModelCustom },
+            { select: this.configVisionModel, custom: this.configVisionModelCustom },
+            { select: this.configAudioModel, custom: this.configAudioModelCustom },
+            { select: this.configTtsVoice, custom: this.configTtsVoiceCustom }
+        ];
+
+        this.customSelects.forEach(({ select, custom }) => {
+            if (!select || !custom) return;
+            this.addListener(select, 'change', () => this.toggleCustomInput(select, custom));
+            this.toggleCustomInput(select, custom);
+        });
+    }
+
+    toggleCustomInput(select, customInput) {
+        if (!select || !customInput) return;
+        if (select.value === 'custom') {
+            customInput.classList.remove('hidden');
+        } else {
+            customInput.classList.add('hidden');
+        }
+    }
+
+    setSelectValue(select, customInput, value) {
+        if (!select) return;
+        const valueStr = value ?? '';
+        const option = Array.from(select.options || []).find(opt => opt.value === valueStr);
+        if (option || valueStr === '') {
+            select.value = valueStr;
+            if (customInput) {
+                customInput.classList.add('hidden');
+                if (select.value !== 'custom') {
+                    customInput.value = '';
+                }
+            }
+        } else {
+            select.value = 'custom';
+            if (customInput) {
+                customInput.classList.remove('hidden');
+                customInput.value = valueStr;
+            }
+        }
+    }
+
+    getSelectValue(select, customInput) {
+        if (!select) return '';
+        if (select.value === 'custom') {
+            return (customInput?.value || '').trim();
+        }
+        return select.value || '';
+    }
+
+    renderConfigForms() {
+        if (!this.aiConfigObject || !this.configModeSelect) return;
+        const cfg = this.aiConfigObject;
+        const hotword = cfg.hotword || {};
+
+        this.configModeSelect.value = cfg.mode || 'cloud';
+        this.setSelectValue(this.configSelectedModel, this.configSelectedModelCustom, cfg.selectedModel || '');
+
+        if (cfg.cloud) {
+            this.setSelectValue(this.configCloudProvider, this.configCloudProviderCustom, cfg.cloud.provider || '');
+            this.configCloudApiKey.value = cfg.cloud.apiKey || '';
+            this.setSelectValue(this.configCloudModel, this.configCloudModelCustom, cfg.cloud.selectedModel || cfg.selectedModel || '');
+        }
+
+        const local = cfg.local_server || cfg.localServer;
+        if (local) {
+            this.configLocalUrl.value = local.url || '';
+            this.setSelectValue(this.configLocalModel, this.configLocalModelCustom, local.model || '');
+        }
+
+        if (cfg.webSearch) {
+            // Si enabled est false, laisser le champ vide (désactivé)
+            this.configWebSearchProvider.value = cfg.webSearch.enabled ? (cfg.webSearch.provider || '') : '';
+        }
+
+        if (cfg.thinkingTrace) {
+            // Si enabled est false, mettre "Désactivé", sinon "Activé (auto)"
+            if (this.configThinkingEnabled) {
+                this.configThinkingEnabled.value = cfg.thinkingTrace.enabled ? 'auto' : '';
+            }
+        }
+
+        if (cfg.vision) {
+            // Si enabled est false ou preferredModel est vide, mettre "Désactivé"
+            const visionModel = cfg.vision.enabled ? (cfg.vision.preferredModel || '') : '';
+            this.setSelectValue(this.configVisionModel, this.configVisionModelCustom, visionModel);
+        }
+
+        if (cfg.audio) {
+            if (this.configAudioEngine) {
+                this.configAudioEngine.value = cfg.audio.engine || 'whisper_server';
+            }
+            // Si enabled est false ou preferredModel est vide, mettre "Désactivé"
+            const audioModel = cfg.audio.enabled ? (cfg.audio.preferredModel || '') : '';
+            this.setSelectValue(this.configAudioModel, this.configAudioModelCustom, audioModel);
+            this.configAudioEndpoint.value = cfg.audio.endpoint || '';
+            this.configAudioTimeout.value = cfg.audio.captureTimeoutMs ?? '';
+            this.configAudioSilenceDb.value = cfg.audio.silenceThresholdDb ?? '';
+            this.configAudioSilenceMs.value = cfg.audio.silenceDurationMs ?? '';
+            if (this.configAudioDelayAfterHotword) {
+                this.configAudioDelayAfterHotword.value = cfg.audio.delayAfterHotwordMs ?? '400';
+            }
+        }
+        this.updateAudioEngineView();
+
+        this.configHotwordEnabled.checked = !!hotword.enabled;
+        this.configHotwordEngine.value = hotword.engine || 'porcupine';
+        this.configHotwordAccessKey.value = hotword.accessKey || '';
+        if (this.configHotwordKeyword) {
+            this.configHotwordKeyword.value = hotword.keywordFile || 'hotwords/kit-kat_fr_android_v3_0_0.ppn';
+        }
+        if (this.configHotwordCommMode) {
+            this.configHotwordCommMode.value = (hotword.commModeDefault || 'respond_ai_outside_kitt');
+        }
+        if (this.configHotwordAutoListen) {
+            this.configHotwordAutoListen.checked = !!hotword.autoListen;
+        }
+        if (this.configHotwordDebugScores) {
+            this.configHotwordDebugScores.checked = !!hotword.debugScores;
+        }
+        if (this.configHotwordDebounce) {
+            this.configHotwordDebounce.value = hotword.debounceMs ?? '2500';
+        }
+
+        this.hotwordModels = Array.isArray(hotword.models) ? [...hotword.models] : [];
+        // Appliquer actions mappées aux modèles par nom si présent
+        const actionsMap = hotword.actions || {};
+        if (Array.isArray(this.hotwordModels) && actionsMap && typeof actionsMap === 'object') {
+            this.hotwordModels.forEach(m => {
+                if (m?.name && actionsMap[m.name] && !m.action) {
+                    m.action = actionsMap[m.name];
+                }
+            });
+        }
+        this.renderHotwordModelsTable();
+        this.updateHotwordEngineView();
+
+        if (cfg.tts) {
+            this.configTtsMode.value = cfg.tts.mode || '';
+            this.setSelectValue(this.configTtsVoice, this.configTtsVoiceCustom, cfg.tts.voice || '');
+        }
+
+        if (cfg.systemPromptOverrides) {
+            this.configPromptKitt.value = cfg.systemPromptOverrides.kitt || '';
+            this.configPromptGlados.value = cfg.systemPromptOverrides.glados || '';
+            this.configPromptKarr.value = cfg.systemPromptOverrides.karr || '';
+        }
+
+        if (cfg.constraints) {
+            this.configMaxContext.value = cfg.constraints.maxContextTokens ?? '';
+            this.configMaxResponse.value = cfg.constraints.maxResponseTokens ?? '';
+        }
+    }
+
+    renderHotwordModelsTable() {
+        const grid = document.getElementById('hotwordModelsGrid');
+        if (!grid) return;
+        
+        const models = this.hotwordModels || [];
+        grid.innerHTML = '';
+
+        if (!models.length) {
+            const empty = document.createElement('div');
+            empty.className = 'hotword-model-card-empty';
+            empty.textContent = 'Aucun modèle configuré. Utilisez "Importer depuis assets" ou "Ajouter un modèle" ci-dessous.';
+            grid.appendChild(empty);
+            return;
+        }
+
+        models.forEach((model, index) => {
+            const card = document.createElement('div');
+            const isEnabled = model.enabled !== false;
+            const name = (model.name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const asset = (model.asset || model.file || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const threshold = (model.threshold ?? 0.5).toFixed(2);
+            
+            card.className = 'hotword-model-card';
+            if (!isEnabled) {
+                card.classList.add('disabled');
+            }
+            
+            card.innerHTML = `
+                <div class="hotword-model-card-header">
+                    <div class="hotword-model-card-title">
+                        <input type="checkbox" class="hw-enabled" data-index="${index}" ${isEnabled ? 'checked' : ''}>
+                        <div class="hotword-model-card-name">
+                            <input type="text" class="hw-name" data-index="${index}" value="${name}" placeholder="Nom du modèle">
+                        </div>
+                    </div>
+                    <button class="hotword-model-card-remove" data-index="${index}">🗑️</button>
+                </div>
+                <div class="hotword-model-card-body">
+                    <div class="hotword-model-card-field">
+                        <label>Chemin Asset</label>
+                        <input type="text" class="hw-asset" data-index="${index}" value="${asset}" 
+                               placeholder="hotwords/.../file.tflite" readonly>
+                    </div>
+                    <div class="hotword-model-card-field">
+                        <label>Seuil de détection</label>
+                        <input type="number" class="hw-threshold" data-index="${index}" 
+                               value="${threshold}" step="0.01" min="0" max="1" placeholder="0.55">
+                    </div>
+                    <div class="hotword-model-card-field">
+                        <label>Action lors de la détection</label>
+                        <select class="hw-action" data-index="${index}">
+                            <option value="respond_ai_outside_kitt"${(model.action || '') === 'respond_ai_outside_kitt' ? ' selected' : ''}>Réponse IA (hors interface KITT)</option>
+                            <option value="open_kitt_ui"${(model.action || '') === 'open_kitt_ui' ? ' selected' : ''}>Ouvrir l'interface KITT (legacy)</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+            
+            grid.appendChild(card);
+        });
+        
+        // Bind checkbox events
+        grid.querySelectorAll('input.hw-enabled').forEach(cb => {
+            this.addListener(cb, 'change', (e) => {
+                const idx = Number(e.target.dataset.index);
+                const enabled = e.target.checked;
+                const card = e.target.closest('.hotword-model-card');
+                if (enabled) {
+                    card.classList.remove('disabled');
+                } else {
+                    card.classList.add('disabled');
+                }
+                this.toggleHotwordEnabled(idx, enabled);
+            });
+        });
+        
+        // Bind name input events
+        grid.querySelectorAll('input.hw-name').forEach(input => {
+            this.addListener(input, 'blur', (e) => {
+                const idx = Number(e.target.dataset.index);
+                const newName = e.target.value.trim();
+                if (this.hotwordModels[idx] && newName) {
+                    this.hotwordModels[idx].name = newName;
+                    this.showConfigFeedback(`Nom du modèle mis à jour (non sauvegardé).`);
+                }
+            });
+        });
+        
+        // Bind threshold input events
+        grid.querySelectorAll('input.hw-threshold').forEach(input => {
+            this.addListener(input, 'change', (e) => {
+                const idx = Number(e.target.dataset.index);
+                const newThreshold = parseFloat(e.target.value);
+                if (this.hotwordModels[idx] && !isNaN(newThreshold)) {
+                    this.hotwordModels[idx].threshold = Math.max(0, Math.min(1, newThreshold));
+                    e.target.value = this.hotwordModels[idx].threshold.toFixed(2);
+                    this.showConfigFeedback(`Seuil mis à jour: ${this.hotwordModels[idx].threshold.toFixed(2)} (non sauvegardé).`);
+                }
+            });
+        });
+        
+        // Bind actions selector
+        grid.querySelectorAll('select.hw-action').forEach(sel => {
+            this.addListener(sel, 'change', (e) => {
+                const idx = Number(e.target.dataset.index);
+                const val = e.target.value;
+                if (this.hotwordModels[idx]) {
+                    this.hotwordModels[idx].action = val;
+                    this.showConfigFeedback(`Action '${val}' appliquée à '${this.hotwordModels[idx].name}' (non sauvegardé).`);
+                }
+            });
+        });
+        
+        // Bind remove buttons
+        grid.querySelectorAll('button.hotword-model-card-remove').forEach(btn => {
+            this.addListener(btn, 'click', (e) => {
+                const idx = Number(e.target.dataset.index);
+                const modelName = this.hotwordModels[idx]?.name || 'sans nom';
+                if (confirm(`Supprimer le modèle "${modelName}" ?`)) {
+                    this.removeHotwordModel(idx);
+                }
+            });
+        });
+    }
+
+    toggleHotwordEnabled(index, enabled) {
+        if (!this.hotwordModels || index < 0 || index >= this.hotwordModels.length) return;
+        this.hotwordModels[index].enabled = !!enabled;
+        this.showConfigFeedback(`Modèle '${this.hotwordModels[index].name}' ${enabled ? 'activé' : 'désactivé'} (non sauvegardé).`);
+    }
+
+    updateHotwordEngineView() {
+        const isPorcupine = (this.configHotwordEngine?.value === 'porcupine');
+        if (this.porcupineFields) {
+            this.porcupineFields.forEach(field => {
+                if (!field) return;
+                if (isPorcupine) {
+                    field.classList.remove('hidden');
+                } else {
+                    field.classList.add('hidden');
+                }
+            });
+        }
+    }
+
+    updateAudioEngineView() {
+        const engine = this.configAudioEngine?.value || 'whisper_server';
+        const whisperOnlyElements = document.querySelectorAll('.engine-whisper-only');
+        const legacyOnlyElements = document.querySelectorAll('.engine-legacy-only');
+
+        whisperOnlyElements.forEach(el => {
+            if (engine === 'whisper_server') {
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        });
+
+        legacyOnlyElements.forEach(el => {
+            if (engine !== 'whisper_server') {
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        });
+    }
+
+    handleAddHotwordModel() {
+        if (!this.hotwordModels) this.hotwordModels = [];
+        const name = (this.hotwordNewName?.value || '').trim();
+        const asset = (this.hotwordNewAsset?.value || '').trim();
+        const threshold = parseFloat(this.hotwordNewThreshold?.value || '0.5');
+
+        if (!name || !asset) {
+            this.showConfigFeedback('Veuillez remplir Nom et Asset.', true);
+            return;
+        }
+
+        this.hotwordModels.push({
+            name,
+            asset,
+            threshold: isNaN(threshold) ? 0.5 : threshold,
+            enabled: true
+        });
+        if (this.hotwordNewName) this.hotwordNewName.value = '';
+        if (this.hotwordNewAsset) this.hotwordNewAsset.value = '';
+        if (this.hotwordNewThreshold) this.hotwordNewThreshold.value = '';
+        this.renderHotwordModelsTable();
+        this.showConfigFeedback(`Modèle '${name}' ajouté (non sauvegardé).`);
+    }
+
+    removeHotwordModel(index) {
+        if (!this.hotwordModels || index < 0 || index >= this.hotwordModels.length) return;
+        const removed = this.hotwordModels.splice(index, 1);
+        this.renderHotwordModelsTable();
+        if (removed[0]) {
+            this.showConfigFeedback(`Modèle '${removed[0].name}' retiré (non sauvegardé).`);
+        }
+    }
+
+    async importHotwordAssets() {
+        try {
+            let payload = null;
+            if (this.androidInterface?.listHotwordAssets) {
+                const response = this.androidInterface.listHotwordAssets();
+                payload = typeof response === 'string' ? JSON.parse(response) : response;
+            } else {
+                const res = await fetch(this.getApiUrl('/api/hotword/assets'));
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                payload = await res.json();
+            }
+
+            const assets = payload?.assets || [];
+            if (!assets.length) {
+                this.showConfigFeedback('Aucun modèle détecté dans assets.', true);
+                return;
+            }
+
+            if (!this.hotwordModels) this.hotwordModels = [];
+            const existing = new Set(this.hotwordModels.map(model => model.asset));
+            let added = 0;
+            assets.forEach(asset => {
+                if (!asset || !asset.asset || existing.has(asset.asset)) {
+                    return;
+                }
+                this.hotwordModels.push({
+                    name: asset.name || asset.asset,
+                    asset: asset.asset,
+                    threshold: asset.threshold ?? 0.55,
+                    enabled: true
+                });
+                existing.add(asset.asset);
+                added++;
+            });
+
+            this.renderHotwordModelsTable();
+            if (added > 0) {
+                this.showConfigFeedback(`${added} modèle(s) importé(s). Sauvegardez pour appliquer.`);
+            } else {
+                this.showConfigFeedback('Tous les modèles sont déjà dans la liste.');
+            }
+        } catch (error) {
+            console.error('importHotwordAssets error', error);
+            this.showConfigFeedback(`Erreur import: ${error.message}`, true);
+        }
+    }
+
+    showConfigFeedback(message, isError = false) {
+        if (!this.aiConfigFeedback) return;
+        this.aiConfigFeedback.textContent = message;
+        this.aiConfigFeedback.style.color = isError ? '#f87171' : '#94a3b8';
+    }
+
+    async saveConfigSection(section) {
+        if (!this.aiConfigObject) {
+            this.showConfigFeedback('Configuration non chargée', true);
+            return;
+        }
+        const cfg = this.aiConfigObject;
+
+        switch (section) {
+            case 'mode':
+                cfg.mode = this.configModeSelect.value || 'cloud';
+                cfg.selectedModel = this.getSelectValue(this.configSelectedModel, this.configSelectedModelCustom);
+                break;
+            case 'cloud':
+                cfg.cloud = cfg.cloud || {};
+                cfg.cloud.provider = this.getSelectValue(this.configCloudProvider, this.configCloudProviderCustom);
+                // Ne sauvegarder la clé API que si elle a été modifiée (pas de * = nouvelle clé)
+                const cloudApiKeyValue = this.configCloudApiKey.value || '';
+                if (cloudApiKeyValue && !cloudApiKeyValue.includes('*')) {
+                    // Nouvelle clé entrée par l'utilisateur
+                    cfg.cloud.apiKey = cloudApiKeyValue;
+                } else if (cloudApiKeyValue === '') {
+                    // Champ vide = supprimer la clé explicitement
+                    cfg.cloud.apiKey = '';
+                } else {
+                    // Champ contient des * = clé masquée, pas modifiée
+                    // Supprimer la propriété apiKey du JSON pour ne pas la modifier côté Android
+                    delete cfg.cloud.apiKey;
+                }
+                cfg.cloud.selectedModel = this.getSelectValue(this.configCloudModel, this.configCloudModelCustom);
+                break;
+            case 'local':
+                cfg.local_server = cfg.local_server || {};
+                cfg.local_server.url = this.configLocalUrl.value || '';
+                cfg.local_server.model = this.getSelectValue(this.configLocalModel, this.configLocalModelCustom);
+                break;
+            case 'thinking':
+                cfg.webSearch = cfg.webSearch || {};
+                const webSearchProvider = this.configWebSearchProvider.value.trim();
+                cfg.webSearch.enabled = !!webSearchProvider; // Activé si le provider n'est pas vide
+                cfg.webSearch.provider = webSearchProvider;
+                cfg.thinkingTrace = cfg.thinkingTrace || {};
+                const thinkingValue = this.configThinkingEnabled?.value || '';
+                cfg.thinkingTrace.enabled = thinkingValue === 'auto'; // Activé si "auto" est sélectionné
+                cfg.thinkingTrace.lastMessage = thinkingValue === 'auto' ? '(auto)' : '';
+                break;
+            case 'sensors':
+                cfg.vision = cfg.vision || {};
+                const sensorsVisionModel = this.getSelectValue(this.configVisionModel, this.configVisionModelCustom);
+                cfg.vision.enabled = !!sensorsVisionModel;
+                cfg.vision.preferredModel = sensorsVisionModel;
+                cfg.audio = cfg.audio || {};
+                cfg.audio.engine = this.configAudioEngine?.value || 'whisper_server';
+                const sensorsAudioModel = this.getSelectValue(this.configAudioModel, this.configAudioModelCustom);
+                cfg.audio.enabled = !!sensorsAudioModel;
+                cfg.audio.preferredModel = sensorsAudioModel;
+                if (cfg.audio.engine === 'whisper_server') {
+                    cfg.audio.endpoint = this.configAudioEndpoint.value || 'http://127.0.0.1:11400/inference';
+                } else {
+                    cfg.audio.endpoint = '';
+                }
+                cfg.audio.captureTimeoutMs = parseInt(this.configAudioTimeout.value || '8000', 10);
+                cfg.audio.silenceThresholdDb = parseFloat(this.configAudioSilenceDb.value || '-45');
+                cfg.audio.silenceDurationMs = parseInt(this.configAudioSilenceMs.value || '1200', 10);
+                cfg.audio.delayAfterHotwordMs = parseInt(this.configAudioDelayAfterHotword?.value || '400', 10);
+                break;
+            case 'vision':
+                cfg.vision = cfg.vision || {};
+                const visionModel = this.getSelectValue(this.configVisionModel, this.configVisionModelCustom);
+                cfg.vision.enabled = !!visionModel; // Activé si un modèle est sélectionné
+                cfg.vision.preferredModel = visionModel;
+                break;
+            case 'audio':
+                cfg.audio = cfg.audio || {};
+                cfg.audio.engine = this.configAudioEngine?.value || 'whisper_server';
+                const audioModel = this.getSelectValue(this.configAudioModel, this.configAudioModelCustom);
+                cfg.audio.enabled = !!audioModel; // Activé si un modèle est sélectionné
+                cfg.audio.preferredModel = audioModel;
+                if (cfg.audio.engine === 'whisper_server') {
+                    cfg.audio.endpoint = this.configAudioEndpoint.value || 'http://127.0.0.1:11400/inference';
+                } else {
+                    cfg.audio.endpoint = '';
+                }
+                cfg.audio.captureTimeoutMs = parseInt(this.configAudioTimeout.value || '8000', 10);
+                cfg.audio.silenceThresholdDb = parseFloat(this.configAudioSilenceDb.value || '-45');
+                cfg.audio.silenceDurationMs = parseInt(this.configAudioSilenceMs.value || '1200', 10);
+                cfg.audio.delayAfterHotwordMs = parseInt(this.configAudioDelayAfterHotword?.value || '400', 10);
+                break;
+            case 'hotword':
+                cfg.hotword = cfg.hotword || {};
+                cfg.hotword.enabled = this.configHotwordEnabled.checked;
+                cfg.hotword.engine = this.configHotwordEngine.value || 'openwakeword';
+                cfg.hotword.accessKey = this.configHotwordAccessKey.value || '';
+                if (this.configHotwordKeyword) {
+                    cfg.hotword.keywordFile = this.configHotwordKeyword.value || 'hotwords/kit-kat_fr_android_v3_0_0.ppn';
+                }
+                cfg.hotword.commModeDefault = this.configHotwordCommMode?.value || 'respond_ai_outside_kitt';
+                cfg.hotword.autoListen = !!this.configHotwordAutoListen?.checked;
+                cfg.hotword.debugScores = !!this.configHotwordDebugScores?.checked;
+                if (this.configHotwordDebounce) {
+                    cfg.hotword.debounceMs = parseInt(this.configHotwordDebounce.value || '2500', 10);
+                }
+                if (Array.isArray(this.hotwordModels)) {
+                    const actions = {};
+                    this.hotwordModels.forEach(m => {
+                        if (m?.name && m.action) {
+                            actions[m.name] = m.action;
+                        }
+                    });
+                    cfg.hotword.actions = actions;
+                }
+                cfg.hotword.models = this.hotwordModels || [];
+                break;
+            case 'tts':
+                cfg.tts = cfg.tts || {};
+                cfg.tts.mode = this.configTtsMode.value || '';
+                cfg.tts.voice = this.getSelectValue(this.configTtsVoice, this.configTtsVoiceCustom);
+                break;
+            case 'prompts':
+                cfg.systemPromptOverrides = cfg.systemPromptOverrides || {};
+                cfg.systemPromptOverrides.kitt = this.configPromptKitt.value || '';
+                cfg.systemPromptOverrides.glados = this.configPromptGlados.value || '';
+                cfg.systemPromptOverrides.karr = this.configPromptKarr.value || '';
+                break;
+            case 'constraints':
+                cfg.constraints = cfg.constraints || {};
+                cfg.constraints.maxContextTokens = parseInt(this.configMaxContext.value || '8192', 10);
+                cfg.constraints.maxResponseTokens = parseInt(this.configMaxResponse.value || '2048', 10);
+                break;
+            default:
+                this.showConfigFeedback('Section inconnue', true);
+                return;
+        }
+
+        await this.persistAiConfig('Section sauvegardée');
+    }
+
+    async persistAiConfig(successMessage = 'Configuration sauvegardée') {
+        try {
+            const content = JSON.stringify(this.aiConfigObject, null, 2);
+            const result = await this.pushAiConfigContent(content);
+            if (result === true || result === 'OK') {
+                this.aiConfigCache = content;
+                this.renderAiConfigPreview();
+                this.showConfigFeedback(successMessage, false);
+            } else {
+                this.showConfigFeedback(result || 'Erreur de sauvegarde', true);
+            }
+        } catch (error) {
+            console.error('persistAiConfig error', error);
+            this.showConfigFeedback(error.message, true);
+        }
+    }
+
+    renderAiConfigPreview() {
+        if (!this.aiConfigPreview) return;
+        if (this.aiConfigObject) {
+            this.aiConfigPreview.textContent = JSON.stringify(this.aiConfigObject, null, 2);
+        } else if (this.aiConfigCache) {
+            this.aiConfigPreview.textContent = this.aiConfigCache;
+        } else {
+            this.aiConfigPreview.textContent = 'Aucune configuration chargée.';
+        }
+    }
+
+    async pushAiConfigContent(content) {
+        if (this.androidInterface?.writeAiConfigJson) {
+            try {
+                return this.androidInterface.writeAiConfigJson(content);
+            } catch (error) {
+                return `Erreur Android: ${error.message}`;
+            }
+        }
+
+        try {
+            const response = await fetch(this.getApiUrl('/api/config/ai'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            if (!response.ok) {
+                return `HTTP ${response.status}`;
+            }
+            const data = await response.json();
+            return data?.status === 'ok' ? true : (data?.message || 'Erreur inconnue');
+        } catch (error) {
+            console.error('pushAiConfigContent', error);
+            return error.message;
+        }
+    }
+
+    /**
+     * Helper pour ajouter des listeners avec gestion d'erreurs
+     */
+    addListener(element, event, handler) {
+        if (!element) return;
+        try {
+            element.addEventListener(event, handler);
+        } catch (error) {
+            console.error(`Erreur lors de l'ajout du listener ${event}:`, error);
+        }
+    }
+
+    /**
+     * Throttle function pour optimisation
+     */
+    throttle(func, delay) {
+        let lastCall = 0;
+        return function(...args) {
+            const now = Date.now();
+            if (now - lastCall >= delay) {
+                lastCall = now;
+                return func.apply(this, args);
+            }
+        };
+    }
+
+    /**
+     * Debounce function pour optimisation
+     */
+    debounce(func, delay) {
+        let timeoutId;
+        return function(...args) {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
+    /**
+     * Gestion du scroll
+     */
+    handleScroll() {
+        // Logique pour charger plus de messages si nécessaire
+        const scrollPosition = this.chatMessages.scrollTop;
+        const scrollHeight = this.chatMessages.scrollHeight;
+        const clientHeight = this.chatMessages.clientHeight;
+        
+        if (scrollPosition < 50) {
+            // Chargement de messages plus anciens si disponible
+            this.loadOlderMessages();
+        }
+    }
+
+    /**
+     * Chargement de messages plus anciens (pagination)
+     */
+    loadOlderMessages() {
+        // À implémenter selon les besoins
+        console.log('Chargement de messages plus anciens...');
+    }
+
+    /**
+     * Gestion de la fin de frappe
+     */
+    handleTypingEnd() {
+        // Logique pour indiquer que l'utilisateur a arrêté de taper
+        console.log('L\'utilisateur a arrêté de taper');
+    }
+
+    /**
+     * Initialisation de la reconnaissance vocale
+     */
+    initializeSpeech() {
+        if ('webkitSpeechRecognition' in window) {
+            this.recognition = new webkitSpeechRecognition();
+            this.recognition.continuous = false;
+            this.recognition.interimResults = false;
+            this.recognition.lang = this.language === 'fr' ? 'fr-FR' : 'en-US';
+            
+            this.recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                const safeTranscript = this.sanitizeInput(transcript);
+                this.messageInput.value = safeTranscript;
+                this.adjustTextareaHeight();
+                this.sendMessage();
+            };
+            
+            this.recognition.onend = () => {
+                this.voiceBtn?.classList.remove('recording');
+                this.isRecording = false;
+            };
+
+            this.recognition.onerror = (event) => {
+                console.error('Erreur reconnaissance vocale:', event.error);
+                this.showSecureMessage('ai', 'Erreur lors de la reconnaissance vocale.');
+                this.voiceBtn?.classList.remove('recording');
+                this.isRecording = false;
+            };
+        }
+    }
+
+    /**
+     * Sécurisation des entrées utilisateur (améliorée)
+     */
+    sanitizeInput(input) {
+        if (!input) return '';
+        
+        const entityMap = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#x27;',
+            '/': '&#x2F;',
+            '`': '&#x60;',
+            '=': '&#x3D;'
+        };
+        
+        return String(input).replace(/[&<>"'`=/]/g, s => entityMap[s]).trim();
+    }
+
+    /**
+     * Validation renforcée des entrées
+     */
+    validateInput(input) {
+        if (!input || input.trim().length === 0) return false;
+        if (input.length > 5000) return false; // Limite augmentée
+        
+        const dangerousPatterns = [
+            /<script[^>]*>.*?<\/script>/gi,
+            /javascript:/gi,
+            /data:text\/html/gi,
+            /vbscript:/gi,
+            /on\w+\s*=/gi,
+            /<iframe/gi,
+            /<embed/gi,
+            /<object/gi
+        ];
+        
+        return !dangerousPatterns.some(pattern => pattern.test(input));
+    }
+
+    /**
+     * Changement de personnalité avec animation
+     */
+    changePersonality(btn) {
+        this.personalityBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.personality = btn.dataset.personality;
+        
+        // Animation de changement
+        btn.style.transform = 'scale(1.1)';
+        setTimeout(() => btn.style.transform = 'scale(1)', 200);
+        
+        this.showSecureMessage('ai', this.getPersonalityMessage());
+    }
+
+    /**
+     * Changement de langue
+     */
+    changeLanguage(btn) {
+        document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.language = btn.dataset.lang;
+        this.langSelector.style.display = 'none';
+        
+        // Mise à jour de la reconnaissance vocale
+        if (this.recognition) {
+            this.recognition.lang = this.language === 'fr' ? 'fr-FR' : 'en-US';
+        }
+    }
+
+    /**
+     * Confirmation avant effacement du chat
+     */
+    confirmClearChat() {
+        if (this.conversationHistory.length === 0) {
+            this.showSecureMessage('ai', 'La conversation est déjà vide.');
+            return;
+        }
+
+        if (confirm('Êtes-vous sûr de vouloir effacer toute la conversation ?')) {
+            this.clearChat();
+        }
+    }
+
+    /**
+     * Effacement du chat avec animation
+     */
+    clearChat() {
+        if (!this.chatMessages) return;
+        
+        // Animation de disparition
+        this.chatMessages.style.opacity = '0';
+        
+        setTimeout(() => {
+            this.chatMessages.innerHTML = '';
+            this.chatMessages.style.opacity = '1';
+            this.showSecureMessage('ai', this.getPersonalityMessage());
+            this.conversationHistory = [];
+            this.saveConversationToLocalStorage();
+        }, 300);
+    }
+
+    /**
+     * Sauvegarde de la conversation dans localStorage
+     */
+    saveConversationToLocalStorage() {
+        try {
+            const messages = this.conversationHistory.slice(-50); // Garder les 50 derniers messages
+            localStorage.setItem('chatHistory', JSON.stringify(messages));
+        } catch (error) {
+            console.error('Erreur sauvegarde localStorage:', error);
+        }
+    }
+
+    /**
+     * Chargement de l'historique de conversation
+     */
+    loadConversationHistory() {
+        try {
+            const saved = localStorage.getItem('chatHistory');
+            if (saved) {
+                this.conversationHistory = JSON.parse(saved);
+                // Afficher les messages sauvegardés
+                this.conversationHistory.forEach(msg => {
+                    this.showSecureMessage(msg.sender, msg.text, false);
+                });
+            }
+        } catch (error) {
+            console.error('Erreur chargement historique:', error);
+        }
+    }
+
+    /**
+     * Toggle reconnaissance vocale avec feedback visuel
+     */
+    toggleVoiceRecording() {
+        if (!this.recognition) {
+            this.showSecureMessage('ai', 'Reconnaissance vocale non supportée sur ce navigateur.');
+            return;
+        }
+
+        if (this.isRecording) {
+            this.recognition.stop();
+            this.voiceBtn?.classList.remove('recording');
+            this.isRecording = false;
+        } else {
+            try {
+            this.recognition.lang = this.language === 'fr' ? 'fr-FR' : 'en-US';
+            this.recognition.start();
+                this.voiceBtn?.classList.add('recording');
+            this.isRecording = true;
+            } catch (error) {
+                console.error('Erreur démarrage reconnaissance:', error);
+                this.showSecureMessage('ai', 'Impossible de démarrer la reconnaissance vocale.');
+            }
+        }
+    }
+
+    /**
+     * Ajustement automatique de la hauteur du textarea
+     */
+    adjustTextareaHeight() {
+        if (!this.messageInput) return;
+        
+        this.messageInput.style.height = 'auto';
+        const newHeight = Math.min(this.messageInput.scrollHeight, 120);
+        this.messageInput.style.height = newHeight + 'px';
+    }
+
+    /**
+     * Toggle du sélecteur de langue
+     */
+    toggleLanguageSelector() {
+        if (!this.langSelector) return;
+        
+        const isVisible = this.langSelector.style.display === 'block';
+        this.langSelector.style.display = isVisible ? 'none' : 'block';
+    }
+
+    /**
+     * Messages de personnalité
+     */
+    getPersonalityMessage() {
+        const messages = {
+            casual: { 
+                fr: "Cool ! Je suis maintenant en mode décontracté 😎", 
+                en: "Cool! I'm now in casual mode 😎" 
+            },
+            friendly: { 
+                fr: "Parfait ! Je suis maintenant super amical ! 😊", 
+                en: "Perfect! I'm now super friendly! 😊" 
+            },
+            professional: { 
+                fr: "Très bien. Je suis maintenant en mode professionnel.", 
+                en: "Very well. I am now in professional mode." 
+            },
+            creative: { 
+                fr: "Fantastique ! Mon imagination s'éveille... ✨", 
+                en: "Fantastic! My imagination awakens... ✨" 
+            },
+            funny: { 
+                fr: "Haha ! Mode blague activé ! 😂", 
+                en: "Haha! Joke mode activated! 😂" 
+            }
+        };
+        
+        return messages[this.personality]?.[this.language] || messages[this.personality]?.fr || "Prêt !";
+    }
+
+    /**
+     * Envoi de message avec queue de traitement
+     */
+    async sendMessage() {
+        const rawMessage = this.messageInput?.value;
+        
+        if (!this.validateInput(rawMessage)) {
+            this.showSecureMessage('ai', 'Message invalide ou trop long. Veuillez réessayer.');
+            return;
+        }
+        
+        const message = this.sanitizeInput(rawMessage);
+        
+        // Ajouter à l'historique
+        this.conversationHistory.push({
+            sender: 'user',
+            text: message,
+            timestamp: Date.now()
+        });
+        
+        this.showSecureMessage('user', message);
+        this.messageInput.value = '';
+        this.adjustTextareaHeight();
+        this.showTypingIndicator();
+        this.toggleInput(false);
+
+        // Ajouter à la queue de traitement
+        this.requestQueue.push(message);
+        this.processRequestQueue();
+    }
+
+    /**
+     * Traitement de la queue de requêtes
+     */
+    async processRequestQueue() {
+        if (this.isProcessing || this.requestQueue.length === 0) return;
+        
+        this.isProcessing = true;
+        const message = this.requestQueue.shift();
+
+        try {
+            // Essayer le service Android avec thinking mode
+            if (this.androidInterface?.processWithThinking) {
+                const enableThinking = this.androidInterface.getThinkingModeEnabled?.() ?? true;
+                this.androidInterface.processWithThinking(message, this.personality, enableThinking);
+            }
+            // Essayer le service temps réel
+            else if (this.androidInterface?.processAIRequestRealtime) {
+                const enhancedMessage = this.enhanceMessageWithPersonality(message);
+                this.androidInterface.processAIRequestRealtime(enhancedMessage, this.personality);
+            }
+            // Fallback API
+            else {
+            const enhancedMessage = this.enhanceMessageWithPersonality(message);
+            const response = await this.queryHuggingFaceSecure(enhancedMessage);
+            this.showSecureMessage('ai', response);
+            }
+        } catch (error) {
+            console.error('Erreur traitement message:', error);
+            this.showSecureMessage('ai', 'Oups ! Une erreur s\'est produite: ' + this.sanitizeInput(error.message));
+        } finally {
+            this.hideTypingIndicator();
+            this.toggleInput(true);
+            this.isProcessing = false;
+            
+            // Traiter le message suivant dans la queue
+            if (this.requestQueue.length > 0) {
+                setTimeout(() => this.processRequestQueue(), 100);
+            }
+        }
+    }
+
+    /**
+     * Amélioration du message avec contexte de personnalité
+     */
+    enhanceMessageWithPersonality(message) {
+        const personalities = {
+            casual: {
+                fr: "Tu es un assistant IA décontracté et sympa. Tu utilises un langage familier, des emojis, et tu es très détendu dans tes réponses.",
+                en: "You're a casual and cool AI assistant. You use informal language, emojis, and you're very laid-back in your responses."
+            },
+            friendly: {
+                fr: "Tu es un assistant IA très amical et chaleureux. Tu es toujours positif, encourageant et bienveillant.",
+                en: "You're a very friendly and warm AI assistant. You're always positive, encouraging and kind."
+            },
+            professional: {
+                fr: "Tu es un assistant IA professionnel et efficace. Tes réponses sont précises, structurées et formelles.",
+                en: "You're a professional and efficient AI assistant. Your responses are precise, structured and formal."
+            },
+            creative: {
+                fr: "Tu es un assistant IA créatif et imaginatif. Tu aimes les métaphores, les histoires et les idées originales.",
+                en: "You're a creative and imaginative AI assistant. You love metaphors, stories and original ideas."
+            },
+            funny: {
+                fr: "Tu es un assistant IA drôle et plein d'humour. Tu fais des blagues, des jeux de mots et tu es très divertissant.",
+                en: "You're a funny AI assistant full of humor. You make jokes, puns and you're very entertaining."
+            }
+        };
+        
+        const personalityPrompt = personalities[this.personality]?.[this.language] || personalities.casual.fr;
+        return `${personalityPrompt}\n\nQuestion: ${message}`;
+    }
+
+    /**
+     * Requête API HuggingFace sécurisée avec retry
+     */
+    async queryHuggingFaceSecure(message, retryCount = 0) {
+        if (!this.apiToken) {
+            throw new Error('Token API non configuré. Veuillez contacter l\'administrateur.');
+        }
+        
+        const apiUrl = `https://api-inference.huggingface.co/models/${this.currentModel}`;
+        const maxRetries = 3;
+        
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.apiToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+            inputs: message,
+            parameters: {
+                max_length: 150,
+                temperature: 0.8,
+                top_p: 0.9,
+                do_sample: true
+            }
+                })
+        });
+
+        if (!response.ok) {
+                if (response.status === 503 && retryCount < maxRetries) {
+                    // Retry avec backoff exponentiel
+                    const delay = Math.pow(2, retryCount) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return this.queryHuggingFaceSecure(message, retryCount + 1);
+                }
+                throw new Error(`Erreur API: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+            let botResponse = Array.isArray(data) && data[0] 
+                ? data[0].generated_text 
+                : data.generated_text;
+
+            if (!botResponse) {
+                return this.getDefaultResponse();
+            }
+
+            botResponse = botResponse.replace(message, '').trim();
+            
+            if (botResponse.length === 0) {
+                return this.getDefaultResponse();
+        }
+
+        return this.sanitizeInput(botResponse);
+        } catch (error) {
+            if (retryCount < maxRetries) {
+                const delay = Math.pow(2, retryCount) * 1000;
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return this.queryHuggingFaceSecure(message, retryCount + 1);
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Réponse par défaut
+     */
+    getDefaultResponse() {
+        const responses = {
+            casual: { 
+                fr: "Ah ouais, je vois ce que tu veux dire ! 😄", 
+                en: "Oh yeah, I see what you mean! 😄" 
+            },
+            friendly: { 
+                fr: "C'est une excellente question ! 😊", 
+                en: "That's an excellent question! 😊" 
+            },
+            professional: { 
+                fr: "Je comprends votre demande.", 
+                en: "I understand your request." 
+            },
+            creative: { 
+                fr: "Quelle idée intéressante ! ✨", 
+                en: "What an interesting idea! ✨" 
+            },
+            funny: { 
+                fr: "Haha, bonne question ! 😂", 
+                en: "Haha, good question! 😂" 
+            }
+        };
+        
+        return responses[this.personality]?.[this.language] || responses.casual.fr;
+    }
+
+    /**
+     * Affichage sécurisé des messages avec animations
+     */
+    showSecureMessage(sender, message, saveToHistory = true) {
+        if (!this.chatMessages) return;
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}`;
+        messageDiv.style.opacity = '0';
+        messageDiv.style.transform = 'translateY(20px)';
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.textContent = sender === 'user' ? '👤' : '🤖';
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        bubble.textContent = message;
+        
+        if (sender === 'ai') {
+            const actions = document.createElement('div');
+            actions.className = 'message-actions';
+            
+            const listenBtn = document.createElement('button');
+            listenBtn.className = 'message-btn';
+            listenBtn.title = 'Écouter';
+            listenBtn.textContent = '🔊';
+            listenBtn.addEventListener('click', () => this.speakText(message));
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'message-btn';
+            copyBtn.title = 'Copier';
+            copyBtn.textContent = '📋';
+            copyBtn.addEventListener('click', () => this.copyToClipboard(message));
+            
+            actions.appendChild(listenBtn);
+            actions.appendChild(copyBtn);
+            bubble.appendChild(actions);
+            
+            // Notification si l'app n'est pas en avant-plan
+            if (document.hidden) {
+                this.sendNotification('💬 Nouvelle réponse: ' + message.substring(0, 50) + (message.length > 50 ? '...' : ''));
+            }
+        }
+        
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(bubble);
+        this.chatMessages.appendChild(messageDiv);
+        
+        // Animation d'entrée
+        requestAnimationFrame(() => {
+            messageDiv.style.transition = 'opacity 0.3s, transform 0.3s';
+            messageDiv.style.opacity = '1';
+            messageDiv.style.transform = 'translateY(0)';
+        });
+        
+        this.scrollToBottom();
+        
+        if (saveToHistory && sender === 'ai') {
+            this.conversationHistory.push({
+                sender: 'ai',
+                text: message,
+                timestamp: Date.now()
+            });
+            this.saveConversationToLocalStorage();
+        }
+        
+        this.saveConversationToApp();
+    }
+
+    /**
+     * Copie dans le presse-papier
+     */
+    async copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            this.showToast('Message copié !');
+        } catch (error) {
+            console.error('Erreur copie presse-papier:', error);
+            // Fallback
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            this.showToast('Message copié !');
+        }
+    }
+
+    /**
+     * Affichage de toast notifications
+     */
+    showToast(message, duration = 2000) {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            z-index: 10000;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        `;
+        
+        document.body.appendChild(toast);
+        
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+        });
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => document.body.removeChild(toast), 300);
+        }, duration);
+    }
+
+    /**
+     * Synthèse vocale du texte
+     */
+    speakText(text) {
+        if ('speechSynthesis' in window) {
+            // Arrêter toute synthèse en cours
+            speechSynthesis.cancel();
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = this.language === 'fr' ? 'fr-FR' : 'en-US';
+            utterance.rate = 0.9;
+            utterance.pitch = 1;
+            utterance.volume = 1;
+            
+            utterance.onstart = () => {
+                console.log('Synthèse vocale démarrée');
+            };
+            
+            utterance.onend = () => {
+                console.log('Synthèse vocale terminée');
+            };
+            
+            utterance.onerror = (event) => {
+                console.error('Erreur synthèse vocale:', event);
+                this.showToast('Erreur lors de la lecture');
+            };
+            
+            speechSynthesis.speak(utterance);
+        } else {
+            this.showToast('Synthèse vocale non disponible');
+        }
+    }
+
+    /**
+     * Envoi de notification Android
+     */
+    sendNotification(message) {
+        if (this.androidInterface?.showNotification) {
+            this.androidInterface.showNotification(this.sanitizeInput(message));
+        }
+    }
+
+    /**
+     * Sauvegarde de la conversation dans Android
+     */
+    saveConversationToApp() {
+        if (this.androidInterface?.saveConversation && this.chatMessages) {
+            const messages = Array.from(this.chatMessages.querySelectorAll('.message')).map(msg => ({
+                sender: msg.classList.contains('user') ? 'user' : 'ai',
+                text: msg.querySelector('.message-bubble').textContent.replace(/[🔊📋]/g, '').trim(),
+                timestamp: Date.now()
+            }));
+            this.androidInterface.saveConversation(JSON.stringify(messages));
+        }
+    }
+
+    /**
+     * Affichage de l'indicateur de frappe
+     */
+    showTypingIndicator() {
+        if (this.typingIndicator) {
+        this.typingIndicator.style.display = 'block';
+        this.scrollToBottom();
+        }
+    }
+
+    /**
+     * Masquage de l'indicateur de frappe
+     */
+    hideTypingIndicator() {
+        if (this.typingIndicator) {
+        this.typingIndicator.style.display = 'none';
+        }
+    }
+
+    /**
+     * Activation/désactivation des contrôles d'entrée
+     */
+    toggleInput(enabled) {
+        if (this.messageInput) this.messageInput.disabled = !enabled;
+        if (this.sendBtn) this.sendBtn.disabled = !enabled;
+        if (this.voiceBtn) this.voiceBtn.disabled = !enabled;
+    }
+
+    /**
+     * Scroll vers le bas avec animation douce
+     */
+    scrollToBottom() {
+        if (!this.chatMessages) return;
+        
+        requestAnimationFrame(() => {
+            this.chatMessages.scrollTo({
+                top: this.chatMessages.scrollHeight,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    /**
+     * Réception d'image depuis Android
+     */
+    receiveImageFromAndroid(imageBase64, fileName) {
+        this.showSecureMessage('user', `📷 Image partagée: ${this.sanitizeInput(fileName)}`);
+        
+        const imageDiv = document.createElement('div');
+        imageDiv.className = 'message user';
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.textContent = '👤';
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        
+        const img = document.createElement('img');
+        img.src = `data:image/jpeg;base64,${imageBase64}`;
+        img.style.cssText = 'max-width: 200px; border-radius: 8px; margin: 5px 0;';
+        img.alt = this.sanitizeInput(fileName);
+        
+        const caption = document.createElement('div');
+        caption.textContent = `📷 ${this.sanitizeInput(fileName)}`;
+        
+        bubble.appendChild(img);
+        bubble.appendChild(caption);
+        imageDiv.appendChild(avatar);
+        imageDiv.appendChild(bubble);
+        
+        if (this.chatMessages) {
+        this.chatMessages.appendChild(imageDiv);
+        this.scrollToBottom();
+        }
+        
+        this.analyzeImage(imageBase64);
+    }
+
+    /**
+     * Réception de fichier depuis Android
+     */
+    receiveFileFromAndroid(fileName, fileContent, fileType) {
+        const safeFileName = this.sanitizeInput(fileName);
+        this.showSecureMessage('user', `📄 Fichier partagé: ${safeFileName}`);
+        
+        if (fileType && (fileType.startsWith('text/') || fileType === 'application/json')) {
+            const preview = fileContent.substring(0, 500) + (fileContent.length > 500 ? '...' : '');
+            this.showSecureMessage('ai', `📄 Contenu de ${safeFileName}:\n\n${preview}`);
+        }
+    }
+
+    /**
+     * Analyse d'image (simulation)
+     */
+    async analyzeImage(imageBase64) {
+        this.showTypingIndicator();
+        
+        try {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const responses = [
+                "Quelle belle image ! 📸 Je vois des couleurs intéressantes et une composition sympa !",
+                "Super photo ! 🌟 L'éclairage est vraiment bien géré !",
+                "J'aime beaucoup cette image ! 😊 Elle me donne envie d'en savoir plus !",
+                "Excellente prise de vue ! 📷 Tu as l'œil artistique !"
+            ];
+            
+            const response = responses[Math.floor(Math.random() * responses.length)];
+            this.hideTypingIndicator();
+            this.showSecureMessage('ai', response);
+            
+        } catch (error) {
+            this.hideTypingIndicator();
+            this.showSecureMessage('ai', "Désolé, je n'ai pas pu analyser cette image pour le moment 😅");
+        }
+    }
+
+    /**
+     * Ouverture de l'interface KITT
+     */
+    openKittInterface() {
+        if (this.androidInterface?.openKittInterface) {
+            this.androidInterface.openKittInterface();
+        } else {
+            this.showSecureMessage('ai', '🚗 Interface KITT non disponible');
+        }
+    }
+
+    /**
+     * Connexion WebSocket
+     */
+    connectWebSocket() {
+        console.log('🔌 Système de réponses IA initialisé');
+    }
+
+    /**
+     * Affichage d'une réponse IA
+     */
+    displayAIResponse(message) {
+        this.showSecureMessage('ai', message);
+        console.log('✅ Réponse IA affichée:', message);
+    }
+    
+    /**
+     * Configuration de la navigation
+     */
+    setupNavigation() {
+        this.currentView = 'view-chat';
+        if (this.navButtons && this.navButtons.length > 0) {
+            this.navButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.view === this.currentView);
+            });
+        }
+        this.switchView(this.currentView);
+    }
+
+    /**
+     * Changement de vue avec animation
+     */
+    switchView(viewId) {
+        if (!viewId) viewId = 'view-chat';
+
+        if (this.views && this.views.length > 0) {
+            this.views.forEach(view => {
+                const isActive = view.id === viewId;
+                if (isActive) {
+                    view.style.display = 'flex';
+                    requestAnimationFrame(() => {
+                        view.classList.add('active');
+                    });
+                } else {
+                    view.classList.remove('active');
+                    setTimeout(() => {
+                        if (!view.classList.contains('active')) {
+                            view.style.display = 'none';
+                        }
+                    }, 300);
+                }
+            });
+        }
+
+        if (this.navButtons && this.navButtons.length > 0) {
+            this.navButtons.forEach(btn => {
+                const isActive = btn.dataset.view === viewId;
+                btn.classList.toggle('active', isActive);
+            });
+        }
+
+        this.currentView = viewId;
+
+        if (viewId === 'view-config') {
+            this.loadAiConfigPreview(false);
+            // Initialiser l'accordéon après un petit délai pour laisser le DOM se stabiliser
+            setTimeout(() => {
+                this.initConfigTabs();
+                this.initConfigAccordions(); // Legacy, does nothing now
+            }, 50);
+        }
+    }
+
+    /**
+     * Transforme chaque .panel-section en accordéon (toggle sur le titre)
+     */
+    initConfigTabs() {
+        const tabsContainer = document.getElementById('configTabs');
+        if (!tabsContainer) return;
+        
+        const tabs = tabsContainer.querySelectorAll('.config-tab');
+        const contents = document.querySelectorAll('.config-tab-content');
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.dataset.tab;
+                
+                // Remove active from all tabs and contents
+                tabs.forEach(t => t.classList.remove('active'));
+                contents.forEach(c => c.classList.remove('active'));
+                
+                // Add active to clicked tab and corresponding content
+                tab.classList.add('active');
+                const targetContent = document.querySelector(`.config-tab-content[data-content="${targetTab}"]`);
+                if (targetContent) {
+                    targetContent.classList.add('active');
+                }
+            });
+        });
+    }
+    
+    initConfigAccordions() {
+        // Accordions are now disabled - tabs are used instead
+        // This function is kept for backward compatibility but does nothing
+        return;
+    }
+
+    /**
+     * Obtention de l'URL de l'API
+     */
+    getApiUrl(path) {
+        const origin = window.location?.origin || '';
+        if (origin && origin.startsWith('http')) {
+            return origin.replace(/\/$/, '') + path;
+        }
+        return 'http://127.0.0.1:8080' + path;
+    }
+
+    /**
+     * Chargement de l'aperçu de la configuration IA
+     */
+    async loadAiConfigPreview(force = false) {
+        if (!this.aiConfigPreview) return;
+
+        try {
+            let content = '';
+            if (this.androidInterface?.readAiConfigJson) {
+                content = this.androidInterface.readAiConfigJson() || '';
+            } else {
+                const response = await fetch(this.getApiUrl('/api/config/ai'), {
+                    method: 'GET',
+                    cache: force ? 'no-store' : 'default',
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+                content = data?.content || '';
+            }
+
+            this.aiConfigCache = content || '';
+            if (content && content.trim().length > 0) {
+                try {
+                    this.aiConfigObject = JSON.parse(content);
+                    this.renderConfigForms();
+                } catch (parseError) {
+                    console.warn('JSON invalide détecté, affichage brut.', parseError);
+                    this.aiConfigObject = null;
+                }
+            } else {
+                this.aiConfigObject = null;
+            }
+            this.renderAiConfigPreview();
+        } catch (error) {
+            console.error('Erreur lecture ai_config.json', error);
+            this.aiConfigPreview.textContent = `Erreur lecture ai_config: ${error.message}`;
+        }
+    }
+
+    /**
+     * Ouverture de l'éditeur de configuration IA
+     */
+    async openAiConfigEditor() {
+        if (!this.jsonModal || !this.aiConfigEditor) return;
+
+        await this.loadAiConfigPreview(true);
+        this.aiConfigEditor.value = this.aiConfigCache || '';
+        
+        if (this.aiConfigFeedback) {
+            this.aiConfigFeedback.textContent = '';
+            this.aiConfigFeedback.style.color = '#94a3b8';
+        }
+        
+        this.jsonModal.style.display = 'block';
+    }
+
+    /**
+     * Rechargement de l'éditeur de configuration
+     */
+    async reloadAiConfigEditor() {
+        await this.loadAiConfigPreview(true);
+        if (this.aiConfigEditor) {
+            this.aiConfigEditor.value = this.aiConfigCache || '';
+        }
+        if (this.aiConfigFeedback) {
+            this.aiConfigFeedback.textContent = 'Rechargé depuis le stockage.';
+            this.aiConfigFeedback.style.color = '#94a3b8';
+        }
+    }
+
+    /**
+     * Sauvegarde de la configuration IA
+     */
+    async saveAiConfig() {
+        if (!this.aiConfigEditor) return;
+        
+        const content = this.aiConfigEditor.value || '';
+        
+        // Validation JSON
+        try {
+            this.aiConfigObject = JSON.parse(content);
+        } catch (error) {
+            if (this.aiConfigFeedback) {
+                this.aiConfigFeedback.textContent = `JSON invalide: ${error.message}`;
+                this.aiConfigFeedback.style.color = '#f87171';
+            }
+            return;
+        }
+        const result = await this.pushAiConfigContent(content);
+        if (result === true || result === 'OK') {
+            this.aiConfigCache = content;
+            this.renderConfigForms();
+            this.renderAiConfigPreview();
+            if (this.aiConfigFeedback) {
+                this.aiConfigFeedback.textContent = 'Configuration sauvegardée avec succès.';
+                this.aiConfigFeedback.style.color = '#4ade80';
+            }
+            setTimeout(() => this.closeAiConfigEditor(), 500);
+        } else if (this.aiConfigFeedback) {
+            this.aiConfigFeedback.textContent = result || 'Erreur inconnue lors de la sauvegarde.';
+            this.aiConfigFeedback.style.color = '#f87171';
+        }
+    }
+
+    /**
+     * Fermeture de l'éditeur de configuration
+     */
+    closeAiConfigEditor() {
+        if (this.jsonModal) {
+            this.jsonModal.style.display = 'none';
+        }
+    }
+
+    /**
+     * Gestion du bouton jeux
+     */
+    handleGamesButton() {
+        try {
+            if (this.androidInterface?.openGameLibrary) {
+                this.androidInterface.openGameLibrary();
+            } else {
+                const origin = window.location.origin || '';
+                const target = origin ? origin.replace(/\/$/, '') + '/gamelibrary/' : '/gamelibrary/';
+                window.open(target, '_blank');
+            }
+        } catch (error) {
+            console.warn('Erreur ouverture jeux', error);
+            const origin = window.location.origin || '';
+            const fallback = origin ? origin.replace(/\/$/, '') + '/gamelibrary/' : '/gamelibrary/';
+            window.open(fallback, '_blank');
+        }
+    }
+    
+    /**
+     * Affichage d'un message avec section thinking
+     */
+    showThinkingMessage(thinkingContent, responseContent) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message ai';
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.textContent = '🤖';
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        
+        // Section thinking (collapsible)
+        if (thinkingContent && thinkingContent.trim().length > 0) {
+            const thinkingSection = document.createElement('div');
+            thinkingSection.className = 'thinking-section';
+            thinkingSection.style.cssText = `
+                background: #f0f4ff;
+                border-left: 3px solid #667eea;
+                padding: 10px;
+                margin-bottom: 10px;
+                border-radius: 8px;
+                cursor: pointer;
+                position: relative;
+            `;
+            
+            const thinkingHeader = document.createElement('div');
+            thinkingHeader.style.cssText = `
+                font-weight: bold;
+                color: #667eea;
+                margin-bottom: 5px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            `;
+            thinkingHeader.innerHTML = '🧠 Raisonnement <span style="font-size: 12px; color: #888;">(cliquez pour voir/cacher)</span>';
+            
+            const thinkingContent_div = document.createElement('div');
+            thinkingContent_div.className = 'thinking-content';
+            thinkingContent_div.style.cssText = `
+                font-size: 13px;
+                color: #555;
+                line-height: 1.4;
+                margin-top: 5px;
+                display: none;
+                white-space: pre-wrap;
+                max-height: 200px;
+                overflow-y: auto;
+            `;
+            thinkingContent_div.textContent = thinkingContent;
+            
+            thinkingSection.appendChild(thinkingHeader);
+            thinkingSection.appendChild(thinkingContent_div);
+            
+            // Toggle thinking visibility
+            thinkingSection.addEventListener('click', () => {
+                const isVisible = thinkingContent_div.style.display !== 'none';
+                thinkingContent_div.style.display = isVisible ? 'none' : 'block';
+            });
+            
+            bubble.appendChild(thinkingSection);
+        }
+        
+        // Réponse finale
+        const responseDiv = document.createElement('div');
+        responseDiv.className = 'response-content';
+        responseDiv.textContent = responseContent;
+        bubble.appendChild(responseDiv);
+        
+        // Actions
+        const actions = document.createElement('div');
+        actions.className = 'message-actions';
+        
+        const listenBtn = document.createElement('button');
+        listenBtn.className = 'message-btn';
+        listenBtn.title = 'Écouter';
+        listenBtn.textContent = '🔊';
+        listenBtn.addEventListener('click', () => this.speakText(responseContent));
+        
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'message-btn';
+        copyBtn.title = 'Copier';
+        copyBtn.textContent = '📋';
+        copyBtn.addEventListener('click', () => this.copyToClipboard(responseContent));
+        
+        actions.appendChild(listenBtn);
+        actions.appendChild(copyBtn);
+        bubble.appendChild(actions);
+        
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(bubble);
+        
+        if (this.chatMessages) {
+        this.chatMessages.appendChild(messageDiv);
+        this.scrollToBottom();
+        }
+        
+        this.saveConversationToApp();
+    }
+    
+    /**
+     * Création ou mise à jour d'un message en mode streaming
+     */
+    createOrUpdateStreamingMessage(messageId, type, content, isComplete) {
+        let messageDiv = document.getElementById(messageId);
+        
+        if (!messageDiv) {
+            // Créer un nouveau message
+            messageDiv = document.createElement('div');
+            messageDiv.id = messageId;
+            messageDiv.className = 'message ai';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = '🤖';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+            
+            // Créer les sections
+            if (type === 'thinking') {
+                const thinkingSection = document.createElement('div');
+                thinkingSection.className = 'thinking-section';
+                thinkingSection.style.cssText = `
+                    background: #f0f4ff;
+                    border-left: 3px solid #667eea;
+                    padding: 10px;
+                    margin-bottom: 10px;
+                    border-radius: 8px;
+                `;
+                
+                const thinkingHeader = document.createElement('div');
+                thinkingHeader.style.cssText = `
+                    font-weight: bold;
+                    color: #667eea;
+                    margin-bottom: 5px;
+                `;
+                thinkingHeader.textContent = '🧠 Raisonnement en cours...';
+                
+                const thinkingContent_div = document.createElement('div');
+                thinkingContent_div.className = 'thinking-content-stream';
+                thinkingContent_div.style.cssText = `
+                    font-size: 13px;
+                    color: #555;
+                    line-height: 1.4;
+                    white-space: pre-wrap;
+                `;
+                
+                thinkingSection.appendChild(thinkingHeader);
+                thinkingSection.appendChild(thinkingContent_div);
+                bubble.appendChild(thinkingSection);
+            }
+            
+            const responseDiv = document.createElement('div');
+            responseDiv.className = 'response-content-stream';
+            responseDiv.style.cssText = 'white-space: pre-wrap;';
+            bubble.appendChild(responseDiv);
+            
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(bubble);
+            
+            if (this.chatMessages) {
+            this.chatMessages.appendChild(messageDiv);
+            }
+        }
+        
+        // Mettre à jour le contenu
+        if (type === 'thinking') {
+            const thinkingContentDiv = messageDiv.querySelector('.thinking-content-stream');
+            if (thinkingContentDiv) {
+                thinkingContentDiv.textContent += content;
+                
+                if (isComplete) {
+                    const thinkingSection = messageDiv.querySelector('.thinking-section');
+                    if (thinkingSection) {
+                        const header = thinkingSection.querySelector('div');
+                        if (header) {
+                            header.innerHTML = '🧠 Raisonnement <span style="font-size: 12px; color: #888;">(cliquez pour voir/cacher)</span>';
+                            thinkingSection.style.cursor = 'pointer';
+                            
+                            const contentDiv = thinkingSection.querySelector('.thinking-content-stream');
+                            if (contentDiv) {
+                                contentDiv.style.display = 'none';
+                                contentDiv.style.maxHeight = '200px';
+                                contentDiv.style.overflowY = 'auto';
+                            }
+                            
+                            thinkingSection.addEventListener('click', () => {
+                                const isVisible = contentDiv.style.display !== 'none';
+                                contentDiv.style.display = isVisible ? 'none' : 'block';
+                            });
+                        }
+                    }
+                }
+            }
+        } else if (type === 'response') {
+            const responseDiv = messageDiv.querySelector('.response-content-stream');
+            if (responseDiv) {
+                responseDiv.textContent += content;
+                
+                if (isComplete) {
+                    const bubble = messageDiv.querySelector('.message-bubble');
+                    if (bubble && !bubble.querySelector('.message-actions')) {
+                        const actions = document.createElement('div');
+                        actions.className = 'message-actions';
+                        
+                        const listenBtn = document.createElement('button');
+                        listenBtn.className = 'message-btn';
+                        listenBtn.title = 'Écouter';
+                        listenBtn.textContent = '🔊';
+                        listenBtn.addEventListener('click', () => this.speakText(responseDiv.textContent));
+                        
+                        const copyBtn = document.createElement('button');
+                        copyBtn.className = 'message-btn';
+                        copyBtn.title = 'Copier';
+                        copyBtn.textContent = '📋';
+                        copyBtn.addEventListener('click', () => this.copyToClipboard(responseDiv.textContent));
+                        
+                        actions.appendChild(listenBtn);
+                        actions.appendChild(copyBtn);
+                        bubble.appendChild(actions);
+                    }
+                }
+            }
+        }
+        
+        this.scrollToBottom();
+        
+        if (isComplete) {
+            this.saveConversationToApp();
+        }
+    }
+    
+    /**
+     * Affichage d'un chunk de thinking ou de réponse (appelé par Android)
+     */
+    displayThinkingChunk(messageId, type, content, isComplete) {
+        this.createOrUpdateStreamingMessage(messageId, type, content, isComplete);
+    }
+}
+
+// ========== FONCTIONS GLOBALES SÉCURISÉES ==========
+
+window.receiveImageFromAndroid = function(imageBase64, fileName) {
+    if (window.secureChatApp) {
+        window.secureChatApp.receiveImageFromAndroid(imageBase64, fileName);
+    }
+};
+
+window.receiveFileFromAndroid = function(fileName, fileContent, fileType) {
+    if (window.secureChatApp) {
+        window.secureChatApp.receiveFileFromAndroid(fileName, fileContent, fileType);
+    }
+};
+
+// ========== INITIALISATION ==========
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.secureChatApp = new SecureMobileAIChat();
+    console.log('✅ Application Chat IA initialisée avec succès');
+});

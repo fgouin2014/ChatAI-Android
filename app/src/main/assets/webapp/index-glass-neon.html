@@ -998,7 +998,17 @@
 
         // Fonction de test de connexion Ollama Cloud
         async function testOllamaCloudConnection() {
-            const apiKey = document.getElementById('configCloudApiKey').value.trim();
+            const apiKeyField = document.getElementById('configCloudApiKey');
+            let apiKey = apiKeyField.value.trim();
+            
+            // Si la clé contient des astérisques (masquée), récupérer la vraie clé depuis data-original-key
+            if (apiKey && apiKey.includes('*')) {
+                const originalKey = apiKeyField.getAttribute('data-original-key') || '';
+                if (originalKey) {
+                    apiKey = originalKey;
+                }
+            }
+            
             const modelSelect = document.getElementById('configCloudModel');
             const modelCustom = document.getElementById('configCloudModelCustom');
             const model = (modelSelect && modelSelect.value && modelSelect.value !== 'custom') 

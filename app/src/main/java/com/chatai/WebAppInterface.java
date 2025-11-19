@@ -18,6 +18,7 @@ import org.json.JSONObject;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -38,6 +39,11 @@ public class WebAppInterface {
     private static WebSocketServer webSocketServer;
     private static RealtimeAIService aiService;
     private static FileServer fileServer;
+    
+    // STT pour bouton micro webapp
+    private com.chatai.audio.WhisperServerRecognizer webappWhisperRecognizer = null;
+    private android.speech.SpeechRecognizer webappSpeechRecognizer = null;
+    private WebappGoogleSpeechListener webappSpeechListener = null;
 
     public WebAppInterface(Context c, Object activity) {
         mContext = c;
@@ -531,31 +537,31 @@ public class WebAppInterface {
                         mContext.startService(stopGoogleIntent);
                         Log.i(TAG, "STT Test (Whisper): Arrêt de Google Speech si actif");
                         
-                        // Créer client OkHttp avec timeouts configurés (120s read, 150s call)
-                        okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
-                                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                                .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
-                                .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-                                .callTimeout(150, java.util.concurrent.TimeUnit.SECONDS)
-                                .build();
-                        com.chatai.audio.WhisperServerRecognizer rec = new com.chatai.audio.WhisperServerRecognizer(
-                                cfg,
-                                new com.chatai.audio.WhisperServerRecognizer.Callback() {
+                    // Créer client OkHttp avec timeouts configurés (120s read, 150s call)
+                    okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                            .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                            .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                            .callTimeout(150, java.util.concurrent.TimeUnit.SECONDS)
+                            .build();
+                    com.chatai.audio.WhisperServerRecognizer rec = new com.chatai.audio.WhisperServerRecognizer(
+                            cfg,
+                            new com.chatai.audio.WhisperServerRecognizer.Callback() {
                                     @Override public void onReady() { Log.i(TAG, "STT Test (Whisper): ready"); }
                                     @Override public void onSpeechStart() { Log.i(TAG, "STT Test (Whisper): speech start"); }
-                                    @Override public void onRmsChanged(float rmsDb) { /* no-op */ }
-                                    @Override public void onResult(String text) {
+                                @Override public void onRmsChanged(float rmsDb) { /* no-op */ }
+                                @Override public void onResult(String text) {
                                         Log.i(TAG, "STT Test (Whisper) result: " + text);
-                                        showToast("STT: " + text);
-                                    }
-                                    @Override public void onError(String message) {
+                                    showToast("STT: " + text);
+                                }
+                                @Override public void onError(String message) {
                                         Log.e(TAG, "STT Test (Whisper) error: " + message);
-                                        showToast("STT error: " + message);
-                                    }
-                                },
-                                client
-                        );
-                        rec.startListening();
+                                    showToast("STT error: " + message);
+                                }
+                            },
+                            client
+                    );
+                    rec.startListening();
                     } else if ("legacy_google".equalsIgnoreCase(engine)) {
                         // === GOOGLE SPEECH ===
                         // CRITIQUE: Arrêter Whisper s'il est actif (il monopolise le microphone)
@@ -642,6 +648,248 @@ public class WebAppInterface {
                     showToast("STT test error: " + e.getMessage());
                 }
             }
+            // ========== STT (Whisper/Google Speech) POUR BOUTON MICRO WEBBAPP ==========
+            /**
+             * Vérifier si Whisper Server est disponible (pour bouton micro webapp)
+             */
+            @JavascriptInterface
+            public boolean isWhisperAvailable() {
+                try {
+                    com.chatai.audio.AudioEngineConfig cfg = com.chatai.audio.AudioEngineConfig.Companion.fromContext(mContext);
+                    String engine = cfg.getEngine();
+                    
+                    if ("whisper_server".equalsIgnoreCase(engine)) {
+                        // Vérifier si le serveur Whisper répond
+                        return sttPing();
+                    } else {
+                        // Google Speech : toujours disponible si SpeechRecognizer existe
+                        return android.speech.SpeechRecognizer.isRecognitionAvailable(mContext);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "isWhisperAvailable error", e);
+                    return false;
+                }
+            }
+            
+            /**
+             * Démarrer Whisper Server (pour bouton micro webapp)
+             * Utilise la configuration Audio STT de la webapp (whisper_server ou legacy_google)
+             */
+            @JavascriptInterface
+            public void sttStartWhisper() {
+                try {
+                    com.chatai.audio.AudioEngineConfig cfg = com.chatai.audio.AudioEngineConfig.Companion.fromContext(mContext);
+                    String engine = cfg.getEngine();
+                    
+                    Log.i(TAG, "sttStartWhisper: Engine=" + engine);
+                    
+                    if ("whisper_server".equalsIgnoreCase(engine)) {
+                        // === WHISPER SERVER ===
+                        // CRITIQUE: Arrêter Google Speech s'il est actif (il monopolise le microphone)
+                        Intent stopGoogleIntent = new Intent(mContext, BackgroundService.class);
+                        stopGoogleIntent.setAction(BackgroundService.ACTION_STOP_GOOGLE_SPEECH);
+                        mContext.startService(stopGoogleIntent);
+                        Log.i(TAG, "sttStartWhisper (Whisper): Arrêt de Google Speech si actif");
+                        
+                        // Créer client OkHttp avec timeouts configurés
+                        okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                                .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                                .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                                .callTimeout(150, java.util.concurrent.TimeUnit.SECONDS)
+                                .build();
+                        
+                        // Créer un recognizer Whisper temporaire pour le webapp
+                        // Stocker dans une variable de classe pour pouvoir l'arrêter
+                        if (webappWhisperRecognizer != null) {
+                            try {
+                                webappWhisperRecognizer.stopListening();
+                            } catch (Exception ignored) {}
+                            webappWhisperRecognizer = null;
+                        }
+                        
+                        webappWhisperRecognizer = new com.chatai.audio.WhisperServerRecognizer(
+                                cfg,
+                                new com.chatai.audio.WhisperServerRecognizer.Callback() {
+                                    @Override public void onReady() {
+                                        Log.i(TAG, "Webapp Whisper: ready");
+                                        // Notifier le webapp via callback JavaScript
+                                        if (mContext instanceof MainActivity) {
+                                            MainActivity activity = (MainActivity) mContext;
+                                            new Handler(Looper.getMainLooper()).post(() -> {
+                                                String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_ready', ''); }";
+                                                activity.getWebView().evaluateJavascript(jsCode, null);
+                                            });
+                                        }
+                                    }
+                                    @Override public void onSpeechStart() {
+                                        Log.i(TAG, "Webapp Whisper: speech start");
+                                        if (mContext instanceof MainActivity) {
+                                            MainActivity activity = (MainActivity) mContext;
+                                            new Handler(Looper.getMainLooper()).post(() -> {
+                                                String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_speech_start', ''); }";
+                                                activity.getWebView().evaluateJavascript(jsCode, null);
+                                            });
+                                        }
+                                    }
+                                    @Override public void onRmsChanged(float rmsDb) {
+                                        // Envoyer RMS au webapp
+                                        if (mContext instanceof MainActivity) {
+                                            MainActivity activity = (MainActivity) mContext;
+                                            new Handler(Looper.getMainLooper()).post(() -> {
+                                                String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_rms', '" + rmsDb + "'); }";
+                                                activity.getWebView().evaluateJavascript(jsCode, null);
+                                            });
+                                        }
+                                    }
+                                    @Override public void onResult(String text) {
+                                        Log.i(TAG, "Webapp Whisper: result=" + text);
+                                        // Nettoyer le recognizer après résultat
+                                        if (webappWhisperRecognizer != null) {
+                                            try {
+                                                webappWhisperRecognizer.stopListening();
+                                            } catch (Exception ignored) {}
+                                            webappWhisperRecognizer = null;
+                                        }
+                                        // Notifier le webapp
+                                        if (mContext instanceof MainActivity) {
+                                            MainActivity activity = (MainActivity) mContext;
+                                            final String safeText = text.replace("'", "\\'").replace("\n", "\\n");
+                                            new Handler(Looper.getMainLooper()).post(() -> {
+                                                String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_transcription', '" + safeText + "'); }";
+                                                activity.getWebView().evaluateJavascript(jsCode, null);
+                                            });
+                                        }
+                                    }
+                                    @Override public void onError(String message) {
+                                        Log.e(TAG, "Webapp Whisper: error=" + message);
+                                        // Nettoyer le recognizer après erreur
+                                        if (webappWhisperRecognizer != null) {
+                                            try {
+                                                webappWhisperRecognizer.stopListening();
+                                            } catch (Exception ignored) {}
+                                            webappWhisperRecognizer = null;
+                                        }
+                                        // Notifier le webapp
+                                        if (mContext instanceof MainActivity) {
+                                            MainActivity activity = (MainActivity) mContext;
+                                            final String safeMsg = message.replace("'", "\\'").replace("\n", "\\n");
+                                            new Handler(Looper.getMainLooper()).post(() -> {
+                                                String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_error', '" + safeMsg + "'); }";
+                                                activity.getWebView().evaluateJavascript(jsCode, null);
+                                            });
+                                        }
+                                    }
+                                },
+                                client
+                        );
+                        webappWhisperRecognizer.startListening();
+                        Log.i(TAG, "✅ Webapp Whisper: started");
+                    } else if ("legacy_google".equalsIgnoreCase(engine)) {
+                        // === GOOGLE SPEECH ===
+                        // CRITIQUE: Arrêter Whisper s'il est actif (il monopolise le microphone)
+                        Intent stopWhisperIntent = new Intent(mContext, BackgroundService.class);
+                        stopWhisperIntent.setAction(BackgroundService.ACTION_STOP_WHISPER);
+                        mContext.startService(stopWhisperIntent);
+                        Log.i(TAG, "sttStartWhisper (Google Speech): Arrêt de Whisper si actif");
+                        
+                        // CRITIQUE: Arrêter le hotword temporairement pour libérer l'AudioRecord
+                        // Cela permet au clavier Google et autres apps d'utiliser le microphone
+                        if (mContext instanceof MainActivity) {
+                            MainActivity activity = (MainActivity) mContext;
+                            // On pourrait arrêter le hotword ici si nécessaire
+                            // Pour l'instant, on laisse le hotword actif et on essaie quand même
+                        }
+                        
+                        // Utiliser Google Speech pour le webapp (même logique que sttTestOnce)
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            try {
+                                if (!SpeechRecognizer.isRecognitionAvailable(mContext)) {
+                                    Log.e(TAG, "sttStartWhisper (Google Speech): non disponible");
+                                    return;
+                                }
+                                
+                                // Libérer le recognizer existant si présent
+                                if (webappSpeechRecognizer != null) {
+                                    try {
+                                        webappSpeechRecognizer.stopListening();
+                                        webappSpeechRecognizer.destroy();
+                                    } catch (Throwable ignored) {}
+                                    webappSpeechRecognizer = null;
+                                }
+                                
+                                webappSpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(mContext);
+                                if (webappSpeechRecognizer == null) {
+                                    Log.e(TAG, "sttStartWhisper (Google Speech): création échouée");
+                                    return;
+                                }
+                                
+                                // Créer un listener pour le webapp
+                                webappSpeechListener = new WebappGoogleSpeechListener(mContext);
+                                webappSpeechRecognizer.setRecognitionListener(webappSpeechListener);
+                                
+                                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.FRENCH);
+                                intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, mContext.getPackageName());
+                                intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+                                intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+                                
+                                webappSpeechRecognizer.startListening(intent);
+                                Log.i(TAG, "✅ Webapp Google Speech: started");
+                            } catch (Exception e) {
+                                Log.e(TAG, "sttStartWhisper (Google Speech): error", e);
+                            }
+                        });
+                    } else {
+                        Log.w(TAG, "sttStartWhisper: Engine inconnu=" + engine);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "sttStartWhisper error", e);
+                }
+            }
+            
+            /**
+             * Arrêter Whisper Server (pour bouton micro webapp)
+             */
+            @JavascriptInterface
+            public void sttStopWhisper() {
+                try {
+                    com.chatai.audio.AudioEngineConfig cfg = com.chatai.audio.AudioEngineConfig.Companion.fromContext(mContext);
+                    String engine = cfg.getEngine();
+                    
+                    if ("whisper_server".equalsIgnoreCase(engine)) {
+                        // Arrêter Whisper
+                        if (webappWhisperRecognizer != null) {
+                            try {
+                                webappWhisperRecognizer.stopListening();
+                                Log.i(TAG, "✅ Webapp Whisper: stopped");
+                            } catch (Exception e) {
+                                Log.w(TAG, "Error stopping webapp Whisper: " + e.getMessage());
+                            }
+                            webappWhisperRecognizer = null;
+                        }
+                    } else if ("legacy_google".equalsIgnoreCase(engine)) {
+                        // Arrêter Google Speech
+                        if (webappSpeechRecognizer != null) {
+                            new Handler(Looper.getMainLooper()).post(() -> {
+                                try {
+                                    webappSpeechRecognizer.stopListening();
+                                    webappSpeechRecognizer.destroy();
+                                    Log.i(TAG, "✅ Webapp Google Speech: stopped");
+                                } catch (Exception e) {
+                                    Log.w(TAG, "Error stopping webapp Google Speech: " + e.getMessage());
+                                }
+                                webappSpeechRecognizer = null;
+                                webappSpeechListener = null;
+                            });
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "sttStopWhisper error", e);
+                }
+            }
+            
             /**
              * Obtient l'URL du serveur HTTP local
              */
@@ -971,6 +1219,172 @@ public class WebAppInterface {
             }
     
     /**
+     * RecognitionListener pour Google Speech dans webapp (classe interne statique pour éviter problèmes KSP)
+     */
+    private static class WebappGoogleSpeechListener implements RecognitionListener {
+        private final Context context;
+        private Handler timeoutHandler;
+        private Runnable timeoutRunnable;
+        private boolean destroyed = false;
+        
+        WebappGoogleSpeechListener(Context context) {
+            this.context = context;
+            this.timeoutHandler = new Handler(Looper.getMainLooper());
+        }
+        
+        void setTimeoutHandler(Handler handler) {
+            this.timeoutHandler = handler;
+        }
+        
+        void setTimeoutRunnable(Runnable runnable) {
+            this.timeoutRunnable = runnable;
+        }
+        
+        boolean isDestroyed() {
+            return destroyed;
+        }
+        
+        void setDestroyed(boolean destroyed) {
+            this.destroyed = destroyed;
+        }
+        
+        private void cleanup() {
+            if (destroyed) {
+                return;
+            }
+            destroyed = true;
+            
+            if (timeoutHandler != null && timeoutRunnable != null) {
+                timeoutHandler.removeCallbacks(timeoutRunnable);
+            }
+        }
+        
+        @Override
+        public void onReadyForSpeech(Bundle params) {
+            Log.i("WebAppInterface", "Webapp Google Speech: ready");
+            // Notifier le webapp
+            if (context instanceof MainActivity) {
+                MainActivity activity = (MainActivity) context;
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_ready', ''); }";
+                    activity.getWebView().evaluateJavascript(jsCode, null);
+                });
+            }
+            
+            // TIMEOUT: Forcer l'arrêt après 12 secondes si aucun résultat
+            if (timeoutHandler != null && !destroyed) {
+                final WebappGoogleSpeechListener self = this;
+                timeoutRunnable = () -> {
+                    if (!self.destroyed) {
+                        Log.w("WebAppInterface", "Webapp Google Speech: timeout global (12s)");
+                        cleanup();
+                        if (context instanceof MainActivity) {
+                            MainActivity activity = (MainActivity) context;
+                            new Handler(Looper.getMainLooper()).post(() -> {
+                                String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_error', 'Timeout (12s)'); }";
+                                activity.getWebView().evaluateJavascript(jsCode, null);
+                            });
+                        }
+                    }
+                };
+                timeoutHandler.postDelayed(timeoutRunnable, 12000);
+            }
+        }
+        
+        @Override
+        public void onBeginningOfSpeech() {
+            Log.i("WebAppInterface", "Webapp Google Speech: speech start");
+            if (context instanceof MainActivity) {
+                MainActivity activity = (MainActivity) context;
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_speech_start', ''); }";
+                    activity.getWebView().evaluateJavascript(jsCode, null);
+                });
+            }
+        }
+        
+        @Override
+        public void onRmsChanged(float rmsDb) {
+            // Envoyer RMS au webapp
+            if (context instanceof MainActivity) {
+                MainActivity activity = (MainActivity) context;
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_rms', '" + rmsDb + "'); }";
+                    activity.getWebView().evaluateJavascript(jsCode, null);
+                });
+            }
+        }
+        
+        @Override
+        public void onBufferReceived(byte[] buffer) {
+            // No-op
+        }
+        
+        @Override
+        public void onEndOfSpeech() {
+            Log.i("WebAppInterface", "Webapp Google Speech: speech end");
+            if (timeoutHandler != null && timeoutRunnable != null) {
+                timeoutHandler.removeCallbacks(timeoutRunnable);
+            }
+        }
+        
+        @Override
+        public void onError(int error) {
+            String errorMsg = "Unknown error";
+            switch (error) {
+                case SpeechRecognizer.ERROR_AUDIO: errorMsg = "Audio error"; break;
+                case SpeechRecognizer.ERROR_CLIENT: errorMsg = "Client error"; break;
+                case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS: errorMsg = "Insufficient permissions"; break;
+                case SpeechRecognizer.ERROR_NETWORK: errorMsg = "Network error"; break;
+                case SpeechRecognizer.ERROR_NETWORK_TIMEOUT: errorMsg = "Network timeout"; break;
+                case SpeechRecognizer.ERROR_NO_MATCH: errorMsg = "No match"; break;
+                case SpeechRecognizer.ERROR_RECOGNIZER_BUSY: errorMsg = "Recognizer busy"; break;
+                case SpeechRecognizer.ERROR_SERVER: errorMsg = "Server error"; break;
+                case SpeechRecognizer.ERROR_SPEECH_TIMEOUT: errorMsg = "Speech timeout"; break;
+            }
+            Log.e("WebAppInterface", "Webapp Google Speech: error=" + errorMsg + " (" + error + ")");
+            cleanup();
+            
+            if (context instanceof MainActivity) {
+                MainActivity activity = (MainActivity) context;
+                final String safeMsg = errorMsg.replace("'", "\\'").replace("\n", "\\n");
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_error', '" + safeMsg + "'); }";
+                    activity.getWebView().evaluateJavascript(jsCode, null);
+                });
+            }
+        }
+        
+        @Override
+        public void onResults(Bundle results) {
+            Log.i("WebAppInterface", "Webapp Google Speech: results");
+            cleanup();
+            
+            ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+            String transcript = (matches != null && !matches.isEmpty()) ? matches.get(0) : "";
+            
+            if (context instanceof MainActivity) {
+                MainActivity activity = (MainActivity) context;
+                final String safeText = transcript.replace("'", "\\'").replace("\n", "\\n");
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    String jsCode = "if (window.onWhisperEvent) { window.onWhisperEvent('whisper_transcription', '" + safeText + "'); }";
+                    activity.getWebView().evaluateJavascript(jsCode, null);
+                });
+            }
+        }
+        
+        @Override
+        public void onPartialResults(Bundle partialResults) {
+            // No-op (on attend onResults)
+        }
+        
+        @Override
+        public void onEvent(int eventType, Bundle params) {
+            // No-op
+        }
+    }
+    
+    /**
      * RecognitionListener pour test Google Speech (classe interne statique pour éviter problèmes KSP)
      */
     private static class GoogleSpeechTestListener implements RecognitionListener {
@@ -1145,6 +1559,6 @@ public class WebAppInterface {
         @Override
         public void onEvent(int eventType, android.os.Bundle params) {
             // no-op
-        }
-    }
+                }
+            }
 }
