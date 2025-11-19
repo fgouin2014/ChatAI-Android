@@ -73,6 +73,46 @@ class BidirectionalBridge private constructor(private val context: Context) {
         }
     }
     
+    // ⭐ NOUVEAU : Job pour l'écoute des messages KITT → Web (pour WebAppInterface)
+    private var kittToWebListenerJob: Job? = null
+    
+    /**
+     * Écoute les messages KITT → Web avec callback Java-friendly
+     * ⭐ NOUVEAU : Permet à WebAppInterface d'écouter les messages de KITT
+     */
+    fun listenToKittMessages(
+        onMessage: java.util.function.Consumer<BridgeMessage>,
+        onError: java.util.function.Consumer<Throwable>
+    ) {
+        // Arrêter l'écoute précédente si elle existe
+        kittToWebListenerJob?.cancel()
+        
+        // Démarrer une nouvelle écoute
+        kittToWebListenerJob = GlobalScope.launch(Dispatchers.IO) {
+            try {
+                kittToWebMessages.collect { message ->
+                    try {
+                        onMessage.accept(message)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error in onMessage callback", e)
+                        onError.accept(e)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error listening to KITT messages", e)
+                onError.accept(e)
+            }
+        }
+    }
+    
+    /**
+     * Arrête l'écoute des messages KITT → Web
+     */
+    fun stopListeningToKittMessages() {
+        kittToWebListenerJob?.cancel()
+        kittToWebListenerJob = null
+    }
+    
     /**
      * Envoie un message de l'interface Web vers KITT
      */

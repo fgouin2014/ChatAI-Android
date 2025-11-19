@@ -46,6 +46,64 @@ public class WebAppInterface {
         this.secureConfig = new SecureConfig(c);
         this.securityUtils = new SecurityUtils();
         createNotificationChannel();
+        
+        // ⭐ NOUVEAU : Initialiser l'écoute des messages KITT → Web
+        setupKittMessagesListener();
+    }
+    
+    /**
+     * ⭐ NOUVEAU : Configure l'écoute des messages KITT → Web via BidirectionalBridge
+     * Notifie JavaScript via callback window.onKittMessageReceived
+     */
+    private void setupKittMessagesListener() {
+        try {
+            com.chatai.services.BidirectionalBridge bridge = 
+                com.chatai.services.BidirectionalBridge.getInstance(mContext);
+            
+            // Démarrer l'écoute des messages KITT → Web (arrête automatiquement l'ancienne si elle existe)
+            bridge.listenToKittMessages(
+                // onMessage callback
+                (message) -> {
+                    Log.i(TAG, "KITT → ChatAI (bridge): " + message.getContent() + " (type=" + message.getType() + ")");
+                    
+                    // Notifier JavaScript via callback
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        if (mContext instanceof MainActivity) {
+                            MainActivity activity = (MainActivity) mContext;
+                            String messageContent = message.getContent();
+                            String messageType = message.getType().name();
+                            String source = message.getSource().name();
+                            
+                            // Échapper les guillemets et sauts de ligne pour JavaScript
+                            String safeContent = messageContent
+                                .replace("'", "\\'")
+                                .replace("\n", "\\n")
+                                .replace("\r", "\\r")
+                                .replace("\"", "\\\"");
+                            
+                            // Appeler le callback JavaScript window.onKittMessageReceived
+                            String jsCode = String.format(
+                                "if (window.onKittMessageReceived) { " +
+                                "window.onKittMessageReceived('%s', '%s', '%s'); }",
+                                safeContent,
+                                messageType,
+                                source
+                            );
+                            activity.getWebView().evaluateJavascript(jsCode, null);
+                            Log.d(TAG, "Callback JavaScript onKittMessageReceived appelé");
+                        }
+                    });
+                },
+                // onError callback
+                (error) -> {
+                    Log.e(TAG, "Error listening to KITT messages", error);
+                }
+            );
+            
+            Log.i(TAG, "✅ Écoute des messages KITT → Web initialisée");
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting up KITT messages listener", e);
+        }
     }
     
     /**
