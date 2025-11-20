@@ -112,7 +112,8 @@
                     break;
                 case "SYSTEM_STATUS":
                     // Statut système (ex: "KITT activé", "Écoute en cours")
-                    this.chatUI.showSecureMessage('ai', `[Statut KITT] ${message}`);
+                    // ⭐ MODIFIÉ : Ignorer les messages SYSTEM_STATUS - pas besoin d'afficher dans le chat
+                    console.log("SYSTEM_STATUS ignoré:", message);
                     break;
                 case "THINKING_START":
                 case "THINKING_CHUNK":
