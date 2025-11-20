@@ -212,6 +212,10 @@ public class BackgroundService extends Service {
                                         @Override public void onRmsChanged(float rmsDb) { /* no-op */ }
                                         @Override public void onResult(String text) {
                                             Log.i(TAG, "AutoSTT (Whisper) result: " + text);
+                                            
+                                            // ⭐ NOUVEAU : Émettre via BidirectionalBridge pour afficher dans Chat
+                                            emitHotwordMessageToBridge(text);
+                                            
                                             // Libérer le recognizer après résultat
                                             currentWhisperRecognizer = null;
                                             if (aiService != null && aiService.isHealthy()) {
@@ -401,6 +405,33 @@ public class BackgroundService extends Service {
     private void toast(String msg) {
         android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
         h.post(() -> android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show());
+    }
+    
+    /**
+     * ⭐ NOUVEAU : Émet un message hotword via BidirectionalBridge pour afficher dans Chat
+     * @param text Le texte transcrit depuis le hotword
+     */
+    private void emitHotwordMessageToBridge(String text) {
+        try {
+            com.chatai.services.BidirectionalBridge bridge = 
+                com.chatai.services.BidirectionalBridge.getInstance(this);
+            
+            // Créer un message avec source "hotword" pour identification
+            com.chatai.services.BidirectionalBridge.BridgeMessage bridgeMessage = 
+                new com.chatai.services.BidirectionalBridge.BridgeMessage(
+                    com.chatai.services.BidirectionalBridge.MessageType.USER_INPUT,
+                    com.chatai.services.BidirectionalBridge.Source.SYSTEM, // Utiliser SYSTEM car hotword est externe
+                    "[🔊 Hotword] " + text, // Préfixe pour identification dans Chat
+                    java.util.Collections.singletonMap("source", "hotword"), // Metadata pour identification
+                    System.currentTimeMillis()
+                );
+            
+            // Envoyer via bridge vers Chat (KITT → Web)
+            bridge.sendKittToWebAsync(bridgeMessage);
+            Log.i(TAG, "📨 Message hotword émis via bridge: " + text);
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de l'émission du message hotword via bridge", e);
+        }
     }
     
     @Override
