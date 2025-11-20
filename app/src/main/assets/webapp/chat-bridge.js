@@ -94,6 +94,16 @@
                         // Messages depuis KITT vocal (interface KITT) → préfixe [KITT]
                         this.chatUI.showSecureMessage('user', `[KITT] ${message}`);
                     }
+                    
+                    // ⭐ CRITIQUE : Ajouter le message à la queue de traitement pour que l'IA réponde
+                    // (même comportement que sendMessage() dans chat-messaging.js)
+                    if (this.chatMessaging && this.chatMessaging.requestQueue) {
+                        this.chatUI.showTypingIndicator();
+                        this.chatUI.toggleInput(false);
+                        this.chatMessaging.requestQueue.push(message);
+                        this.chatMessaging.processRequestQueue();
+                        console.log("Message hotword ajouté à la queue de traitement IA");
+                    }
                     break;
                 case "AI_RESPONSE":
                     // KITT a reçu une réponse → afficher dans Chat
