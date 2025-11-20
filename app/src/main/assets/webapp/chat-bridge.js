@@ -50,7 +50,7 @@
                 if (this.androidInterface?.getKittMessage) {
                     const message = this.androidInterface.getKittMessage();
                     if (message) {
-                        this.handleKittMessage(message.message, message.messageType);
+                        this.handleKittMessage(message.message, message.messageType, message.source || null);
                     }
                 }
             }, 500); // Vérifier toutes les 500ms
