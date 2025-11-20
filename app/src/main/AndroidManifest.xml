@@ -36,7 +36,7 @@
     <!-- Permissions pour le service en arrière-plan -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    
+
     <!-- Permission Termux pour exécuter des commandes -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 

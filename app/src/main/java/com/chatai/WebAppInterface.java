@@ -594,8 +594,8 @@ public class WebAppInterface {
                             
                             // Utiliser Intent Google Speech standard à la place
                             startGoogleSpeechActivity();
-                            return;
-                        }
+                        return;
+                    }
                         
                         // Whisper est disponible → continuer avec Whisper
                         Log.i(TAG, "✅ STT Test: Whisper Server disponible - démarrage Whisper");
@@ -607,31 +607,31 @@ public class WebAppInterface {
                         mContext.startService(stopGoogleIntent);
                         Log.i(TAG, "STT Test (Whisper): Arrêt de Google Speech si actif");
                         
-                        // Créer client OkHttp avec timeouts configurés (120s read, 150s call)
-                        okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
-                                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                                .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
-                                .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-                                .callTimeout(150, java.util.concurrent.TimeUnit.SECONDS)
-                                .build();
-                        com.chatai.audio.WhisperServerRecognizer rec = new com.chatai.audio.WhisperServerRecognizer(
-                                cfg,
-                                new com.chatai.audio.WhisperServerRecognizer.Callback() {
+                    // Créer client OkHttp avec timeouts configurés (120s read, 150s call)
+                    okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                            .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                            .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                            .callTimeout(150, java.util.concurrent.TimeUnit.SECONDS)
+                            .build();
+                    com.chatai.audio.WhisperServerRecognizer rec = new com.chatai.audio.WhisperServerRecognizer(
+                            cfg,
+                            new com.chatai.audio.WhisperServerRecognizer.Callback() {
                                         @Override public void onReady() { Log.i(TAG, "STT Test (Whisper): ready"); }
                                         @Override public void onSpeechStart() { Log.i(TAG, "STT Test (Whisper): speech start"); }
-                                    @Override public void onRmsChanged(float rmsDb) { /* no-op */ }
-                                    @Override public void onResult(String text) {
+                                @Override public void onRmsChanged(float rmsDb) { /* no-op */ }
+                                @Override public void onResult(String text) {
                                             Log.i(TAG, "STT Test (Whisper) result: " + text);
-                                        showToast("STT: " + text);
-                                    }
-                                    @Override public void onError(String message) {
+                                    showToast("STT: " + text);
+                                }
+                                @Override public void onError(String message) {
                                             Log.e(TAG, "STT Test (Whisper) error: " + message);
-                                        showToast("STT error: " + message);
-                                    }
-                                },
-                                client
-                        );
-                        rec.startListening();
+                                    showToast("STT error: " + message);
+                                }
+                            },
+                            client
+                    );
+                    rec.startListening();
                     } else {
                         // === GOOGLE SPEECH VIA INTENT STANDARD ===
                         // ⭐ SIMPLIFICATION : Utilise Intent standard au lieu de SpeechRecognizer manuel
@@ -648,9 +648,9 @@ public class WebAppInterface {
                         showToast("Erreur STT - Utilisation de Google Speech");
                     } catch (Exception fallbackError) {
                         Log.e(TAG, "Fallback Google Speech error", fallbackError);
-                        showToast("STT test error: " + e.getMessage());
-                    }
+                    showToast("STT test error: " + e.getMessage());
                 }
+            }
             }
             // ========== STT (Whisper/Google Speech) POUR BOUTON MICRO WEBBAPP ==========
             /**

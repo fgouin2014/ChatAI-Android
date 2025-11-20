@@ -120,7 +120,7 @@ class OllamaThinkingService(private val context: Context) {
             .readTimeout(readTimeout, TimeUnit.SECONDS)
             .writeTimeout(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .callTimeout(callTimeout, TimeUnit.SECONDS)
-            .build()
+        .build()
     }
     
     /**
@@ -298,9 +298,9 @@ class OllamaThinkingService(private val context: Context) {
                                 }
                                 // Format OpenAI-compatible (streaming)
                                 choices != null && choices.length() > 0 -> {
-                                    val choice = choices.getJSONObject(0)
-                                    val delta = choice.optJSONObject("delta")
-                                    if (delta == null) continue
+                            val choice = choices.getJSONObject(0)
+                            val delta = choice.optJSONObject("delta")
+                            if (delta == null) continue
                                     thinkingContent = delta.optString("thinking", "")
                                     messageContent = delta.optString("content", "")
                                 }

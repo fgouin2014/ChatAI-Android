@@ -86,14 +86,14 @@
             
             switch(messageType) {
                 case "USER_INPUT":
-                    // ⭐ MODIFIÉ : Pour les messages hotword/STT, afficher avec badge sur avatar
-                    // Si source est "HOTWORD" ou "SYSTEM", c'est un message STT
-                    const isStt = (source === "HOTWORD" || source === "SYSTEM");
-                    if (isStt) {
-                        this.chatUI.showSecureMessage('user', message, true, true); // isStt=true
+                    // ⭐ MODIFIÉ : Traiter tous les messages utilisateur de la même manière (texte ou STT)
+                    // Si source est "HOTWORD" ou "SYSTEM", c'est un message STT mais on l'affiche normalement
+                    if (source === "HOTWORD" || source === "SYSTEM") {
+                        // Message STT (hotword) → afficher comme un message texte normal
+                        this.chatUI.showSecureMessage('user', message);
                     } else {
                         // Messages depuis KITT vocal (interface KITT) → préfixe [KITT]
-                        this.chatUI.showSecureMessage('user', `[KITT] ${message}`, true, false);
+                        this.chatUI.showSecureMessage('user', `[KITT] ${message}`);
                     }
                     
                     // ⭐ CRITIQUE : Ajouter le message à la queue de traitement pour que l'IA réponde
