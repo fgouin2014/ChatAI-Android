@@ -922,6 +922,10 @@ public class BackgroundService extends Service {
             if (matches != null && !matches.isEmpty()) {
                 String text = matches.get(0);
                 Log.i("BackgroundService", "AutoSTT (Google Speech) result: " + text + " (matches: " + matches.size() + ")");
+                
+                // ⭐ NOUVEAU : Émettre via BidirectionalBridge pour afficher dans Chat
+                emitHotwordMessageToBridge(text);
+                
                 // Libérer le recognizer après résultat (utilisation helper centralisé)
                 forceReleaseRecognizer("result reçu");
                 if (aiService != null && aiService.isHealthy()) {
