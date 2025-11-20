@@ -86,13 +86,14 @@
             
             switch(messageType) {
                 case "USER_INPUT":
-                    // ⭐ MODIFIÉ : Ne pas ajouter de préfixe pour les messages hotword
-                    // Si source est "HOTWORD" ou "SYSTEM", afficher tel quel
-                    if (source === "HOTWORD" || source === "SYSTEM") {
-                        this.chatUI.showSecureMessage('user', message);
+                    // ⭐ MODIFIÉ : Pour les messages hotword/STT, afficher avec badge sur avatar
+                    // Si source est "HOTWORD" ou "SYSTEM", c'est un message STT
+                    const isStt = (source === "HOTWORD" || source === "SYSTEM");
+                    if (isStt) {
+                        this.chatUI.showSecureMessage('user', message, true, true); // isStt=true
                     } else {
                         // Messages depuis KITT vocal (interface KITT) → préfixe [KITT]
-                        this.chatUI.showSecureMessage('user', `[KITT] ${message}`);
+                        this.chatUI.showSecureMessage('user', `[KITT] ${message}`, true, false);
                     }
                     
                     // ⭐ CRITIQUE : Ajouter le message à la queue de traitement pour que l'IA réponde

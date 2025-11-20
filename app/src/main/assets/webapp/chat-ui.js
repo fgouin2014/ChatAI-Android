@@ -23,8 +23,12 @@
 
         /**
          * Affiche un message sécurisé (user ou ai)
+         * @param sender 'user' ou 'ai'
+         * @param message Le texte du message
+         * @param saveToHistory Si le message doit être sauvegardé dans l'historique
+         * @param isStt Si le message provient de la STT (hotword), affiche un badge 🔊 sur l'avatar
          */
-        showSecureMessage(sender, message, saveToHistory = true) {
+        showSecureMessage(sender, message, saveToHistory = true, isStt = false) {
             if (!this.chatMessages) return;
             
             const messageDiv = document.createElement('div');
@@ -32,9 +36,23 @@
             messageDiv.style.opacity = '0';
             messageDiv.style.transform = 'translateY(20px)';
             
+            const avatarContainer = document.createElement('div');
+            avatarContainer.className = 'message-avatar-container';
+            
             const avatar = document.createElement('div');
             avatar.className = 'message-avatar';
             avatar.textContent = sender === 'user' ? '👤' : '🤖';
+            
+            // Badge 🔊 superposé pour les messages STT
+            if (isStt && sender === 'user') {
+                const sttBadge = document.createElement('div');
+                sttBadge.className = 'message-avatar-stt-badge';
+                sttBadge.textContent = '🔊';
+                avatarContainer.appendChild(avatar);
+                avatarContainer.appendChild(sttBadge);
+            } else {
+                avatarContainer.appendChild(avatar);
+            }
             
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
@@ -68,7 +86,7 @@
                 }
             }
             
-            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(avatarContainer);
             messageDiv.appendChild(bubble);
             this.chatMessages.appendChild(messageDiv);
             
@@ -106,9 +124,13 @@
                 messageDiv.id = messageId;
                 messageDiv.className = 'message ai';
                 
+                const avatarContainer = document.createElement('div');
+                avatarContainer.className = 'message-avatar-container';
+                
                 const avatar = document.createElement('div');
                 avatar.className = 'message-avatar';
                 avatar.textContent = '🤖';
+                avatarContainer.appendChild(avatar);
                 
                 const bubble = document.createElement('div');
                 bubble.className = 'message-bubble';
@@ -152,7 +174,7 @@
                 responseDiv.style.cssText = 'white-space: pre-wrap;';
                 bubble.appendChild(responseDiv);
                 
-                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(avatarContainer);
                 messageDiv.appendChild(bubble);
                 
                 if (this.chatMessages) {
@@ -258,9 +280,13 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message ai';
             
+            const avatarContainer = document.createElement('div');
+            avatarContainer.className = 'message-avatar-container';
+            
             const avatar = document.createElement('div');
             avatar.className = 'message-avatar';
             avatar.textContent = '🤖';
+            avatarContainer.appendChild(avatar);
             
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
@@ -342,7 +368,7 @@
             actions.appendChild(copyBtn);
             bubble.appendChild(actions);
             
-            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(avatarContainer);
             messageDiv.appendChild(bubble);
             
             if (this.chatMessages) {
