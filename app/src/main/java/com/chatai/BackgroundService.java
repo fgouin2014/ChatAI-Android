@@ -219,18 +219,7 @@ public class BackgroundService extends Service {
                                             // Libérer le recognizer après résultat
                                             currentWhisperRecognizer = null;
                                             if (aiService != null && aiService.isHealthy()) {
-                                                // Traiter la requête IA et envoyer la réponse au chat web
-                                                aiService.processAIRequest(text, "kitt")
-                                                    .thenAccept(response -> {
-                                                        Log.i(TAG, "AI Response (hotword): " + response);
-                                                        // ⭐ NOUVEAU : Envoyer la réponse IA au chat web via BidirectionalBridge
-                                                        emitAIResponseToBridge(response);
-                                                    })
-                                                    .exceptionally(throwable -> {
-                                                        Log.e(TAG, "Erreur traitement IA hotword", throwable);
-                                                        emitAIResponseToBridge("Erreur: " + throwable.getMessage());
-                                                        return null;
-                                                    });
+                                                aiService.processAIRequest(text, "kitt");
                                             } else {
                                                 toast("AI service not available");
                                             }
@@ -432,7 +421,7 @@ public class BackgroundService extends Service {
                 new com.chatai.services.BidirectionalBridge.BridgeMessage(
                     com.chatai.services.BidirectionalBridge.MessageType.USER_INPUT,
                     com.chatai.services.BidirectionalBridge.Source.SYSTEM, // Utiliser SYSTEM car hotword est externe
-                    text, // ⭐ MODIFIÉ : Enlever le préfixe "[🔊 Hotword]" - le chat l'ajoutera si nécessaire
+                    "[🔊 Hotword] " + text, // Préfixe pour identification dans Chat
                     java.util.Collections.singletonMap("source", "hotword"), // Metadata pour identification
                     System.currentTimeMillis()
                 );
@@ -442,33 +431,6 @@ public class BackgroundService extends Service {
             Log.i(TAG, "📨 Message hotword émis via bridge: " + text);
         } catch (Exception e) {
             Log.e(TAG, "Erreur lors de l'émission du message hotword via bridge", e);
-        }
-    }
-    
-    /**
-     * ⭐ NOUVEAU : Émet la réponse IA via BidirectionalBridge pour afficher dans Chat
-     * @param response La réponse de l'IA
-     */
-    private void emitAIResponseToBridge(String response) {
-        try {
-            com.chatai.services.BidirectionalBridge bridge = 
-                com.chatai.services.BidirectionalBridge.getInstance(this);
-            
-            // Créer un message avec type AI_RESPONSE pour identification
-            com.chatai.services.BidirectionalBridge.BridgeMessage bridgeMessage = 
-                new com.chatai.services.BidirectionalBridge.BridgeMessage(
-                    com.chatai.services.BidirectionalBridge.MessageType.AI_RESPONSE,
-                    com.chatai.services.BidirectionalBridge.Source.SYSTEM, // Utiliser SYSTEM car réponse depuis hotword
-                    response,
-                    java.util.Collections.singletonMap("source", "hotword"), // Metadata pour identification
-                    System.currentTimeMillis()
-                );
-            
-            // Envoyer via bridge vers Chat (KITT → Web)
-            bridge.sendKittToWebAsync(bridgeMessage);
-            Log.i(TAG, "📨 Réponse IA hotword émise via bridge: " + response);
-        } catch (Exception e) {
-            Log.e(TAG, "Erreur lors de l'émission de la réponse IA via bridge", e);
         }
     }
     

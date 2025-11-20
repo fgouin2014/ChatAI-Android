@@ -55,10 +55,6 @@ class WhisperServerRecognizer(
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private val mainHandler = Handler(Looper.getMainLooper())
     private var isRecording = false
-    
-    // ⭐ NOUVEAU : Warm-up pour la première utilisation (éviter mauvaises transcriptions)
-    private var hasWarmedUp = false
-    private val warmUpLock = java.util.concurrent.atomic.AtomicBoolean(false)
 
     fun startListening() {
         if (isRecording) {
@@ -254,21 +250,6 @@ class WhisperServerRecognizer(
     }
 
     private fun uploadAndTranscribe(wavData: ByteArray): String {
-        // ⭐ NOUVEAU : Warm-up lors de la première utilisation (éviter mauvaises transcriptions en langue incorrecte)
-        if (!hasWarmedUp && warmUpLock.compareAndSet(false, true)) {
-            // Faire le warm-up de manière synchrone pour garantir que la langue est initialisée
-            try {
-                android.util.Log.i("WhisperSTT", "🔥 Warm-up Whisper (première utilisation): Initialisation du modèle avec language=${config.language}")
-                warmUpWhisper()
-                hasWarmedUp = true
-                android.util.Log.i("WhisperSTT", "✅ Warm-up Whisper terminé - langue ${config.language} initialisée")
-            } catch (e: Exception) {
-                android.util.Log.w("WhisperSTT", "⚠️ Warm-up Whisper échoué, continuons quand même: ${e.message}")
-            } finally {
-                warmUpLock.set(false)
-            }
-        }
-        
         val mediaType = "audio/wav".toMediaType()
         val bodyBuilder = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
@@ -276,9 +257,6 @@ class WhisperServerRecognizer(
             .addFormDataPart("language", config.language)
             .addFormDataPart("task", "transcribe")
             .addFormDataPart("model", config.preferredModel)
-        
-        // ⭐ AMÉLIORATION : Log de la langue envoyée pour diagnostic
-        android.util.Log.i("WhisperSTT", "📤 Envoi transcription Whisper: language=${config.language}, model=${config.preferredModel}, task=transcribe")
         
         // Paramètres MINIMAUX - ne pas envoyer si = 0 (laisser Whisper utiliser ses défauts)
         // Seulement envoyer les paramètres explicitement configurés
@@ -315,73 +293,9 @@ class WhisperServerRecognizer(
             }
             val bodyString = response.body?.string() ?: throw IllegalStateException("Réponse vide")
             val json = JSONObject(bodyString)
-            val transcription = json.optString("text", json.optString("transcription", "")).ifBlank {
+            return json.optString("text", json.optString("transcription", "")).ifBlank {
                 throw IllegalStateException("Transcription manquante")
             }
-            
-            // ⭐ AMÉLIORATION : Log de la transcription reçue pour diagnostic
-            android.util.Log.i("WhisperSTT", "📥 Transcription Whisper reçue (language=${config.language}): \"$transcription\"")
-            
-            return transcription
-        }
-    }
-    
-    /**
-     * ⭐ NOUVEAU : Warm-up Whisper lors de la première utilisation
-     * Envoie une requête silencieuse ou un ping pour initialiser le modèle dans la bonne langue
-     */
-    private fun warmUpWhisper() {
-        try {
-            android.util.Log.i("WhisperSTT", "🔥 Warm-up Whisper: Initialisation du modèle avec language=${config.language}")
-            
-            // Créer un fichier audio silencieux minimal (200ms de silence pour garantir initialisation)
-            // Note: buildWav() attend du PCM 16-bit, on crée directement le PCM silencieux
-            val durationMs = 200 // Augmenté à 200ms pour garantir initialisation du modèle
-            val samples = (sampleRate * durationMs / 1000)
-            val pcmData = ByteArray(samples * 2) // 16-bit = 2 bytes per sample (tous à 0 = silence)
-            
-            // Utiliser la même méthode buildWav() que pour la transcription normale
-            val wavData = buildWav(pcmData)
-            
-            val mediaType = "audio/wav".toMediaType()
-            val bodyBuilder = MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("file", "warmup.wav", wavData.toRequestBody(mediaType))
-                .addFormDataPart("language", config.language)
-                .addFormDataPart("task", "transcribe")
-                .addFormDataPart("model", config.preferredModel)
-            
-            val body = bodyBuilder.build()
-            val requestBuilder = Request.Builder()
-                .url(config.endpoint.ifBlank { AudioEngineConfig.DEFAULT_ENDPOINT })
-                .post(body)
-
-            config.apiKey?.let {
-                requestBuilder.header("Authorization", "Bearer $it")
-            }
-
-            // Utiliser un client avec timeout court pour le warm-up
-            val warmUpClient = OkHttpClient.Builder()
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
-                .writeTimeout(5, TimeUnit.SECONDS)
-                .callTimeout(15, TimeUnit.SECONDS)
-                .build()
-
-            warmUpClient.newCall(requestBuilder.build()).execute().use { response ->
-                val responseCode = response.code
-                if (response.isSuccessful) {
-                    val bodyString = response.body?.string() ?: ""
-                    android.util.Log.i("WhisperSTT", "✅ Warm-up Whisper réussi (HTTP $responseCode): modèle initialisé avec language=${config.language}")
-                    // Attendre un peu pour garantir que le modèle est complètement initialisé
-                    Thread.sleep(100) // 100ms de délai supplémentaire après warm-up
-                } else {
-                    android.util.Log.w("WhisperSTT", "⚠️ Warm-up Whisper: HTTP $responseCode (modèle peut ne pas être initialisé)")
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.w("WhisperSTT", "⚠️ Warm-up Whisper échoué: ${e.message}")
-            // Ne pas bloquer si le warm-up échoue
         }
     }
 

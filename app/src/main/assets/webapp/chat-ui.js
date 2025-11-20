@@ -23,9 +23,6 @@
 
         /**
          * Affiche un message sécurisé (user ou ai)
-         * @param sender 'user' ou 'ai'
-         * @param message Le texte du message
-         * @param saveToHistory Si le message doit être sauvegardé dans l'historique
          */
         showSecureMessage(sender, message, saveToHistory = true) {
             if (!this.chatMessages) return;

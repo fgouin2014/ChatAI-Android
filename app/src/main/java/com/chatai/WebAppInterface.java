@@ -954,13 +954,137 @@ public class WebAppInterface {
             }
             
             /**
-             * Fait une requête HTTP vers le serveur local
+             * ⭐ NOUVEAU : Fait une requête HTTP asynchrone vers le serveur local
+             * Retourne le résultat via callback JavaScript window.onHttpRequestResponse
+             * @param endpoint L'endpoint à appeler (ex: "/api/test", "/gamelibrary/")
+             * @param method La méthode HTTP (GET, POST, PUT, DELETE, etc.)
+             * @param data Les données à envoyer (JSON string pour POST/PUT, null pour GET/DELETE)
              */
             @JavascriptInterface
             public void makeHttpRequest(String endpoint, String method, String data) {
-                Log.d(TAG, "Requête HTTP: " + method + " " + endpoint);
-                // TODO: Implémenter la requête HTTP asynchrone
-                // Pour l'instant, on log juste la requête
+                Log.d(TAG, "Requête HTTP: " + method + " " + endpoint + " (data=" + (data != null ? data.length() + " chars" : "null") + ")");
+                
+                // Obtenir l'URL du serveur HTTP local
+                String baseUrl = getHttpServerUrl();
+                if (baseUrl == null) {
+                    Log.e(TAG, "makeHttpRequest: Serveur HTTP non disponible");
+                    notifyHttpRequestError("Serveur HTTP non disponible");
+                    return;
+                }
+                
+                // Construire l'URL complète
+                String url = baseUrl + (endpoint.startsWith("/") ? endpoint : "/" + endpoint);
+                Log.d(TAG, "makeHttpRequest: URL complète = " + url);
+                
+                // Créer le client OkHttp avec timeouts configurés
+                okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                        .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                        .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                        .build();
+                
+                // Construire la requête selon la méthode HTTP
+                okhttp3.Request.Builder requestBuilder = new okhttp3.Request.Builder()
+                        .url(url);
+                
+                // Ajouter le body pour POST/PUT si des données sont fournies
+                if (data != null && !data.trim().isEmpty() && 
+                    ("POST".equalsIgnoreCase(method) || "PUT".equalsIgnoreCase(method))) {
+                    okhttp3.MediaType mediaType = okhttp3.MediaType.parse("application/json; charset=utf-8");
+                    okhttp3.RequestBody body = okhttp3.RequestBody.create(data, mediaType);
+                    requestBuilder.method(method.toUpperCase(), body);
+                    Log.d(TAG, "makeHttpRequest: Body ajouté (" + data.length() + " chars)");
+                } else {
+                    requestBuilder.method(method.toUpperCase(), null);
+                }
+                
+                okhttp3.Request request = requestBuilder.build();
+                
+                // Faire la requête de manière asynchrone
+                client.newCall(request).enqueue(new okhttp3.Callback() {
+                    @Override
+                    public void onFailure(okhttp3.Call call, java.io.IOException e) {
+                        Log.e(TAG, "makeHttpRequest error: " + e.getMessage(), e);
+                        notifyHttpRequestError("Erreur réseau: " + e.getMessage());
+                    }
+                    
+                    @Override
+                    public void onResponse(okhttp3.Call call, okhttp3.Response response) throws java.io.IOException {
+                        try {
+                            String responseBody = response.body() != null ? response.body().string() : "";
+                            int statusCode = response.code();
+                            String contentType = response.header("Content-Type", "text/plain");
+                            
+                            Log.i(TAG, "makeHttpRequest response: " + statusCode + " (" + (responseBody.length()) + " chars, Content-Type: " + contentType + ")");
+                            
+                            // Retourner le résultat à JavaScript via callback
+                            notifyHttpRequestResponse(statusCode, responseBody, contentType);
+                        } catch (Exception e) {
+                            Log.e(TAG, "makeHttpRequest: Erreur lors de la lecture de la réponse", e);
+                            notifyHttpRequestError("Erreur lors de la lecture de la réponse: " + e.getMessage());
+                        } finally {
+                            if (response != null) {
+                                response.close();
+                            }
+                        }
+                    }
+                });
+            }
+            
+            /**
+             * ⭐ NOUVEAU : Helper pour notifier JavaScript du résultat de la requête HTTP
+             */
+            private void notifyHttpRequestResponse(int statusCode, String responseBody, String contentType) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    if (mContext instanceof MainActivity) {
+                        MainActivity activity = (MainActivity) mContext;
+                        
+                        // Échapper les guillemets et sauts de ligne pour JavaScript
+                        String safeBody = responseBody
+                                .replace("'", "\\'")
+                                .replace("\n", "\\n")
+                                .replace("\r", "\\r")
+                                .replace("\"", "\\\"");
+                        
+                        // Appeler le callback JavaScript window.onHttpRequestResponse
+                        String jsCode = String.format(
+                                "if (window.onHttpRequestResponse) { " +
+                                "window.onHttpRequestResponse(%d, '%s', '%s'); }",
+                                statusCode,
+                                safeBody,
+                                contentType != null ? contentType : ""
+                        );
+                        activity.getWebView().evaluateJavascript(jsCode, null);
+                        Log.d(TAG, "Callback JavaScript onHttpRequestResponse appelé (status=" + statusCode + ")");
+                    }
+                });
+            }
+            
+            /**
+             * ⭐ NOUVEAU : Helper pour notifier JavaScript d'une erreur de requête HTTP
+             */
+            private void notifyHttpRequestError(String errorMessage) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    if (mContext instanceof MainActivity) {
+                        MainActivity activity = (MainActivity) mContext;
+                        
+                        // Échapper les guillemets et sauts de ligne pour JavaScript
+                        String safeError = errorMessage
+                                .replace("'", "\\'")
+                                .replace("\n", "\\n")
+                                .replace("\r", "\\r")
+                                .replace("\"", "\\\"");
+                        
+                        // Appeler le callback JavaScript window.onHttpRequestError
+                        String jsCode = String.format(
+                                "if (window.onHttpRequestError) { " +
+                                "window.onHttpRequestError('%s'); }",
+                                safeError
+                        );
+                        activity.getWebView().evaluateJavascript(jsCode, null);
+                        Log.d(TAG, "Callback JavaScript onHttpRequestError appelé: " + errorMessage);
+                    }
+                });
             }
             
             /**

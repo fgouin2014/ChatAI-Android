@@ -28,9 +28,8 @@
             if (this.isInitialized) return;
             
             // Option 1: Callback via window (meilleur - appelé depuis WebAppInterface)
-            // ⭐ MODIFIÉ : Le callback reçoit 3 paramètres (message, messageType, source)
-            window.onKittMessageReceived = (message, messageType, source) => {
-                this.handleKittMessage(message, messageType, source);
+            window.onKittMessageReceived = (message, messageType) => {
+                this.handleKittMessage(message, messageType);
             };
             
             // Option 2: Polling (fallback si callback non disponible)
@@ -50,7 +49,7 @@
                 if (this.androidInterface?.getKittMessage) {
                     const message = this.androidInterface.getKittMessage();
                     if (message) {
-                        this.handleKittMessage(message.message, message.messageType, message.source || null);
+                        this.handleKittMessage(message.message, message.messageType);
                     }
                 }
             }, 500); // Vérifier toutes les 500ms
@@ -75,35 +74,16 @@
 
         /**
          * Gère un message reçu de KITT
-         * @param message Le contenu du message
-         * @param messageType Le type du message (USER_INPUT, AI_RESPONSE, etc.)
-         * @param source La source du message (HOTWORD, KITT_VOICE, etc.) - optionnel
          */
-        handleKittMessage(message, messageType, source) {
-            console.log("Message reçu de KITT:", message, messageType, source);
+        handleKittMessage(message, messageType) {
+            console.log("Message reçu de KITT:", message, messageType);
             
             if (!message || !messageType) return;
             
             switch(messageType) {
                 case "USER_INPUT":
-                    // ⭐ MODIFIÉ : Traiter tous les messages utilisateur de la même manière (texte ou STT)
-                    // Si source est "HOTWORD" ou "SYSTEM", c'est un message STT venant du hotword
-                    // Le hotword traite déjà avec l'IA dans BackgroundService, on affiche juste le message
-                    if (source === "HOTWORD" || source === "SYSTEM") {
-                        // Message STT (hotword) → afficher comme un message texte normal
-                        // ⭐ NE PAS traiter avec l'IA ici car BackgroundService le fait déjà
-                        this.chatUI.showSecureMessage('user', message);
-                    } else {
-                        // Messages depuis KITT vocal (interface KITT) → préfixe [KITT] et traiter avec l'IA
-                        this.chatUI.showSecureMessage('user', `[KITT] ${message}`);
-                        // Traiter avec l'IA pour les messages depuis l'interface KITT
-                        if (this.chatMessaging && this.chatMessaging.requestQueue) {
-                            this.chatUI.showTypingIndicator();
-                            this.chatUI.toggleInput(false);
-                            this.chatMessaging.requestQueue.push(message);
-                            this.chatMessaging.processRequestQueue();
-                        }
-                    }
+                    // KITT a détecté une commande vocale → afficher dans Chat
+                    this.chatUI.showSecureMessage('user', `[KITT] ${message}`);
                     break;
                 case "AI_RESPONSE":
                     // KITT a reçu une réponse → afficher dans Chat
@@ -111,8 +91,7 @@
                     break;
                 case "SYSTEM_STATUS":
                     // Statut système (ex: "KITT activé", "Écoute en cours")
-                    // ⭐ MODIFIÉ : Ignorer les messages SYSTEM_STATUS - pas besoin d'afficher dans le chat
-                    console.log("SYSTEM_STATUS ignoré:", message);
+                    this.chatUI.showSecureMessage('ai', `[Statut KITT] ${message}`);
                     break;
                 case "THINKING_START":
                 case "THINKING_CHUNK":

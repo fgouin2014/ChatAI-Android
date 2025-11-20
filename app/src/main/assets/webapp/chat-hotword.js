@@ -19,18 +19,20 @@
 
         /**
          * Gère un message reçu du hotword (via BidirectionalBridge)
-         * @param message Le contenu du message
-         * @param messageType Le type du message (USER_INPUT, AI_RESPONSE, etc.)
-         * @param source La source du message (HOTWORD, SYSTEM, etc.) - optionnel
          */
-        handleHotwordMessage(message, messageType, source) {
-            // ⭐ MODIFIÉ : Déléguer directement à chatBridge qui gère maintenant le source
-            // chatBridge détectera automatiquement si source='SYSTEM' et n'ajoutera pas de préfixe
-            if (this.chatBridge) {
-                this.chatBridge.handleKittMessage(message, messageType, source);
+        handleHotwordMessage(message, messageType) {
+            // ✅ Détecter si message vient du hotword
+            const isFromHotword = messageType.includes("hotword") || 
+                                 (message && message.includes("[Hotword]")) ||
+                                 (messageType === "USER_INPUT" && this.isHotwordSource(message));
+            
+            if (isFromHotword) {
+                // ✅ Afficher avec indicateur hotword
+                const userMessage = `[🔊 Hotword] ${message}`;
+                this.chatUI.showSecureMessage('user', userMessage);
             } else {
-                // Fallback si chatBridge n'est pas disponible
-                this.chatUI.showSecureMessage('user', message);
+                // Message normal KITT → déléguer à chatBridge
+                this.chatBridge.handleKittMessage(message, messageType);
             }
         }
 

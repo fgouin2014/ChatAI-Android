@@ -257,12 +257,10 @@ public class RealtimeAIService {
      * Réponse de fallback si les APIs ne fonctionnent pas
      */
     private String getFallbackResponse(String message, String personality) {
-        // ⭐ MODIFIÉ : Retirer les messages de confirmation verbeux pour les hotwords
-        // Utiliser une réponse simple et directe
         String[] fallbackResponses = {
-            "Je traite votre demande...",
-            "Laissez-moi réfléchir...",
-            "En cours de traitement..."
+            "Je comprends votre question : \"" + SecurityUtils.sanitizeInput(message) + "\". Voici ma réponse !",
+            "Excellente question ! Laissez-moi y réfléchir... " + SecurityUtils.sanitizeInput(message),
+            "Intéressant ! Vous demandez : \"" + SecurityUtils.sanitizeInput(message) + "\". Voici ce que je pense !"
         };
         
         String baseResponse = fallbackResponses[(int)(Math.random() * fallbackResponses.length)];
