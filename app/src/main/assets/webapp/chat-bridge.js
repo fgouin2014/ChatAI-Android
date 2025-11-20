@@ -87,23 +87,22 @@
             switch(messageType) {
                 case "USER_INPUT":
                     // ⭐ MODIFIÉ : Traiter tous les messages utilisateur de la même manière (texte ou STT)
-                    // Si source est "HOTWORD" ou "SYSTEM", c'est un message STT mais on l'affiche normalement
+                    // Si source est "HOTWORD" ou "SYSTEM", c'est un message STT venant du hotword
+                    // Le hotword traite déjà avec l'IA dans BackgroundService, on affiche juste le message
                     if (source === "HOTWORD" || source === "SYSTEM") {
                         // Message STT (hotword) → afficher comme un message texte normal
+                        // ⭐ NE PAS traiter avec l'IA ici car BackgroundService le fait déjà
                         this.chatUI.showSecureMessage('user', message);
                     } else {
-                        // Messages depuis KITT vocal (interface KITT) → préfixe [KITT]
+                        // Messages depuis KITT vocal (interface KITT) → préfixe [KITT] et traiter avec l'IA
                         this.chatUI.showSecureMessage('user', `[KITT] ${message}`);
-                    }
-                    
-                    // ⭐ CRITIQUE : Ajouter le message à la queue de traitement pour que l'IA réponde
-                    // (même comportement que sendMessage() dans chat-messaging.js)
-                    if (this.chatMessaging && this.chatMessaging.requestQueue) {
-                        this.chatUI.showTypingIndicator();
-                        this.chatUI.toggleInput(false);
-                        this.chatMessaging.requestQueue.push(message);
-                        this.chatMessaging.processRequestQueue();
-                        console.log("Message hotword ajouté à la queue de traitement IA");
+                        // Traiter avec l'IA pour les messages depuis l'interface KITT
+                        if (this.chatMessaging && this.chatMessaging.requestQueue) {
+                            this.chatUI.showTypingIndicator();
+                            this.chatUI.toggleInput(false);
+                            this.chatMessaging.requestQueue.push(message);
+                            this.chatMessaging.processRequestQueue();
+                        }
                     }
                     break;
                 case "AI_RESPONSE":
