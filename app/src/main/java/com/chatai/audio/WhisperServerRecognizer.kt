@@ -256,9 +256,12 @@ class WhisperServerRecognizer(
     private fun uploadAndTranscribe(wavData: ByteArray): String {
         // ⭐ NOUVEAU : Warm-up lors de la première utilisation (éviter mauvaises transcriptions en langue incorrecte)
         if (!hasWarmedUp && warmUpLock.compareAndSet(false, true)) {
+            // Faire le warm-up de manière synchrone pour garantir que la langue est initialisée
             try {
+                android.util.Log.i("WhisperSTT", "🔥 Warm-up Whisper (première utilisation): Initialisation du modèle avec language=${config.language}")
                 warmUpWhisper()
                 hasWarmedUp = true
+                android.util.Log.i("WhisperSTT", "✅ Warm-up Whisper terminé - langue ${config.language} initialisée")
             } catch (e: Exception) {
                 android.util.Log.w("WhisperSTT", "⚠️ Warm-up Whisper échoué, continuons quand même: ${e.message}")
             } finally {
@@ -331,9 +334,9 @@ class WhisperServerRecognizer(
         try {
             android.util.Log.i("WhisperSTT", "🔥 Warm-up Whisper: Initialisation du modèle avec language=${config.language}")
             
-            // Créer un fichier audio silencieux minimal (100ms de silence)
+            // Créer un fichier audio silencieux minimal (200ms de silence pour garantir initialisation)
             // Note: buildWav() attend du PCM 16-bit, on crée directement le PCM silencieux
-            val durationMs = 100
+            val durationMs = 200 // Augmenté à 200ms pour garantir initialisation du modèle
             val samples = (sampleRate * durationMs / 1000)
             val pcmData = ByteArray(samples * 2) // 16-bit = 2 bytes per sample (tous à 0 = silence)
             
@@ -370,6 +373,8 @@ class WhisperServerRecognizer(
                 if (response.isSuccessful) {
                     val bodyString = response.body?.string() ?: ""
                     android.util.Log.i("WhisperSTT", "✅ Warm-up Whisper réussi (HTTP $responseCode): modèle initialisé avec language=${config.language}")
+                    // Attendre un peu pour garantir que le modèle est complètement initialisé
+                    Thread.sleep(100) // 100ms de délai supplémentaire après warm-up
                 } else {
                     android.util.Log.w("WhisperSTT", "⚠️ Warm-up Whisper: HTTP $responseCode (modèle peut ne pas être initialisé)")
                 }
