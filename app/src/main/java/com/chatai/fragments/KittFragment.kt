@@ -126,6 +126,11 @@ class KittFragment : Fragment(),
     // Flags
     private var hasActivationMessageBeenSpoken = false
     
+    // ⭐ NOUVEAU : Bridge listener pour messages Chat → KITT
+    private var bridgeListenerJob: Job? = null
+    private var thinkingStreamJob: Job? = null
+    private val pendingMessages = mutableListOf<com.chatai.services.BidirectionalBridge.BridgeMessage>()
+    
     // Listener pour MainActivity
     interface KittFragmentListener {
         fun hideKittInterface()
@@ -189,6 +194,9 @@ class KittFragment : Fragment(),
         setupVuMeter()
         setupListeners()
         setupObservers()
+        
+        // ⭐ NOUVEAU : Initialiser l'écoute des messages Chat → KITT
+        setupBridgeListener()
 
         // Initialiser TTS
         ttsManager.initialize()
@@ -1500,6 +1508,140 @@ class KittFragment : Fragment(),
         processAIConversationInternal(command)
     }
     
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // ⭐ NOUVEAU : BRIDGE LISTENER - Écoute des messages Chat → KITT
+    // ═══════════════════════════════════════════════════════════════════════════════
+    
+    /**
+     * ⭐ NOUVEAU : Configure l'écoute des messages Chat → KITT via BidirectionalBridge
+     * Écoute bridge.webToKittMessages et bridge.thinkingStream pour synchroniser avec Chat
+     */
+    private fun setupBridgeListener() {
+        try {
+            val bridge = com.chatai.services.BidirectionalBridge.getInstance(requireContext())
+            
+            // 1. Écouter les messages Chat → KITT
+            bridgeListenerJob = coroutineScope.launch(Dispatchers.Main) {
+                bridge.webToKittMessages.collect { message ->
+                    if (isAdded && isVisible) {
+                        // Fragment visible → Traiter et animer
+                        android.util.Log.i(TAG, "📨 Message Chat → KITT reçu: ${message.content} (type=${message.type})")
+                        handleKittMessage(message, animate = true)
+                    } else {
+                        // Fragment masqué → Stocker pour affichage ultérieur
+                        android.util.Log.d(TAG, "📨 Message Chat → KITT reçu (Fragment masqué): ${message.content}")
+                        pendingMessages.add(message)
+                    }
+                }
+            }
+            
+            // 2. Écouter thinkingStream pour synchroniser animations avec Chat
+            thinkingStreamJob = coroutineScope.launch(Dispatchers.Main) {
+                bridge.thinkingStream.collect { chunk ->
+                    if (isAdded && isVisible) {
+                        when (chunk.type) {
+                            com.chatai.services.BidirectionalBridge.ChunkType.THINKING -> {
+                                // Thinking chunk → Démarrer thinking animation
+                                android.util.Log.d(TAG, "🧠 Thinking chunk reçu: ${chunk.content.take(50)}...")
+                                animationManager.startThinkingAnimation()
+                                stateManager.isThinking = true
+                                
+                                // Afficher thinking dans thinkingCard si debug mode activé
+                                val debugModeEnabled = sharedPrefs.getBoolean("show_thinking_trace", false)
+                                if (debugModeEnabled) {
+                                    thinkingCard.visibility = View.VISIBLE
+                                    thinkingText.text = chunk.content
+                                }
+                            }
+                            com.chatai.services.BidirectionalBridge.ChunkType.RESPONSE -> {
+                                // Response chunk → Arrêter thinking animation, démarrer VU-meter
+                                android.util.Log.d(TAG, "💬 Response chunk reçu: ${chunk.content.take(50)}...")
+                                animationManager.stopThinkingAnimation { updateStatusIndicators() }
+                                stateManager.isThinking = false
+                                
+                                if (chunk.isComplete) {
+                                    // Réponse complète → Parler et afficher
+                                    showStatusMessageInternal(chunk.content, 5000, MessageType.AI)
+                                    ttsManager.speakAIResponse(chunk.content)
+                                }
+                            }
+                        }
+                    } else {
+                        // Fragment masqué → Logger seulement
+                        android.util.Log.d(TAG, "🧠 Thinking chunk reçu (Fragment masqué): ${chunk.type}")
+                    }
+                }
+            }
+            
+            android.util.Log.i(TAG, "✅ Bridge listener initialisé - Écoute Chat → KITT active")
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "❌ Erreur lors de l'initialisation du bridge listener", e)
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU : Traite un message Chat → KITT
+     * @param message Le message reçu du bridge
+     * @param animate Si true, déclenche des animations (Fragment visible)
+     */
+    private fun handleKittMessage(
+        message: com.chatai.services.BidirectionalBridge.BridgeMessage,
+        animate: Boolean = true
+    ) {
+        if (!isAdded) return
+        
+        when (message.type) {
+            com.chatai.services.BidirectionalBridge.MessageType.USER_INPUT -> {
+                // Message utilisateur du Chat → Traiter comme entrée vocale
+                android.util.Log.i(TAG, "👤 Message utilisateur du Chat: ${message.content}")
+                
+                if (animate) {
+                    // Animation de réception
+                    animationManager.startScannerAnimation(120)
+                }
+                
+                // Traiter le message comme commande IA
+                processAIConversationInternal(message.content)
+            }
+            
+            com.chatai.services.BidirectionalBridge.MessageType.AI_RESPONSE -> {
+                // Réponse IA du Chat → Afficher et parler
+                android.util.Log.i(TAG, "🤖 Réponse IA du Chat: ${message.content}")
+                
+                if (animate) {
+                    animationManager.stopScannerAnimation()
+                    animationManager.startVuMeterAnimation()
+                }
+                
+                showStatusMessageInternal("KITT: ${message.content}", 5000, MessageType.AI)
+                ttsManager.speakAIResponse(message.content)
+            }
+            
+            com.chatai.services.BidirectionalBridge.MessageType.SYSTEM_STATUS -> {
+                // Statut système → Afficher seulement
+                android.util.Log.d(TAG, "📊 Statut système: ${message.content}")
+                showStatusMessageInternal(message.content, 3000, MessageType.STATUS)
+            }
+            
+            com.chatai.services.BidirectionalBridge.MessageType.COMMAND -> {
+                // Commande → Traiter comme commande vocale
+                android.util.Log.i(TAG, "⚡ Commande du Chat: ${message.content}")
+                processAIConversationInternal(message.content)
+            }
+            
+            com.chatai.services.BidirectionalBridge.MessageType.ERROR -> {
+                // Erreur → Afficher
+                android.util.Log.e(TAG, "❌ Erreur du Chat: ${message.content}")
+                showStatusMessageInternal("Erreur: ${message.content}", 3000, MessageType.ERROR)
+            }
+            
+            else -> {
+                // Autres types → Logger seulement
+                android.util.Log.d(TAG, "📨 Message de type inconnu: ${message.type} - ${message.content}")
+            }
+        }
+    }
+    
     override fun updateAnimationModeButtons() {
         try {
             val drawerFragment = childFragmentManager.fragments.find { it is KittDrawerFragment } as? KittDrawerFragment
@@ -1693,8 +1835,28 @@ class KittFragment : Fragment(),
     // LIFECYCLE CLEANUP
     // ═══════════════════════════════════════════════════════════════════════════════
     
+    override fun onResume() {
+        super.onResume()
+        
+        // ⭐ NOUVEAU : Afficher les messages en attente si Fragment redevient visible
+        if (pendingMessages.isNotEmpty()) {
+            android.util.Log.d(TAG, "📨 Affichage de ${pendingMessages.size} messages en attente")
+            pendingMessages.forEach { message ->
+                handleKittMessage(message, animate = true)
+            }
+            pendingMessages.clear()
+        }
+    }
+    
     override fun onPause() {
         super.onPause()
+        
+        // ⭐ NOUVEAU : Arrêter l'écoute du bridge (éviter fuites mémoire)
+        bridgeListenerJob?.cancel()
+        bridgeListenerJob = null
+        thinkingStreamJob?.cancel()
+        thinkingStreamJob = null
+        
         ttsManager.stop()
         voiceManager.stopVoiceInterface()
         animationManager.stopAll()
