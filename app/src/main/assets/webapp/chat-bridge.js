@@ -28,8 +28,9 @@
             if (this.isInitialized) return;
             
             // Option 1: Callback via window (meilleur - appelé depuis WebAppInterface)
-            window.onKittMessageReceived = (message, messageType) => {
-                this.handleKittMessage(message, messageType);
+            // ⭐ MODIFIÉ : Le callback reçoit 3 paramètres (message, messageType, source)
+            window.onKittMessageReceived = (message, messageType, source) => {
+                this.handleKittMessage(message, messageType, source);
             };
             
             // Option 2: Polling (fallback si callback non disponible)
@@ -74,16 +75,25 @@
 
         /**
          * Gère un message reçu de KITT
+         * @param message Le contenu du message
+         * @param messageType Le type du message (USER_INPUT, AI_RESPONSE, etc.)
+         * @param source La source du message (HOTWORD, KITT_VOICE, etc.) - optionnel
          */
-        handleKittMessage(message, messageType) {
-            console.log("Message reçu de KITT:", message, messageType);
+        handleKittMessage(message, messageType, source) {
+            console.log("Message reçu de KITT:", message, messageType, source);
             
             if (!message || !messageType) return;
             
             switch(messageType) {
                 case "USER_INPUT":
-                    // KITT a détecté une commande vocale → afficher dans Chat
-                    this.chatUI.showSecureMessage('user', `[KITT] ${message}`);
+                    // ⭐ MODIFIÉ : Ne pas ajouter de préfixe pour les messages hotword
+                    // Si source est "HOTWORD" ou "SYSTEM", afficher tel quel
+                    if (source === "HOTWORD" || source === "SYSTEM") {
+                        this.chatUI.showSecureMessage('user', message);
+                    } else {
+                        // Messages depuis KITT vocal (interface KITT) → préfixe [KITT]
+                        this.chatUI.showSecureMessage('user', `[KITT] ${message}`);
+                    }
                     break;
                 case "AI_RESPONSE":
                     // KITT a reçu une réponse → afficher dans Chat

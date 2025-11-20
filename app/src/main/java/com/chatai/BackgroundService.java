@@ -432,7 +432,7 @@ public class BackgroundService extends Service {
                 new com.chatai.services.BidirectionalBridge.BridgeMessage(
                     com.chatai.services.BidirectionalBridge.MessageType.USER_INPUT,
                     com.chatai.services.BidirectionalBridge.Source.SYSTEM, // Utiliser SYSTEM car hotword est externe
-                    "[🔊 Hotword] " + text, // Préfixe pour identification dans Chat
+                    text, // ⭐ MODIFIÉ : Enlever le préfixe "[🔊 Hotword]" - le chat l'ajoutera si nécessaire
                     java.util.Collections.singletonMap("source", "hotword"), // Metadata pour identification
                     System.currentTimeMillis()
                 );
