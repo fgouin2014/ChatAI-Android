@@ -22,6 +22,8 @@
             this.chatBridge = null;
             this.chatHotword = null;
             this.chatConfig = null;
+            this.chatHistory = null; // ⭐ NOUVEAU: Module historique
+            this.chatDiagnostics = null; // ⭐ NOUVEAU: Module diagnostics
             
             // État
             this.personality = 'casual';
@@ -65,6 +67,8 @@
             this.chatBridge = new window.ChatBridge(this.androidInterface, this.chatUI, this.chatMessaging);
             this.chatHotword = new window.ChatHotword(this.chatBridge, this.chatUI);
             this.chatConfig = new window.ChatConfig(this.androidInterface);
+            this.chatHistory = new window.ChatHistory(this.androidInterface); // ⭐ NOUVEAU: Module historique
+            this.chatDiagnostics = new window.ChatDiagnostics(this.androidInterface, this.chatUI); // ⭐ NOUVEAU: Module diagnostics
             
             // Mettre à jour chatMessaging avec chatBridge
             this.chatMessaging.chatBridge = this.chatBridge;
@@ -137,6 +141,10 @@
             this.configLocalModelCustom = document.getElementById('configLocalModelCustom');
             this.saveLocalConfigBtn = document.getElementById('saveLocalConfigBtn');
             
+            // Config DOM - RAG (dans tab Local)
+            this.configRAGEnabled = document.getElementById('configRAGEnabled');
+            this.configEmbeddingModel = document.getElementById('configEmbeddingModel');
+            
             // Config DOM - Thinking & WebSearch
             this.configWebSearchProvider = document.getElementById('configWebSearchProvider');
             this.configThinkingEnabled = document.getElementById('configThinkingEnabled');
@@ -177,6 +185,7 @@
             this.configTtsMode = document.getElementById('configTtsMode');
             this.configTtsVoice = document.getElementById('configTtsVoice');
             this.configTtsVoiceCustom = document.getElementById('configTtsVoiceCustom');
+            this.configTtsAutoPlay = document.getElementById('configTtsAutoPlay');
             this.saveTtsBtn = document.getElementById('saveTtsBtn');
             
             // Config DOM - Prompts
@@ -446,6 +455,12 @@
                         this.chatConfig.initConfigTabs();
                     }, 50);
                 });
+            } else if (viewId === 'view-history' && this.chatHistory) {
+                // ⭐ NOUVEAU: Charger l'historique quand la vue est affichée
+                this.chatHistory.loadHistory();
+            } else if (viewId === 'view-diagnostics' && this.chatDiagnostics) {
+                // ⭐ NOUVEAU: Charger les diagnostics quand la vue est affichée
+                this.chatDiagnostics.loadDiagnostics();
             }
         }
 

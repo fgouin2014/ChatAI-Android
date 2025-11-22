@@ -3,6 +3,7 @@ package com.chatai;
 import android.content.Context;
 import android.content.Intent;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
 import android.widget.Toast;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -40,12 +41,18 @@ public class WebAppInterface {
     
     // STT pour bouton micro webapp (Whisper uniquement, Google Speech utilise Intent standard)
     private com.chatai.audio.WhisperServerRecognizer webappWhisperRecognizer = null;
+    
+    // Helper pour diagnostics
+    private com.chatai.database.DiagnosticsHelper diagnosticsHelper;
 
     public WebAppInterface(Context c, Object activity) {
         mContext = c;
         this.secureConfig = new SecureConfig(c);
         this.securityUtils = new SecurityUtils();
         createNotificationChannel();
+        
+        // ⭐ NOUVEAU : Initialiser le helper pour diagnostics
+        this.diagnosticsHelper = new com.chatai.database.DiagnosticsHelper(c);
         
         // ⭐ NOUVEAU : Initialiser l'écoute des messages KITT → Web
         setupKittMessagesListener();
@@ -74,8 +81,31 @@ public class WebAppInterface {
                             String messageType = message.getType().name();
                             String source = message.getSource().name();
                             
+                            // ⭐ NOUVEAU : Extraire source depuis metadata si disponible (pour badge STT)
+                            String metadataSource = null;
+                            try {
+                                java.util.Map<String, Object> metadata = message.getMetadata();
+                                if (metadata != null && metadata.containsKey("source")) {
+                                    Object sourceObj = metadata.get("source");
+                                    if (sourceObj != null) {
+                                        metadataSource = sourceObj.toString();
+                                        Log.d(TAG, "Metadata source trouvé: " + metadataSource);
+                                    }
+                                }
+                            } catch (Exception e) {
+                                Log.w(TAG, "Erreur lors de l'extraction de metadata source", e);
+                            }
+                            
+                            // Utiliser metadata source si disponible, sinon utiliser source
+                            String finalSource = (metadataSource != null && !metadataSource.isEmpty()) ? metadataSource : source;
+                            
                             // Échapper les guillemets et sauts de ligne pour JavaScript
                             String safeContent = messageContent
+                                .replace("'", "\\'")
+                                .replace("\n", "\\n")
+                                .replace("\r", "\\r")
+                                .replace("\"", "\\\"");
+                            String safeSource = finalSource
                                 .replace("'", "\\'")
                                 .replace("\n", "\\n")
                                 .replace("\r", "\\r")
@@ -87,10 +117,10 @@ public class WebAppInterface {
                                 "window.onKittMessageReceived('%s', '%s', '%s'); }",
                                 safeContent,
                                 messageType,
-                                source
+                                safeSource
                             );
                             activity.getWebView().evaluateJavascript(jsCode, null);
-                            Log.d(TAG, "Callback JavaScript onKittMessageReceived appelé");
+                            Log.d(TAG, "Callback JavaScript onKittMessageReceived appelé (source=" + finalSource + ")");
                         }
                     });
                 },
@@ -1167,6 +1197,111 @@ public class WebAppInterface {
             }
             
             /**
+             * ⭐ NOUVEAU : Envoie un chunk de thinking directement à la WebView via JavaScript
+             * Utilisé par BackgroundService pour envoyer les chunks hotword comme le fait processWithThinking()
+             * @param context Le contexte (utilisé pour obtenir MainActivity)
+             * @param messageId L'ID unique du message
+             * @param chunkType Le type de chunk ("thinking" ou "response")
+             * @param content Le contenu du chunk
+             * @param isComplete Si true, le chunk est complet
+             */
+            public static void sendThinkingChunkToWebView(Context context, String messageId, String chunkType, String content, boolean isComplete) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    try {
+                        // ⭐ FIX : Utiliser la référence statique à MainActivity (fonctionne même depuis BackgroundService)
+                        MainActivity activity = null;
+                        if (context instanceof MainActivity) {
+                            activity = (MainActivity) context;
+                        } else {
+                            // Essayer d'obtenir MainActivity via référence statique (pour BackgroundService)
+                            activity = MainActivity.getInstance();
+                        }
+                        
+                        if (activity != null) {
+                            WebView webView = activity.getWebView();
+                            if (webView != null) {
+                                // Échapper le contenu pour JavaScript
+                                String safeContent = content
+                                    .replace("\\", "\\\\")
+                                    .replace("'", "\\'")
+                                    .replace("\n", "\\n")
+                                    .replace("\r", "\\r")
+                                    .replace("\"", "\\\"");
+                                
+                                String jsCode = String.format(
+                                    "if (window.secureChatApp && window.secureChatApp.displayThinkingChunk) { " +
+                                    "window.secureChatApp.displayThinkingChunk('%s', '%s', %s, %s); }",
+                                    messageId,
+                                    chunkType,
+                                    "'" + safeContent + "'",
+                                    isComplete
+                                );
+                                
+                                webView.evaluateJavascript(jsCode, null);
+                                Log.d(TAG, "Chunk sent to WebView: type=" + chunkType + ", complete=" + isComplete);
+                            } else {
+                                Log.w(TAG, "WebView is null, cannot send thinking chunk");
+                            }
+                        } else {
+                            Log.w(TAG, "MainActivity not available, cannot send thinking chunk");
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error sending thinking chunk to WebView", e);
+                    }
+                });
+            }
+            
+            /**
+             * ⭐ NOUVEAU : Envoie un événement Whisper directement à la WebView via JavaScript
+             * Utilisé par BackgroundService pour envoyer les événements Whisper (ready, rms, transcription, error, end) du hotword
+             * @param context Le contexte (utilisé pour obtenir MainActivity)
+             * @param event Le type d'événement ("whisper_ready", "whisper_speech_start", "whisper_rms", "whisper_transcription", "whisper_error", "whisper_end")
+             * @param data Les données de l'événement (peut être vide pour certains événements)
+             */
+            public static void sendWhisperEventToWebView(Context context, String event, String data) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    try {
+                        // ⭐ FIX : Utiliser la référence statique à MainActivity (fonctionne même depuis BackgroundService)
+                        MainActivity activity = null;
+                        if (context instanceof MainActivity) {
+                            activity = (MainActivity) context;
+                        } else {
+                            // Essayer d'obtenir MainActivity via référence statique (pour BackgroundService)
+                            activity = MainActivity.getInstance();
+                        }
+                        
+                        if (activity != null) {
+                            WebView webView = activity.getWebView();
+                            if (webView != null) {
+                                // Échapper les données pour JavaScript
+                                String safeData = data
+                                    .replace("\\", "\\\\")
+                                    .replace("'", "\\'")
+                                    .replace("\n", "\\n")
+                                    .replace("\r", "\\r")
+                                    .replace("\"", "\\\"");
+                                
+                                String jsCode = String.format(
+                                    "if (window.onWhisperEvent) { window.onWhisperEvent('%s', '%s'); }",
+                                    event,
+                                    safeData
+                                );
+                                
+                                webView.evaluateJavascript(jsCode, null);
+                                Log.d(TAG, "Whisper event sent to WebView: event=" + event + ", data=" + (data.length() > 20 ? data.substring(0, 20) + "..." : data));
+                            } else {
+                                Log.w(TAG, "WebView is null, cannot send Whisper event");
+                            }
+                        } else {
+                            Log.w(TAG, "MainActivity not available, cannot send Whisper event");
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error sending Whisper event to WebView", e);
+                    }
+                });
+            }
+            
+            /**
              * Obtient le nombre de clients WebSocket connectés
              */
             @JavascriptInterface
@@ -1389,4 +1524,266 @@ public class WebAppInterface {
                     Log.e(TAG, "Error sending message via bridge", e);
                 }
             }
+            
+            /**
+             * ⭐ NOUVEAU : Utiliser le TTS Android (KITT) pour lire un texte
+             * Fonctionne même si l'interface KITT n'est pas visible
+             * @param text Le texte à lire
+             */
+            @JavascriptInterface
+            public void speakText(String text) {
+                Log.i(TAG, "speakText appelé: " + (text.length() > 50 ? text.substring(0, 50) + "..." : text));
+                
+                try {
+                    // Obtenir MainActivity via référence statique
+                    MainActivity activity = MainActivity.getInstance();
+                    if (activity == null) {
+                        Log.w(TAG, "MainActivity non disponible pour TTS");
+                        Toast.makeText(mContext, "TTS non disponible", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    
+                    // Obtenir le TTS manager global
+                    com.chatai.managers.KittTTSManager ttsManager = activity.getGlobalTTSManager();
+                    if (ttsManager == null) {
+                        Log.w(TAG, "TTS global non initialisé");
+                        Toast.makeText(mContext, "TTS non initialisé", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    
+                    // Vérifier que le TTS est prêt
+                    if (!ttsManager.isTTSReady()) {
+                        Log.w(TAG, "TTS global pas encore prêt");
+                        Toast.makeText(mContext, "TTS en cours d'initialisation...", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    
+                    // Vérifier que le TTS n'est pas déjà en train de parler
+                    if (ttsManager.isTTSSpeaking()) {
+                        Log.w(TAG, "TTS déjà en train de parler, arrêt de la parole précédente");
+                        ttsManager.stop();
+                    }
+                    
+                    // Lire le texte avec le TTS Android (KITT)
+                    ttsManager.speakAIResponse(text);
+                    Log.i(TAG, "✅ Texte envoyé au TTS Android: " + (text.length() > 50 ? text.substring(0, 50) + "..." : text));
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "Erreur lors de la lecture TTS", e);
+                    Toast.makeText(mContext, "Erreur TTS: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            }
+            
+            /**
+             * ⭐ NOUVEAU : Arrêter la lecture TTS en cours
+             */
+            @JavascriptInterface
+            public void stopTTS() {
+                Log.i(TAG, "stopTTS appelé");
+                
+                try {
+                    MainActivity activity = MainActivity.getInstance();
+                    if (activity != null) {
+                        com.chatai.managers.KittTTSManager ttsManager = activity.getGlobalTTSManager();
+                        if (ttsManager != null) {
+                            ttsManager.stop();
+                            Log.i(TAG, "✅ TTS arrêté");
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Erreur lors de l'arrêt TTS", e);
+                }
+            }
+    
+    // ========== ⭐ NOUVEAU: Méthodes pour accéder à l'historique depuis la webapp ==========
+    
+    /**
+     * Récupère les conversations depuis Room DB (pour webapp)
+     * @param limit Nombre maximum de conversations à récupérer
+     * @return JSON string contenant la liste des conversations
+     */
+    @JavascriptInterface
+    public String getConversations(int limit) {
+        return com.chatai.database.ConversationHistoryHelper.INSTANCE.getConversations(mContext, limit);
+    }
+    
+    /**
+     * Recherche dans l'historique (pour webapp)
+     * @param query Terme de recherche
+     * @param limit Nombre maximum de résultats
+     * @return JSON string contenant les résultats
+     */
+    @JavascriptInterface
+    public String searchConversations(String query, int limit) {
+        return com.chatai.database.ConversationHistoryHelper.INSTANCE.searchConversations(mContext, query, limit);
+    }
+    
+    /**
+     * Récupère les statistiques de l'historique (pour webapp)
+     * @return JSON string contenant les statistiques
+     */
+    @JavascriptInterface
+    public String getConversationStats() {
+        return com.chatai.database.ConversationHistoryHelper.INSTANCE.getConversationStats(mContext);
+    }
+    
+    /**
+     * Exporte toutes les conversations en JSON (pour webapp)
+     * @return JSON string contenant toutes les conversations
+     */
+    @JavascriptInterface
+    public String exportConversationsToJson() {
+        return com.chatai.database.ConversationHistoryHelper.INSTANCE.exportConversationsToJson(mContext);
+    }
+    
+    /**
+     * Exporte toutes les conversations en HTML (pour webapp)
+     * @return HTML string contenant toutes les conversations formatées
+     */
+    @JavascriptInterface
+    public String exportConversationsToHtml() {
+        return com.chatai.database.ConversationHistoryHelper.INSTANCE.exportConversationsToHtml(mContext);
+    }
+    
+    /**
+     * Supprime toutes les conversations (pour webapp)
+     * @return true si succès, false sinon
+     */
+    @JavascriptInterface
+    public boolean deleteAllConversations() {
+        return com.chatai.database.ConversationHistoryHelper.INSTANCE.deleteAllConversations(mContext);
+    }
+    
+    // ========== ⭐ NOUVEAU: Méthodes pour Diagnostics ==========
+    
+    /**
+     * Lit le contenu du fichier de logs (dernières N lignes)
+     * @return JSON string contenant la liste des lignes de logs
+     */
+    @JavascriptInterface
+    public String getLogFileContent() {
+        try {
+            java.util.List<String> logLines = diagnosticsHelper.readLogFileContent();
+            org.json.JSONArray jsonArray = new org.json.JSONArray();
+            for (String line : logLines) {
+                jsonArray.put(line);
+            }
+            return jsonArray.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting log file content", e);
+            return "[]";
+        }
+    }
+    
+    /**
+     * Récupère les logs en mémoire depuis KittAIService
+     * @return JSON string contenant la liste des logs de diagnostic
+     */
+    @JavascriptInterface
+    public String getDiagnosticLogs() {
+        try {
+            java.util.List<String> diagnosticLogs = diagnosticsHelper.getDiagnosticLogs();
+            org.json.JSONArray jsonArray = new org.json.JSONArray();
+            for (String log : diagnosticLogs) {
+                jsonArray.put(log);
+            }
+            return jsonArray.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting diagnostic logs", e);
+            return "[]";
+        }
+    }
+    
+    /**
+     * Récupère les informations système (batterie, RAM, stockage, réseau, device)
+     * @return JSON string contenant toutes les informations système
+     */
+    @JavascriptInterface
+    public String getSystemInfo() {
+        try {
+            java.util.Map<String, Object> systemInfo = diagnosticsHelper.getSystemInfo();
+            org.json.JSONObject json = new org.json.JSONObject();
+            for (java.util.Map.Entry<String, Object> entry : systemInfo.entrySet()) {
+                json.put(entry.getKey(), entry.getValue());
+            }
+            return json.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting system info", e);
+            return "{}";
+        }
+    }
+    
+    /**
+     * Récupère les statuts de tous les services (HTTP, WebSocket, IA, Hotword, STT, TTS)
+     * @return JSON string contenant les statuts de tous les services
+     */
+    @JavascriptInterface
+    public String getServicesStatus() {
+        try {
+            java.util.Map<String, Object> servicesStatus = diagnosticsHelper.getServicesStatus(
+                httpServer,
+                webSocketServer,
+                aiService
+            );
+            org.json.JSONObject json = new org.json.JSONObject();
+            for (java.util.Map.Entry<String, Object> entry : servicesStatus.entrySet()) {
+                if (entry.getValue() instanceof java.util.Map) {
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<String, Object> innerMap = (java.util.Map<String, Object>) entry.getValue();
+                    org.json.JSONObject innerJson = new org.json.JSONObject();
+                    for (java.util.Map.Entry<String, Object> innerEntry : innerMap.entrySet()) {
+                        innerJson.put(innerEntry.getKey(), innerEntry.getValue());
+                    }
+                    json.put(entry.getKey(), innerJson);
+                } else {
+                    json.put(entry.getKey(), entry.getValue());
+                }
+            }
+            return json.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting services status", e);
+            return "{}";
+        }
+    }
+    
+    /**
+     * Génère et sauvegarde la page HTML complète avec tous les diagnostics
+     * @return Chemin absolu du fichier HTML sauvegardé, ou "Error: ..." en cas d'erreur
+     */
+    @JavascriptInterface
+    public String generateDiagnosticsHtml() {
+        try {
+            // Collecter toutes les informations
+            java.util.List<String> logFileContent = diagnosticsHelper.readLogFileContent();
+            java.util.List<String> diagnosticLogs = diagnosticsHelper.getDiagnosticLogs();
+            java.util.Map<String, Object> systemInfo = diagnosticsHelper.getSystemInfo();
+            java.util.Map<String, Object> servicesStatus = diagnosticsHelper.getServicesStatus(
+                httpServer,
+                webSocketServer,
+                aiService
+            );
+            
+            // Générer le HTML
+            String htmlContent = diagnosticsHelper.generateDiagnosticsHtml(
+                logFileContent,
+                diagnosticLogs,
+                systemInfo,
+                servicesStatus
+            );
+            
+            // Sauvegarder le fichier HTML
+            String savedPath = diagnosticsHelper.saveDiagnosticsHtml(htmlContent);
+            
+            if (savedPath != null) {
+                Log.i(TAG, "Diagnostics HTML generated and saved: " + savedPath);
+                return savedPath;
+            } else {
+                Log.e(TAG, "Failed to save diagnostics HTML");
+                return "Error: Failed to save diagnostics HTML";
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating diagnostics HTML", e);
+            return "Error: " + e.getMessage();
+        }
+    }
 }
