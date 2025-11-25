@@ -37,10 +37,10 @@ data class TTSConfig(
                 endpoint = tts.optString("endpoint", DEFAULT_ENDPOINT),
                 model = tts.optString("model", DEFAULT_MODEL),
                 language = tts.optString("language", DEFAULT_LANGUAGE),
-                speakerWavPath = tts.optString("speakerWavPath", "").takeIf { it.isNotBlank() },
-                emotion = tts.optString("emotion", "").takeIf { it.isNotBlank() },
+                speakerWavPath = tts.optString("speakerWavPath", null).takeIf { it.isNotBlank() },
+                emotion = tts.optString("emotion", null).takeIf { it.isNotBlank() },
                 speed = tts.optDouble("speed", DEFAULT_SPEED.toDouble()).toFloat(),
-                apiKey = tts.optString("apiKey", "").takeIf { it.isNotBlank() }
+                apiKey = tts.optString("apiKey", null).takeIf { it.isNotBlank() }
             )
         }
     }
