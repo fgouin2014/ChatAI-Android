@@ -64,7 +64,9 @@
                 { select: this.core.configLocalModel, custom: this.core.configLocalModelCustom },
                 { select: this.core.configVisionModel, custom: this.core.configVisionModelCustom },
                 { select: this.core.configAudioModel, custom: this.core.configAudioModelCustom },
-                { select: this.core.configTtsVoice, custom: this.core.configTtsVoiceCustom }
+                { select: this.core.configTtsVoice, custom: this.core.configTtsVoiceCustom },
+                { select: this.core.configTtsModel, custom: this.core.configTtsModelCustom },
+                { select: this.core.configHuggingFaceEmbeddingModel, custom: this.core.configHuggingFaceEmbeddingModelCustom }
             ];
 
             this.customSelects.forEach(({ select, custom }) => {
@@ -72,6 +74,9 @@
                 window.ChatUtils.addListener(select, 'change', () => this.toggleCustomInput(select, custom));
                 this.toggleCustomInput(select, custom);
             });
+            
+            // Initialiser l'affichage conditionnel TTS
+            this.initTtsView();
         }
 
         /**
@@ -150,8 +155,49 @@
                         this.core.configCloudApiKey.value = '';
                     }
                 }
+                // Configuration Hugging Face API Key (dans onglet Cloud)
+                console.log('[HF] Chargement Hugging Face API Key...');
+                console.log('[HF] cfg.cloud.huggingfaceApiKey:', cfg.cloud.huggingfaceApiKey ? (cfg.cloud.huggingfaceApiKey.substring(0, 4) + '...') : '(non défini)');
+                console.log('[HF] this.core.configHuggingFaceApiKey:', this.core.configHuggingFaceApiKey ? 'existe' : 'N\'EXISTE PAS');
+                
+                if (cfg.cloud.huggingfaceApiKey) {
+                    const hfKey = cfg.cloud.huggingfaceApiKey;
+                    if (this.core.configHuggingFaceApiKey) {
+                        // Stocker la vraie clé dans data-original-key
+                        this.core.configHuggingFaceApiKey.setAttribute('data-original-key', hfKey);
+                        // Masquer la clé (afficher des *)
+                        const maskedKey = hfKey.length > 8 ? hfKey.substring(0, 4) + '*'.repeat(hfKey.length - 8) + hfKey.substring(hfKey.length - 4) : '*'.repeat(8);
+                        this.core.configHuggingFaceApiKey.value = maskedKey;
+                        console.log('[HF] Clé chargée et masquée:', maskedKey);
+                    } else {
+                        console.error('[HF] ERREUR: configHuggingFaceApiKey n\'existe pas dans le DOM!');
+                    }
+                } else if (this.core.configHuggingFaceApiKey) {
+                    // Pas de clé configurée, champ vide
+                    this.core.configHuggingFaceApiKey.removeAttribute('data-original-key');
+                    this.core.configHuggingFaceApiKey.value = '';
+                    console.log('[HF] Pas de clé configurée, champ vidé');
+                } else {
+                    console.error('[HF] ERREUR: configHuggingFaceApiKey n\'existe pas dans le DOM!');
+                }
                 this.setSelectValue(this.core.configCloudModel, this.core.configCloudModelCustom, cfg.cloud.selectedModel || cfg.selectedModel || '');
-            }
+                } else {
+                    // Pas de config Cloud, initialiser les champs vides
+                    if (this.core.configHuggingFaceApiKey) {
+                        this.core.configHuggingFaceApiKey.removeAttribute('data-original-key');
+                        this.core.configHuggingFaceApiKey.value = '';
+                    }
+                }
+                
+                // Configuration modèle d'embedding Hugging Face (chargé depuis RAG ou Cloud)
+                if (cfg.rag?.huggingFaceEmbeddingModel) {
+                    this.setSelectValue(this.core.configHuggingFaceEmbeddingModel, this.core.configHuggingFaceEmbeddingModelCustom, cfg.rag.huggingFaceEmbeddingModel);
+                } else {
+                    this.setSelectValue(this.core.configHuggingFaceEmbeddingModel, this.core.configHuggingFaceEmbeddingModelCustom, 'sentence-transformers/all-MiniLM-L6-v2');
+                }
+                if (this.core.configHuggingFaceUseForRAG) {
+                    this.core.configHuggingFaceUseForRAG.checked = cfg.rag?.useHuggingFace === true;
+                }
 
             const local = cfg.local_server || cfg.localServer;
             if (local) {
@@ -166,6 +212,27 @@
                     this.core.configLocalModel.value = 'gemma3-270m.gguf';
                 }
             }
+            
+            // ⭐ NOUVEAU: Charger configuration RAG
+            if (cfg.rag) {
+                if (this.core.configRAGEnabled) {
+                    this.core.configRAGEnabled.checked = cfg.rag.enabled === true;
+                }
+                if (this.core.configEmbeddingModel) {
+                    this.core.configEmbeddingModel.value = cfg.rag.embeddingModel || 'nomic-embed-text';
+                }
+            } else {
+                // Valeurs par défaut si RAG non configuré
+                if (this.core.configRAGEnabled) {
+                    this.core.configRAGEnabled.checked = true; // RAG activé par défaut
+                }
+                if (this.core.configEmbeddingModel) {
+                    this.core.configEmbeddingModel.value = 'nomic-embed-text'; // Modèle par défaut
+                }
+            }
+            
+            // ⭐ NOUVEAU: Mettre à jour le statut RAG après chargement
+            this.updateRAGStatus();
 
             if (cfg.webSearch) {
                 if (this.core.configWebSearchProvider) {
@@ -199,6 +266,11 @@
                 }
             }
             this.updateAudioEngineView(this.core);
+            
+            // Initialiser l'affichage TTS/HF après chargement
+            if (this.core.configTtsEngine) {
+                this.updateTtsEngineView();
+            }
 
             if (this.core.configHotwordEnabled) this.core.configHotwordEnabled.checked = !!hotword.enabled;
             if (this.core.configHotwordEngine) this.core.configHotwordEngine.value = hotword.engine || 'openwakeword';
@@ -231,10 +303,43 @@
             this.renderHotwordModelsTable();
             this.updateHotwordEngineView(this.core);
 
-            if (cfg.tts) {
-                if (this.core.configTtsMode) this.core.configTtsMode.value = cfg.tts.mode || '';
-                this.setSelectValue(this.core.configTtsVoice, this.core.configTtsVoiceCustom, cfg.tts.voice || '');
+            // Configuration TTS/Hugging Face
+            if (!cfg.tts) {
+                cfg.tts = {};
             }
+            // Moteur TTS
+            if (this.core.configTtsEngine) {
+                this.core.configTtsEngine.value = cfg.tts.engine || 'android_tts';
+                this.updateTtsEngineView();
+            }
+            // Configuration Coqui TTS
+            if (this.core.configTtsEndpoint) this.core.configTtsEndpoint.value = cfg.tts.endpoint || 'http://127.0.0.1:11401/process';
+            this.setSelectValue(this.core.configTtsModel, this.core.configTtsModelCustom, cfg.tts.model || 'xtts_v2');
+            if (this.core.configTtsLanguage) this.core.configTtsLanguage.value = cfg.tts.language || 'fr';
+            if (this.core.configTtsSpeed) this.core.configTtsSpeed.value = cfg.tts.speed || '1.0';
+            if (this.core.configTtsEmotion) this.core.configTtsEmotion.value = cfg.tts.emotion || '';
+            if (this.core.configTtsSpeakerWav) this.core.configTtsSpeakerWav.value = cfg.tts.speakerWavPath || '';
+            // Configuration Android TTS
+            this.setSelectValue(this.core.configTtsVoice, this.core.configTtsVoiceCustom, cfg.tts.voice || '');
+            // AutoPlay
+            if (this.core.configTtsAutoPlay) {
+                this.core.configTtsAutoPlay.checked = cfg.tts.autoPlay === true;
+            }
+            
+            // Configuration RAG (Hugging Face embedding model et useForRAG)
+            if (cfg.rag) {
+                this.setSelectValue(this.core.configHuggingFaceEmbeddingModel, this.core.configHuggingFaceEmbeddingModelCustom, cfg.rag.huggingFaceEmbeddingModel || 'sentence-transformers/all-MiniLM-L6-v2');
+                if (this.core.configHuggingFaceUseForRAG) {
+                    this.core.configHuggingFaceUseForRAG.checked = cfg.rag.useHuggingFace === true;
+                }
+            } else {
+                // Valeurs par défaut si pas de config RAG
+                this.setSelectValue(this.core.configHuggingFaceEmbeddingModel, this.core.configHuggingFaceEmbeddingModelCustom, 'sentence-transformers/all-MiniLM-L6-v2');
+                if (this.core.configHuggingFaceUseForRAG) {
+                    this.core.configHuggingFaceUseForRAG.checked = false;
+                }
+            }
+            
 
             if (cfg.systemPromptOverrides) {
                 if (this.core.configPromptKitt) this.core.configPromptKitt.value = cfg.systemPromptOverrides.kitt || '';
@@ -387,12 +492,10 @@
             const cfg = this.aiConfigObject;
 
             switch (section) {
-                case 'mode':
-                    // Tab General : Sélection du mode actif (Cloud/Local) + modèle par défaut
+                case 'cloud':
+                    // Tab Cloud (fusionné avec General) : Mode actif + configuration Cloud
                     cfg.mode = core.configModeSelect?.value || 'cloud';
                     cfg.selectedModel = this.getSelectValue(core.configSelectedModel, core.configSelectedModelCustom);
-                    break;
-                case 'cloud':
                     // Tab Cloud : Configuration détaillée des modèles Cloud disponibles
                     cfg.cloud = cfg.cloud || {};
                     cfg.cloud.provider = this.getSelectValue(core.configCloudProvider, core.configCloudProviderCustom);
@@ -427,13 +530,61 @@
                         delete cfg.cloud.apiKey;
                     }
                     cfg.cloud.selectedModel = this.getSelectValue(core.configCloudModel, core.configCloudModelCustom);
+                    
+                    // Configuration Hugging Face API Key (dans onglet Cloud)
+                    console.log('[HF] Sauvegarde Hugging Face API Key...');
+                    const hfApiKeyValue = core.configHuggingFaceApiKey?.value || '';
+                    console.log('[HF] Valeur du champ:', hfApiKeyValue ? (hfApiKeyValue.substring(0, 4) + '...') : '(vide)');
+                    
+                    // Même logique que pour Ollama Cloud API Key
+                    if (hfApiKeyValue && !hfApiKeyValue.includes('*')) {
+                        // Nouvelle clé saisie par l'utilisateur (pas de *)
+                        console.log('[HF] Nouvelle clé saisie, sauvegarde...');
+                        if (core.configHuggingFaceApiKey) {
+                            core.configHuggingFaceApiKey.setAttribute('data-original-key', hfApiKeyValue);
+                        }
+                        cfg.cloud.huggingfaceApiKey = hfApiKeyValue;
+                        console.log('[HF] Clé sauvegardée dans cfg.cloud.huggingfaceApiKey');
+                    } else if (hfApiKeyValue && hfApiKeyValue.includes('*')) {
+                        // Clé masquée : récupérer la vraie clé depuis data-original-key
+                        const originalKey = core.configHuggingFaceApiKey?.getAttribute('data-original-key') || '';
+                        console.log('[HF] Clé masquée détectée, clé originale:', originalKey ? (originalKey.substring(0, 4) + '...') : '(aucune)');
+                        if (originalKey) {
+                            // Utiliser la vraie clé stockée (non modifiée)
+                            cfg.cloud.huggingfaceApiKey = originalKey;
+                            console.log('[HF] Clé originale réutilisée');
+                        } else {
+                            // Pas de clé originale, supprimer du JSON pour conserver celle dans SecureConfig
+                            delete cfg.cloud.huggingfaceApiKey;
+                            console.log('[HF] Pas de clé originale, suppression');
+                        }
+                    } else if (hfApiKeyValue === '') {
+                        // Champ vide : supprimer la clé
+                        console.log('[HF] Champ vide, suppression de la clé');
+                        if (core.configHuggingFaceApiKey) {
+                            core.configHuggingFaceApiKey.removeAttribute('data-original-key');
+                        }
+                        cfg.cloud.huggingfaceApiKey = '';
+                    } else {
+                        // Aucune valeur : supprimer du JSON pour conserver celle dans SecureConfig
+                        console.log('[HF] Aucune valeur, suppression');
+                        delete cfg.cloud.huggingfaceApiKey;
+                    }
+                    console.log('[HF] Résultat final cfg.cloud.huggingfaceApiKey:', cfg.cloud.huggingfaceApiKey ? (cfg.cloud.huggingfaceApiKey.substring(0, 4) + '...') : '(non défini)');
                     break;
                 case 'local':
-                    // Tab Local : Configuration du serveur Ollama local + modèle gemma
+                    // Tab Local : Configuration du serveur Ollama local + modèle gemma + RAG
                     cfg.local_server = cfg.local_server || {};
                     cfg.local_server.url = core.configLocalUrl?.value || '';
                     // Modèle local fixé à gemma3-270m.gguf
                     cfg.local_server.model = 'gemma3-270m.gguf';
+                    // Configuration RAG
+                    cfg.rag = cfg.rag || {};
+                    cfg.rag.enabled = core.configRAGEnabled?.checked === true;
+                    cfg.rag.embeddingModel = core.configEmbeddingModel?.value || 'nomic-embed-text';
+                    // Configuration Hugging Face pour RAG (dans onglet Local)
+                    cfg.rag.huggingFaceEmbeddingModel = this.getSelectValue(core.configHuggingFaceEmbeddingModel, core.configHuggingFaceEmbeddingModelCustom);
+                    cfg.rag.useHuggingFace = core.configHuggingFaceUseForRAG?.checked === true;
                     break;
                 case 'thinking':
                     cfg.webSearch = cfg.webSearch || {};
@@ -493,9 +644,25 @@
                     cfg.hotword.models = this.hotwordModels || [];
                     break;
                 case 'tts':
+                    // Configuration TTS
                     cfg.tts = cfg.tts || {};
-                    cfg.tts.mode = core.configTtsMode?.value || '';
-                    cfg.tts.voice = this.getSelectValue(core.configTtsVoice, core.configTtsVoiceCustom);
+                    cfg.tts.engine = core.configTtsEngine?.value || 'android_tts';
+                    cfg.tts.autoPlay = core.configTtsAutoPlay?.checked === true;
+                    
+                    if (cfg.tts.engine === 'coqui_server') {
+                        // Configuration Coqui TTS
+                        cfg.tts.endpoint = core.configTtsEndpoint?.value || 'http://127.0.0.1:11401/process';
+                        cfg.tts.model = this.getSelectValue(core.configTtsModel, core.configTtsModelCustom);
+                        cfg.tts.language = core.configTtsLanguage?.value || 'fr';
+                        cfg.tts.speed = parseFloat(core.configTtsSpeed?.value || '1.0');
+                        const emotion = core.configTtsEmotion?.value || '';
+                        cfg.tts.emotion = emotion || null;
+                        const speakerWav = core.configTtsSpeakerWav?.value || '';
+                        cfg.tts.speakerWavPath = speakerWav || null;
+                    } else {
+                        // Configuration Android TTS
+                        cfg.tts.voice = this.getSelectValue(core.configTtsVoice, core.configTtsVoiceCustom);
+                    }
                     break;
                 case 'prompts':
                     cfg.systemPromptOverrides = cfg.systemPromptOverrides || {};
@@ -517,6 +684,172 @@
         }
 
         /**
+         * ⭐ NOUVEAU: Met à jour l'indicateur de statut RAG
+         * Vérifie à la fois le mode actuel (select) et le statut depuis Android
+         */
+        async updateRAGStatus() {
+            try {
+                const badge = document.getElementById('ragStatusBadge');
+                const message = document.getElementById('ragStatusMessage');
+                
+                if (!badge || !message) return;
+                
+                // Récupérer le statut depuis Android (détection automatique si Cloud supporte embeddings)
+                let ragEnabled = false;
+                let ragAvailable = false;
+                let useCloud = false;
+                let reason = '';
+                
+                if (this.androidInterface?.getRAGStatus) {
+                    try {
+                        const statusJson = this.androidInterface.getRAGStatus();
+                        const status = JSON.parse(statusJson);
+                        ragEnabled = status.enabled === true;
+                        ragAvailable = status.available === true;
+                        useCloud = status.useCloud === true;
+                        reason = status.reason || '';
+                    } catch (e) {
+                        console.warn('Erreur récupération statut RAG depuis Android:', e);
+                    }
+                }
+                
+                // Mettre à jour le badge
+                if (ragEnabled && ragAvailable) {
+                    badge.textContent = '✅ Disponible';
+                    badge.style.color = '#10b981';
+                } else if (ragEnabled && !ragAvailable) {
+                    badge.textContent = '⚠️ Non disponible';
+                    badge.style.color = '#f59e0b';
+                } else {
+                    badge.textContent = '⏸️ Désactivé';
+                    badge.style.color = '#64748b';
+                }
+                
+                // ⭐ FIX: Ne plus désactiver automatiquement RAG avec Cloud si Hugging Face est configuré
+                // Vérifier si Hugging Face est configuré
+                const hfApiKey = this.aiConfigObject?.cloud?.huggingfaceApiKey || 
+                    (this.androidInterface?.readAiConfigJson ? 
+                        (() => {
+                            try {
+                                const config = JSON.parse(this.androidInterface.readAiConfigJson());
+                                return config?.cloud?.huggingfaceApiKey || '';
+                            } catch { return ''; }
+                        })() : '');
+                const hasHuggingFace = hfApiKey && hfApiKey.length > 0;
+                
+                // ⭐ NOUVEAU: Si Cloud + Hugging Face configuré, permettre RAG (ne pas désactiver)
+                if (useCloud && !ragAvailable && !hasHuggingFace && this.core?.configRAGEnabled) {
+                    // Cloud activé sans Hugging Face → RAG ne fonctionne pas, désactiver automatiquement
+                    if (this.core.configRAGEnabled.checked) {
+                        // Sauvegarder l'état précédent pour réactivation si on repasse en Local
+                        if (!this.core.configRAGEnabled.hasAttribute('data-was-enabled')) {
+                            this.core.configRAGEnabled.setAttribute('data-was-enabled', 'true');
+                        }
+                        this.core.configRAGEnabled.checked = false;
+                        ragEnabled = false; // Mettre à jour la variable locale
+                        
+                        // Sauvegarder immédiatement pour persister la désactivation
+                        if (this.aiConfigObject) {
+                            this.aiConfigObject.rag = this.aiConfigObject.rag || {};
+                            this.aiConfigObject.rag.enabled = false;
+                            // Sauvegarder en arrière-plan (non-bloquant)
+                            this.persistAiConfig('RAG désactivé automatiquement (configurez Hugging Face pour activer RAG avec Cloud)').catch(e => {
+                                console.warn('Erreur sauvegarde auto-désactivation RAG:', e);
+                            });
+                        }
+                    }
+                } else if (!useCloud && this.core?.configRAGEnabled) {
+                    // Local activé → Réactiver RAG si elle était activée avant
+                    if (this.core.configRAGEnabled.getAttribute('data-was-enabled') === 'true') {
+                        this.core.configRAGEnabled.checked = true;
+                        this.core.configRAGEnabled.removeAttribute('data-was-enabled');
+                        ragEnabled = true; // Mettre à jour la variable locale
+                        if (this.aiConfigObject) {
+                            this.aiConfigObject.rag = this.aiConfigObject.rag || {};
+                            this.aiConfigObject.rag.enabled = true;
+                            // Sauvegarder en arrière-plan (non-bloquant)
+                            this.persistAiConfig('RAG réactivé automatiquement (Ollama Local)').catch(e => {
+                                console.warn('Erreur sauvegarde auto-réactivation RAG:', e);
+                            });
+                        }
+                    }
+                }
+                
+                // Afficher le message d'avertissement
+                if (useCloud && !ragAvailable) {
+                    // Vérifier si Hugging Face est configuré
+                    const hfApiKey = this.androidInterface?.readAiConfigJson ? 
+                        (() => {
+                            try {
+                                const config = JSON.parse(this.androidInterface.readAiConfigJson());
+                                return config?.cloud?.huggingfaceApiKey || '';
+                            } catch { return ''; }
+                        })() : '';
+                    
+                    if (hfApiKey && hfApiKey.length > 0) {
+                        // Hugging Face configuré mais non disponible
+                        message.style.display = 'block';
+                        message.style.backgroundColor = '#fef3c7';
+                        message.style.color = '#92400e';
+                        message.style.border = '1px solid #fbbf24';
+                        message.textContent = '⚠️ RAG avec Hugging Face non disponible. Vérifiez votre clé API Hugging Face.';
+                    } else {
+                        // Pas de Hugging Face configuré
+                        message.style.display = 'block';
+                        message.style.backgroundColor = '#dbeafe';
+                        message.style.color = '#1e40af';
+                        message.style.border = '1px solid #60a5fa';
+                        message.textContent = '💡 RAG avec Ollama Cloud: Configurez une clé API Hugging Face pour activer RAG. Ollama Cloud ne supporte pas les embeddings, mais Hugging Face peut les fournir.';
+                    }
+                } else if (!useCloud && ragEnabled && !ragAvailable && reason) {
+                    // Message pour Local si problème
+                    message.style.display = 'block';
+                    message.style.backgroundColor = '#fee2e2';
+                    message.style.color = '#991b1b';
+                    message.style.border = '1px solid #f87171';
+                    message.textContent = `⚠️ ${reason}`;
+                } else {
+                    message.style.display = 'none';
+                }
+                
+                // Désactiver/activer la checkbox selon le mode
+                if (this.core?.configRAGEnabled) {
+                    if (useCloud && !ragAvailable) {
+                        // Cloud activé mais embeddings non disponibles
+                        // Vérifier si Hugging Face est configuré
+                        const hfApiKey = this.androidInterface?.readAiConfigJson ? 
+                            (() => {
+                                try {
+                                    const config = JSON.parse(this.androidInterface.readAiConfigJson());
+                                    return config?.cloud?.huggingfaceApiKey || '';
+                                } catch { return ''; }
+                            })() : '';
+                        
+                        if (!hfApiKey || hfApiKey.length === 0) {
+                            // Pas de Hugging Face → permettre activation mais afficher message
+                            this.core.configRAGEnabled.disabled = false;
+                        } else {
+                            // Hugging Face configuré mais non disponible → désactiver
+                            this.core.configRAGEnabled.disabled = true;
+                        }
+                        if (this.core.configEmbeddingModel) {
+                            this.core.configEmbeddingModel.disabled = true;
+                        }
+                    } else {
+                        // Local activé OU Cloud avec embeddings disponibles → permettre RAG
+                        this.core.configRAGEnabled.disabled = false;
+                        if (this.core.configEmbeddingModel) {
+                            this.core.configEmbeddingModel.disabled = false;
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                console.error('updateRAGStatus error', error);
+            }
+        }
+        
+        /**
          * Persiste la configuration AI
          */
         async persistAiConfig(successMessage = 'Configuration sauvegardée') {
@@ -527,6 +860,8 @@
                     this.aiConfigCache = content;
                     this.renderAiConfigPreview();
                     this.showConfigFeedback(successMessage, false);
+                    // ⭐ NOUVEAU: Mettre à jour le statut RAG après sauvegarde
+                    this.updateRAGStatus();
                 } else {
                     this.showConfigFeedback(result || 'Erreur de sauvegarde', true);
                 }
@@ -695,6 +1030,9 @@
         /**
          * Initialise les tabs de configuration
          */
+        /**
+         * Initialise les tabs de configuration
+         */
         initConfigTabs() {
             const tabsContainer = document.getElementById('configTabs');
             if (!tabsContainer) return;
@@ -804,6 +1142,37 @@
                     el.classList.add('hidden');
                 }
             });
+        }
+        
+        /**
+         * Initialise l'affichage conditionnel TTS
+         */
+        initTtsView() {
+            if (!this.core) return;
+            
+            // Listener pour le moteur TTS (Coqui/Android)
+            if (this.core.configTtsEngine) {
+                window.ChatUtils.addListener(this.core.configTtsEngine, 'change', () => this.updateTtsEngineView());
+            }
+        }
+        
+        /**
+         * Met à jour l'affichage selon le moteur TTS sélectionné
+         */
+        updateTtsEngineView() {
+            if (!this.core || !this.core.configTtsEngine) return;
+            
+            const engine = this.core.configTtsEngine.value;
+            const coquiConfig = document.getElementById('coquiTtsConfig');
+            const androidConfig = document.getElementById('androidTtsConfig');
+            
+            if (engine === 'coqui_server') {
+                if (coquiConfig) coquiConfig.style.display = 'block';
+                if (androidConfig) androidConfig.style.display = 'none';
+            } else {
+                if (coquiConfig) coquiConfig.style.display = 'none';
+                if (androidConfig) androidConfig.style.display = 'block';
+            }
 
             legacyOnlyElements.forEach(el => {
                 // Les éléments "legacy" ne sont plus utilisés (Google Speech via Intent standard)

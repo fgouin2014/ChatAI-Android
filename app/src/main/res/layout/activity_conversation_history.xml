@@ -45,6 +45,62 @@
 
     </com.google.android.material.card.MaterialCardView>
 
+    <!-- Recherche et Filtres ⭐ NOUVEAU Phase 3 -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        app:cardBackgroundColor="@color/kitt_black"
+        app:cardCornerRadius="8dp"
+        app:strokeColor="@color/kitt_red"
+        app:strokeWidth="1dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <!-- SearchView -->
+            <androidx.appcompat.widget.SearchView
+                android:id="@+id/searchView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:queryHint="Rechercher dans l'historique..."
+                android:iconifiedByDefault="false"
+                android:backgroundTint="@color/kitt_dark_red" />
+
+            <!-- Filtres -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <Spinner
+                    android:id="@+id/filterPersonalitySpinner"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:backgroundTint="@color/kitt_red"
+                    android:popupBackground="@color/kitt_black" />
+
+                <Spinner
+                    android:id="@+id/filterPlatformSpinner"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:backgroundTint="@color/kitt_red"
+                    android:popupBackground="@color/kitt_black" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
     <!-- Statistiques -->
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
@@ -119,6 +175,21 @@
             android:layout_marginEnd="4dp"
             android:text="EXPORT"
             android:textSize="11sp"
+            app:backgroundTint="@color/kitt_dark_red"
+            app:cornerRadius="8dp"
+            android:textColor="@color/kitt_red"
+            android:fontFamily="monospace"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/migrateEmbeddingsButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:text="EMBEDDINGS"
+            android:textSize="10sp"
             app:backgroundTint="@color/kitt_dark_red"
             app:cornerRadius="8dp"
             android:textColor="@color/kitt_red"

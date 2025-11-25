@@ -104,9 +104,9 @@
                         this.chatUI.updateVUIndicatorLevel(rmsDb);
                         break;
                     case "whisper_transcription":
-                        // ✅ Transcription reçue → remplir textInput et envoyer
+                        // ✅ Transcription reçue (seulement pour le bouton micro de la webapp) → remplir textInput et envoyer
                         const transcript = window.ChatUtils.sanitizeInput(data);
-                        if (this.chatUI.messageInput) {
+                        if (transcript && transcript.trim().length > 0 && this.chatUI.messageInput) {
                             this.chatUI.messageInput.value = transcript;
                             this.chatUI.adjustTextareaHeight();
                             // Envoyer automatiquement
@@ -118,12 +118,20 @@
                         if (voiceBtn2) voiceBtn2.classList.remove('recording');
                         this.chatUI.updateVUIndicator(false); // Cacher indicateur VU
                         break;
+                    case "whisper_end":
+                        // ⭐ NOUVEAU : Fin normale de la reconnaissance (hotword) - cacher le VU-meter
+                        console.log("Whisper terminé (hotword) - BackgroundService traite déjà le message");
+                        const voiceBtnEnd = document.getElementById('voiceBtn');
+                        if (voiceBtnEnd) voiceBtnEnd.classList.remove('recording');
+                        this.chatUI.updateVUIndicator(false); // Cacher indicateur VU
+                        break;
                     case "whisper_error":
+                        // Erreur réelle Whisper → afficher message d'erreur
                         console.error("Whisper error:", data);
                         this.chatUI.showSecureMessage('ai', 'Erreur reconnaissance vocale: ' + data);
                         const voiceBtn3 = document.getElementById('voiceBtn');
                         if (voiceBtn3) voiceBtn3.classList.remove('recording');
-                        this.chatUI.updateVUIndicator(false);
+                        this.chatUI.updateVUIndicator(false); // Cacher indicateur VU
                         break;
                 }
             };

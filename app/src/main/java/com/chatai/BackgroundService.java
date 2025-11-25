@@ -37,6 +37,9 @@ public class BackgroundService extends Service {
     public static final String ACTION_AI_RESPOND = "com.chatai.action.AI_RESPOND";
     public static final String ACTION_STOP_WHISPER = "com.chatai.action.STOP_WHISPER";
     public static final String ACTION_STOP_GOOGLE_SPEECH = "com.chatai.action.STOP_GOOGLE_SPEECH";
+    public static final String ACTION_HOTWORD_SPEECH_RESULT = "com.chatai.action.HOTWORD_SPEECH_RESULT";  // ⭐ NOUVEAU : Résultat reconnaissance vocale hotword
+    public static final String ACTION_HOTWORD_SPEECH_CANCELED = "com.chatai.action.HOTWORD_SPEECH_CANCELED";  // ⭐ NOUVEAU : Annulation reconnaissance vocale hotword
+    public static final String ACTION_HOTWORD_SPEECH_ERROR = "com.chatai.action.HOTWORD_SPEECH_ERROR";  // ⭐ NOUVEAU : Erreur reconnaissance vocale hotword
     
     private final IBinder binder = new LocalBinder();
     private boolean isRunning = false;
@@ -81,7 +84,17 @@ public class BackgroundService extends Service {
         
         // Créer la notification
         Notification notification = createNotification();
-        startForeground(NOTIFICATION_ID, notification);
+        
+        // ⭐ FIX: Utiliser le bon type de foreground service selon la version Android
+        // Android 14+ (API 34+): Utiliser FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        // Android 13 et inférieur: Utiliser le type déclaré dans le manifest
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Android 14+ - Utiliser specialUse (nécessite déclaration dans manifest)
+            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+        } else {
+            // Android 13 et inférieur - Utiliser le type du manifest
+            startForeground(NOTIFICATION_ID, notification);
+        }
 
         // Gestion des actions explicites
         if (intent != null && intent.getAction() != null) {
@@ -108,6 +121,24 @@ public class BackgroundService extends Service {
                     break;
                 case ACTION_STOP_GOOGLE_SPEECH:
                     stopGoogleSpeechIfActive();
+                    break;
+                case ACTION_HOTWORD_SPEECH_RESULT:
+                    // ⭐ NOUVEAU : Résultat reconnaissance vocale hotword depuis MainActivity
+                    String transcription = intent != null ? intent.getStringExtra("transcription") : null;
+                    if (transcription != null) {
+                        handleHotwordSpeechResult(transcription);
+                    }
+                    break;
+                case ACTION_HOTWORD_SPEECH_CANCELED:
+                    // ⭐ NOUVEAU : Annulation reconnaissance vocale hotword
+                    Log.i(TAG, "Hotword speech recognition canceled by user");
+                    restartHotword(); // Redémarrer le hotword après annulation
+                    break;
+                case ACTION_HOTWORD_SPEECH_ERROR:
+                    // ⭐ NOUVEAU : Erreur reconnaissance vocale hotword
+                    String error = intent != null ? intent.getStringExtra("error") : "Unknown error";
+                    Log.e(TAG, "Hotword speech recognition error: " + error);
+                    restartHotword(); // Redémarrer le hotword après erreur
                     break;
                 default:
                     // Démarrage normal des serveurs
@@ -169,25 +200,37 @@ public class BackgroundService extends Service {
             boolean autoListen = hotword != null && hotword.optBoolean("autoListen", false);
 
             if (autoListen) {
-                // Bip de début d'écoute
-                try {
-                    android.media.ToneGenerator tg = new android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 70);
-                    tg.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 120);
-                    // Libérer la ressource après un court délai pour éviter les timeouts
-                    android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
-                    handler.postDelayed(() -> {
-                        try {
-                            tg.release();
-                        } catch (Throwable ignored) {}
-                    }, 150); // Libérer après 150ms (le beep dure 120ms)
-                } catch (Throwable ignored) {}
-
                 // Démarrer une capture unique via STT configuré (Whisper ou Google Speech)
                 com.chatai.audio.AudioEngineConfig audioCfg = com.chatai.audio.AudioEngineConfig.Companion.fromContext(this);
                 String engine = audioCfg.getEngine();
                 
+                // ⭐ FIX : Bip seulement pour Whisper (pas pour Google Speech Activity car Google fait déjà son propre bip)
+                if ("whisper_server".equalsIgnoreCase(engine)) {
+                    // Bip de début d'écoute (seulement pour Whisper)
+                    try {
+                        android.media.ToneGenerator tg = new android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 70);
+                        tg.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 120);
+                        // Libérer la ressource après un court délai pour éviter les timeouts
+                        android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+                        handler.postDelayed(() -> {
+                            try {
+                                tg.release();
+                            } catch (Throwable ignored) {}
+                        }, 150); // Libérer après 150ms (le beep dure 120ms)
+                    } catch (Throwable ignored) {}
+                } else {
+                    // ⭐ NOUVEAU : Pas de bip pour Google Speech Activity (Google fait déjà son propre bip)
+                    Log.i(TAG, "Pas de bip hotword: Google Speech Activity va faire son propre bip");
+                }
+                
                 if ("whisper_server".equalsIgnoreCase(engine)) {
                     // === WHISPER SERVER ===
+                    // ⭐ Utiliser Whisper (API programmatique) selon l'état du spinner Configurations/AV/Audio (STT)/Moteur STT
+                    // - Si spinner = "whisper_server" → Whisper (API programmatique) [ici]
+                    // - Si spinner = "disabled" → Google Speech Activity (interface graphique) [géré ci-dessous]
+                    // - Si spinner = "legacy_google" → Google Speech Activity (interface graphique) [géré ci-dessous]
+                    Log.i(TAG, "✅ Hotword: Moteur STT = 'whisper_server' (spinner Config) → Utilisation Whisper (API programmatique)");
+                    
                     // Créer client OkHttp avec timeouts configurés (120s read, 150s call)
                     okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
                             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
@@ -207,25 +250,129 @@ public class BackgroundService extends Service {
                                             Log.i(TAG, "AutoSTT (Whisper) ready");
                                             // Marquer le recognizer comme actif
                                             currentWhisperRecognizer = recognizerRef[0];
+                                            
+                                            // ⭐ NOUVEAU : Afficher le VU-meter dans le chat
+                                            com.chatai.WebAppInterface.sendWhisperEventToWebView(
+                                                BackgroundService.this, 
+                                                "whisper_ready", 
+                                                ""
+                                            );
                                         }
-                                        @Override public void onSpeechStart() { Log.i(TAG, "AutoSTT (Whisper) speech"); }
-                                        @Override public void onRmsChanged(float rmsDb) { /* no-op */ }
+                                        @Override public void onSpeechStart() { 
+                                            Log.i(TAG, "AutoSTT (Whisper) speech");
+                                            // ⭐ NOUVEAU : Notifier le début de parole
+                                            com.chatai.WebAppInterface.sendWhisperEventToWebView(
+                                                BackgroundService.this, 
+                                                "whisper_speech_start", 
+                                                ""
+                                            );
+                                        }
+                                        @Override public void onRmsChanged(float rmsDb) { 
+                                            // ⭐ NOUVEAU : Envoyer les niveaux RMS au webapp pour le VU-meter
+                                            com.chatai.WebAppInterface.sendWhisperEventToWebView(
+                                                BackgroundService.this, 
+                                                "whisper_rms", 
+                                                String.valueOf(rmsDb)
+                                            );
+                                        }
                                         @Override public void onResult(String text) {
                                             Log.i(TAG, "AutoSTT (Whisper) result: " + text);
+                                            
+                                            // ⭐ FIX : Ne PAS envoyer whisper_transcription au webapp pour le hotword
+                                            // Car le webapp appelle automatiquement sendMessage() ce qui crée une duplication
+                                            // (BackgroundService traite déjà le message via processWithThinkingAsync())
+                                            
+                                            // ⭐ Cacher le VU-meter avec un événement dédié "whisper_end" (fin normale de la reconnaissance)
+                                            com.chatai.WebAppInterface.sendWhisperEventToWebView(
+                                                BackgroundService.this, 
+                                                "whisper_end", 
+                                                ""  // Fin normale de la reconnaissance hotword - cacher le VU-meter
+                                            );
                                             
                                             // ⭐ NOUVEAU : Émettre via BidirectionalBridge pour afficher dans Chat
                                             emitHotwordMessageToBridge(text);
                                             
                                             // Libérer le recognizer après résultat
                                             currentWhisperRecognizer = null;
-                                            if (aiService != null && aiService.isHealthy()) {
-                                                aiService.processAIRequest(text, "kitt");
-                                            } else {
-                                                toast("AI service not available");
-                                            }
+                                            
+                                            // ⭐ FIX : Utiliser BidirectionalBridge.processWithThinkingAsync() comme le textInput
+                                            // (au lieu de RealtimeAIService qui utilise Hugging Face/OpenAI)
+                                            com.chatai.services.BidirectionalBridge bridge = 
+                                                com.chatai.services.BidirectionalBridge.getInstance(BackgroundService.this);
+                                            
+                                            // Générer un ID unique pour ce message
+                                            String messageId = "hotword_" + System.currentTimeMillis();
+                                            
+                                            // Traiter avec thinking (même méthode que textInput)
+                                            bridge.processWithThinkingAsync(
+                                                text, // userInput
+                                                "KITT", // personality
+                                                true, // enableThinking
+                                                // onChunk callback - émettre chaque chunk directement via JavaScript (comme processWithThinking())
+                                                chunk -> {
+                                                    try {
+                                                        com.chatai.services.BidirectionalBridge.ChunkType chunkType = chunk.getType();
+                                                        String chunkContent = chunk.getContent();
+                                                        boolean isComplete = chunk.isComplete();
+                                                        
+                                                        // ⭐ LOGGING AMÉLIORÉ : Différencier thinking et response chunks
+                                                        if (chunkType == com.chatai.services.BidirectionalBridge.ChunkType.THINKING) {
+                                                            Log.d(TAG, "🧠 Hotword THINKING chunk: content=" + (chunkContent.length() > 50 ? chunkContent.substring(0, 50) + "..." : chunkContent) + ", complete=" + isComplete);
+                                                        } else if (chunkType == com.chatai.services.BidirectionalBridge.ChunkType.RESPONSE) {
+                                                            Log.i(TAG, "💬 Hotword RESPONSE chunk: content=" + (chunkContent.length() > 50 ? chunkContent.substring(0, 50) + "..." : chunkContent) + ", complete=" + isComplete);
+                                                        } else {
+                                                            Log.d(TAG, "❓ Hotword chunk: type=" + chunkType + ", content=" + (chunkContent.length() > 50 ? chunkContent.substring(0, 50) + "..." : chunkContent) + ", complete=" + isComplete);
+                                                        }
+                                                        
+                                                        // ⭐ FIX : Utiliser la même méthode que processWithThinking() pour envoyer les chunks
+                                                        // (au lieu de sendKittToWebAsync qui déclenche onKittMessageReceived qui ignore THINKING_CHUNK)
+                                                        String chunkTypeStr = chunkType == com.chatai.services.BidirectionalBridge.ChunkType.THINKING ? "thinking" : "response";
+                                                        com.chatai.WebAppInterface.sendThinkingChunkToWebView(
+                                                            BackgroundService.this,
+                                                            messageId,
+                                                            chunkTypeStr,
+                                                            chunkContent,
+                                                            isComplete
+                                                        );
+                                                        
+                                                        if (isComplete && chunkType == com.chatai.services.BidirectionalBridge.ChunkType.RESPONSE) {
+                                                            Log.i(TAG, "✅ Hotword AI response complete (total length: " + chunkContent.length() + " chars)");
+                                                        }
+                                                    } catch (Exception e) {
+                                                        Log.e(TAG, "Erreur lors de l'émission du chunk hotword", e);
+                                                    }
+                                                },
+                                                // onError callback
+                                                throwable -> {
+                                                    Log.e(TAG, "AutoSTT (Whisper) AI error: " + throwable.getMessage(), throwable);
+                                                    // Émettre l'erreur via bridge
+                                                    com.chatai.services.BidirectionalBridge.BridgeMessage errorMessage = 
+                                                        new com.chatai.services.BidirectionalBridge.BridgeMessage(
+                                                            com.chatai.services.BidirectionalBridge.MessageType.ERROR,
+                                                            com.chatai.services.BidirectionalBridge.Source.SYSTEM,
+                                                            "Erreur: " + throwable.getMessage(),
+                                                            java.util.Collections.emptyMap(),
+                                                            System.currentTimeMillis()
+                                                        );
+                                                    bridge.sendKittToWebAsync(errorMessage);
+                                                    toast("AI error: " + throwable.getMessage());
+                                                },
+                                                // onComplete callback
+                                                () -> {
+                                                    Log.i(TAG, "✅ Hotword thinking stream completed");
+                                                }
+                                            );
                                         }
                                         @Override public void onError(String message) {
                                             Log.e(TAG, "AutoSTT (Whisper) error: " + message);
+                                            
+                                            // ⭐ NOUVEAU : Cacher le VU-meter et envoyer l'erreur
+                                            com.chatai.WebAppInterface.sendWhisperEventToWebView(
+                                                BackgroundService.this, 
+                                                "whisper_error", 
+                                                message
+                                            );
+                                            
                                             // Libérer le recognizer après erreur
                                             currentWhisperRecognizer = null;
                                             toast("STT error: " + message);
@@ -254,13 +401,23 @@ public class BackgroundService extends Service {
                         }
                     }, delayAfterHotword);
                     return;
-                } else if ("legacy_google".equalsIgnoreCase(engine)) {
-                    // === GOOGLE SPEECH ===
-                    // CRITIQUE: SpeechRecognizer DOIT être créé sur le main thread
+                } else if ("legacy_google".equalsIgnoreCase(engine) || "disabled".equalsIgnoreCase(engine)) {
+                    // === GOOGLE SPEECH ACTIVITY (comme le bouton micro de la webapp) ===
+                    // ⭐ Utiliser l'interface graphique de Google STT selon l'état du spinner Configurations/AV/Audio (STT)/Moteur STT
+                    // - Si spinner = "whisper_server" → Whisper (API programmatique) [géré ci-dessus]
+                    // - Si spinner = "disabled" → Google Speech Activity (interface graphique)
+                    // - Si spinner = "legacy_google" → Google Speech Activity (interface graphique)
+                    // (comme dans le webapp qui utilise Intent Google Speech standard quand "disabled" ou "legacy_google")
+                    if ("disabled".equalsIgnoreCase(engine)) {
+                        Log.i(TAG, "✅ Hotword: Moteur STT = 'disabled' (spinner Config) → Utilisation Google Speech Activity (interface graphique)");
+                    } else if ("legacy_google".equalsIgnoreCase(engine)) {
+                        Log.i(TAG, "✅ Hotword: Moteur STT = 'legacy_google' (spinner Config) → Utilisation Google Speech Activity (interface graphique)");
+                    }
+                    
                     // CRITIQUE: L'AudioRecord du hotword monopolise le microphone
                     // Il faut suspendre temporairement le hotword pour libérer le microphone
                     int delayAfterHotword = audioCfg.getDelayAfterHotwordMs();
-                    Log.i(TAG, "Hotword detected, starting Google Speech after " + delayAfterHotword + "ms delay");
+                    Log.i(TAG, "Hotword detected, launching Google Speech Activity (selon config spinner) after " + delayAfterHotword + "ms delay");
                     
                     // CRITIQUE: Arrêter temporairement le hotword pour libérer l'AudioRecord
                     // pause() ne libère PAS l'AudioRecord, il reste actif et monopolise le microphone
@@ -273,116 +430,81 @@ public class BackgroundService extends Service {
                             if (hotwordManager.isRunning()) {
                                 hotwordWasRunning = true;
                                 hotwordManager.stop();  // Arrêter complètement (libère AudioRecord)
-                                Log.i(TAG, "⏸️ Hotword arrêté temporairement (libération AudioRecord pour Google Speech)");
+                                Log.i(TAG, "⏸️ Hotword arrêté temporairement (libération AudioRecord pour Google Speech Activity)");
                             }
                         } catch (Exception e) {
                             Log.w(TAG, "Error stopping hotword: " + e.getMessage());
                         }
                     }
                     
-                    final boolean willRestartHotword = hotwordWasRunning;
+                    // Arrêter Whisper s'il est actif (il monopolise le microphone)
+                    stopWhisperIfActive();
+                    Log.i(TAG, "Arrêt de Whisper pour libérer le microphone");
                     
+                    // ⭐ NOUVEAU : Lancer l'interface graphique Google Speech via MainActivity
+                    // (comme le bouton micro de la webapp)
+                    final boolean willRestartHotword = hotwordWasRunning;
                     android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-                    mainHandler.post(() -> {
+                    mainHandler.postDelayed(() -> {
                         try {
-                            // CRITIQUE: Libérer TOUJOURS le recognizer existant avant de créer un nouveau
-                            // Évite de laisser un recognizer actif qui monopoliserait la ressource et bloquerait le clavier Google
-                            if (currentSpeechRecognizer != null) {
-                                Log.w(TAG, "⚠️ Google Speech: libération FORCÉE du recognizer existant avant création nouveau (éviter monopolisation)");
-                                try {
-                                    currentSpeechRecognizer.stopListening();
-                                } catch (Throwable ignored) {}
-                                try {
-                                    currentSpeechRecognizer.destroy();
-                                    Log.i(TAG, "✅ Ancien recognizer libéré");
-                                } catch (Throwable e) {
-                                    Log.w(TAG, "Error destroying old recognizer: " + e.getMessage());
+                            // Obtenir MainActivity via référence statique
+                            com.chatai.MainActivity activity = com.chatai.MainActivity.getInstance();
+                            if (activity == null) {
+                                Log.e(TAG, "MainActivity non disponible pour lancer Google Speech Activity");
+                                toast("Impossible de lancer la reconnaissance vocale - MainActivity non disponible");
+                                // Redémarrer le hotword si nécessaire
+                                if (willRestartHotword && hotwordManager != null) {
+                                    try {
+                                        hotwordManager.start();
+                                        Log.i(TAG, "▶️ Hotword redémarré après échec lancement Google Speech Activity");
+                                    } catch (Exception e) {
+                                        Log.w(TAG, "Error restarting hotword: " + e.getMessage());
+                                    }
                                 }
-                                currentSpeechRecognizer = null;
-                            }
-                            
-                            // Vérifier si un autre app utilise SpeechRecognizer (ERROR_RECOGNIZER_BUSY est géré dans onError)
-                            // On ne peut pas le détecter ici, mais on essaie quand même de créer notre instance
-                            // Si busy, onError sera appelé avec ERROR_RECOGNIZER_BUSY et on libérera immédiatement
-                            
-                            // Vérifier permission RECORD_AUDIO
-                            int permissionCheck = ContextCompat.checkSelfPermission(
-                                BackgroundService.this, android.Manifest.permission.RECORD_AUDIO);
-                            if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
-                                Log.e(TAG, "Permission RECORD_AUDIO non accordée (code: " + permissionCheck + ")");
-                                toast("Permission microphone non accordée - Vérifiez les paramètres de l'app");
                                 return;
                             }
-                            Log.i(TAG, "Permission RECORD_AUDIO vérifiée : OK");
                             
                             // Vérifier si Google Speech est disponible
                             if (!SpeechRecognizer.isRecognitionAvailable(BackgroundService.this)) {
                                 Log.e(TAG, "Google Speech recognition non disponible sur ce device");
                                 toast("Google Speech non disponible");
-                                return;
-                            }
-                            
-                            Log.i(TAG, "Vérification permissions/Google Speech OK - création SpeechRecognizer");
-                            
-                            // CRÉER SUR LE MAIN THREAD (comme dans WebAppInterface)
-                            currentSpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(BackgroundService.this);
-                            if (currentSpeechRecognizer == null) {
-                                Log.e(TAG, "SpeechRecognizer.createSpeechRecognizer() retourne null");
-                                toast("Impossible de créer SpeechRecognizer");
-                                return;
-                            }
-                            Log.i(TAG, "Google Speech recognizer créé sur main thread");
-                            // Créer le listener avec l'info pour redémarrer le hotword après usage
-                            GoogleSpeechRecognitionListener listener = new GoogleSpeechRecognitionListener();
-                            listener.setWillRestartHotword(willRestartHotword);
-                            currentSpeechRecognizer.setRecognitionListener(listener);
-                            
-                            // Stocker la référence avant le délai
-                            final SpeechRecognizer speechRecognizer = currentSpeechRecognizer;
-                            if (speechRecognizer == null) {
-                                Log.e(TAG, "SpeechRecognizer is null");
-                                return;
-                            }
-                            
-                            // DÉLAI CONFIGURABLE après hotword avant démarrage Google Speech
-                            // (identique à KittVoiceManager - pas de timeout, juste attendre onResults/onError)
-                            mainHandler.postDelayed(() -> {
-                                // Vérifier à nouveau avant de démarrer (au cas où une autre détection serait arrivée)
-                                if (currentSpeechRecognizer == speechRecognizer && speechRecognizer != null) {
-                                    Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-                                    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-                                    // Utiliser Locale.FRENCH (comme KittVoiceManager qui fonctionne)
-                                    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.FRENCH);
-                                    intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
-                                    // Forcer les résultats partiels pour obtenir des retours même si onEndOfSpeech n'est pas appelé
-                                    intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
-                                    // Note: EXTRA_PROMPT non utilisé avec SpeechRecognizer (seulement pour startActivityForResult)
-                                    // Note: EXTRA_CALLING_PACKAGE non utilisé ici (comme dans KittVoiceManager qui fonctionne)
+                                // Redémarrer le hotword si nécessaire
+                                if (willRestartHotword && hotwordManager != null) {
                                     try {
-                                        speechRecognizer.startListening(intent);
-                                        Log.i(TAG, "Google Speech started with language=" + Locale.FRENCH + ", maxResults=1, partialResults=true");
-                                        // Pas de timeout - on attend simplement onResults() ou onError() comme dans KittVoiceManager
+                                        hotwordManager.start();
+                                        Log.i(TAG, "▶️ Hotword redémarré après échec Google Speech (non disponible)");
                                     } catch (Exception e) {
-                                        Log.e(TAG, "Failed to start Google Speech: " + e.getMessage(), e);
-                                        currentSpeechRecognizer = null;
-                                        try {
-                                            speechRecognizer.stopListening();
-                                        } catch (Throwable ignored) {}
-                                        try {
-                                            speechRecognizer.destroy();
-                                        } catch (Throwable ignored) {}
-                                        toast("Failed to start Google Speech: " + e.getMessage());
+                                        Log.w(TAG, "Error restarting hotword: " + e.getMessage());
                                     }
-                                } else {
-                                    Log.w(TAG, "Google Speech start annulé: nouvelle détection hotword arrivée pendant le délai");
                                 }
-                            }, delayAfterHotword);
+                                return;
+                            }
+                            
+                            // Créer Intent standard Google Speech (comme le clavier Google)
+                            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.FRENCH);
+                            intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Parlez... (Hotword)");
+                            intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+                            
+                            // ⭐ NOUVEAU : Lancer l'Activity avec le code REQUEST_SPEECH_RECOGNITION_HOTWORD
+                            // pour que MainActivity.onActivityResult() sache que c'est pour le hotword
+                            activity.startActivityForResult(intent, com.chatai.MainActivity.REQUEST_SPEECH_RECOGNITION_HOTWORD);
+                            Log.i(TAG, "✅ Google Speech Activity lancée pour hotword");
                         } catch (Exception e) {
-                            Log.e(TAG, "Failed to create SpeechRecognizer on main thread", e);
-                            currentSpeechRecognizer = null;
-                            toast("Failed to initialize Google Speech: " + e.getMessage());
+                            Log.e(TAG, "Erreur lors du lancement de Google Speech Activity pour hotword", e);
+                            toast("Erreur lancement reconnaissance vocale: " + e.getMessage());
+                            // Redémarrer le hotword si nécessaire
+                            if (willRestartHotword && hotwordManager != null) {
+                                try {
+                                    hotwordManager.start();
+                                    Log.i(TAG, "▶️ Hotword redémarré après erreur lancement Google Speech Activity");
+                                } catch (Exception ex) {
+                                    Log.w(TAG, "Error restarting hotword: " + ex.getMessage());
+                                }
+                            }
                         }
-                    });
+                    }, delayAfterHotword);
                     return;
                 } else {
                     Log.w(TAG, "Engine STT inconnu: " + engine);
@@ -392,7 +514,18 @@ public class BackgroundService extends Service {
             // Fallback: prompt simple si pas d'autoListen
             if (aiService != null && aiService.isHealthy()) {
                 String prompt = "Wake word detected: " + (keyword == null ? "unknown" : keyword) + ". How can I help?";
-                aiService.processAIRequest(prompt, "kitt");
+                // ⭐ FIX : Gérer la réponse de l'IA et l'émettre via BidirectionalBridge
+                aiService.processAIRequest(prompt, "kitt")
+                    .thenAccept(response -> {
+                        Log.i(TAG, "AI Respond (fallback) response: " + response);
+                        // Émettre la réponse via BidirectionalBridge vers Chat
+                        emitAIResponseToBridge(response);
+                    })
+                    .exceptionally(throwable -> {
+                        Log.e(TAG, "AI Respond (fallback) error: " + throwable.getMessage(), throwable);
+                        emitAIResponseToBridge("Erreur: " + throwable.getMessage());
+                        return null;
+                    });
             } else {
                 Log.w(TAG, "AI service not available; showing toast only");
                 toast("AI Respond (outside KITT): " + keyword);
@@ -416,12 +549,12 @@ public class BackgroundService extends Service {
             com.chatai.services.BidirectionalBridge bridge = 
                 com.chatai.services.BidirectionalBridge.getInstance(this);
             
-            // Créer un message avec source "hotword" pour identification
+            // Créer un message avec source "hotword" pour identification (sans préfixe, la bulle indique déjà l'origine)
             com.chatai.services.BidirectionalBridge.BridgeMessage bridgeMessage = 
                 new com.chatai.services.BidirectionalBridge.BridgeMessage(
                     com.chatai.services.BidirectionalBridge.MessageType.USER_INPUT,
                     com.chatai.services.BidirectionalBridge.Source.SYSTEM, // Utiliser SYSTEM car hotword est externe
-                    "[🔊 Hotword] " + text, // Préfixe pour identification dans Chat
+                    text, // Texte transcrit sans préfixe (la bulle indique déjà que c'est un hotword)
                     java.util.Collections.singletonMap("source", "hotword"), // Metadata pour identification
                     System.currentTimeMillis()
                 );
@@ -431,6 +564,33 @@ public class BackgroundService extends Service {
             Log.i(TAG, "📨 Message hotword émis via bridge: " + text);
         } catch (Exception e) {
             Log.e(TAG, "Erreur lors de l'émission du message hotword via bridge", e);
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU : Émet une réponse IA via BidirectionalBridge pour afficher dans Chat
+     * @param response La réponse de l'IA
+     */
+    private void emitAIResponseToBridge(String response) {
+        try {
+            com.chatai.services.BidirectionalBridge bridge = 
+                com.chatai.services.BidirectionalBridge.getInstance(this);
+            
+            // Créer un message de type AI_RESPONSE
+            com.chatai.services.BidirectionalBridge.BridgeMessage bridgeMessage = 
+                new com.chatai.services.BidirectionalBridge.BridgeMessage(
+                    com.chatai.services.BidirectionalBridge.MessageType.AI_RESPONSE,
+                    com.chatai.services.BidirectionalBridge.Source.SYSTEM, // Utiliser SYSTEM car réponse depuis hotword
+                    response,
+                    java.util.Collections.singletonMap("source", "hotword_response"), // Metadata pour identification
+                    System.currentTimeMillis()
+                );
+            
+            // Envoyer via bridge vers Chat (KITT → Web)
+            bridge.sendKittToWebAsync(bridgeMessage);
+            Log.i(TAG, "📨 Réponse IA hotword émis via bridge: " + (response != null && response.length() > 50 ? response.substring(0, 50) + "..." : response));
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de l'émission de la réponse IA via bridge", e);
         }
     }
     
@@ -675,6 +835,88 @@ public class BackgroundService extends Service {
         } catch (Exception e) {
             Log.e(TAG, "Erreur restartHotword", e);
         }
+    }
+    
+    /**
+     * ⭐ NOUVEAU : Traite le résultat de la reconnaissance vocale hotword depuis MainActivity
+     * (utilisé quand Google Speech Activity est lancée depuis le hotword selon l'état du spinner Config)
+     * @param transcription Le texte transcrit
+     */
+    private void handleHotwordSpeechResult(String transcription) {
+        Log.i(TAG, "Hotword speech recognition result (Activity): " + transcription);
+        
+        // ⭐ NOUVEAU : Émettre via BidirectionalBridge pour afficher dans Chat
+        emitHotwordMessageToBridge(transcription);
+        
+        // ⭐ FIX : Utiliser BidirectionalBridge.processWithThinkingAsync() comme le textInput
+        // (au lieu de RealtimeAIService qui utilise Hugging Face/OpenAI)
+        com.chatai.services.BidirectionalBridge bridge = 
+            com.chatai.services.BidirectionalBridge.getInstance(this);
+        
+        // Générer un ID unique pour ce message
+        String messageId = "hotword_activity_" + System.currentTimeMillis();
+        
+        // Traiter avec thinking (même méthode que textInput)
+        bridge.processWithThinkingAsync(
+            transcription, // userInput
+            "KITT", // personality
+            true, // enableThinking
+            // onChunk callback - émettre chaque chunk directement via JavaScript (comme processWithThinking())
+            chunk -> {
+                try {
+                    com.chatai.services.BidirectionalBridge.ChunkType chunkType = chunk.getType();
+                    String chunkContent = chunk.getContent();
+                    boolean isComplete = chunk.isComplete();
+                    
+                    // ⭐ LOGGING AMÉLIORÉ : Différencier thinking et response chunks
+                    if (chunkType == com.chatai.services.BidirectionalBridge.ChunkType.THINKING) {
+                        Log.d(TAG, "🧠 Hotword (Activity) THINKING chunk: content=" + (chunkContent.length() > 50 ? chunkContent.substring(0, 50) + "..." : chunkContent) + ", complete=" + isComplete);
+                    } else if (chunkType == com.chatai.services.BidirectionalBridge.ChunkType.RESPONSE) {
+                        Log.i(TAG, "💬 Hotword (Activity) RESPONSE chunk: content=" + (chunkContent.length() > 50 ? chunkContent.substring(0, 50) + "..." : chunkContent) + ", complete=" + isComplete);
+                    } else {
+                        Log.d(TAG, "❓ Hotword (Activity) chunk: type=" + chunkType + ", content=" + (chunkContent.length() > 50 ? chunkContent.substring(0, 50) + "..." : chunkContent) + ", complete=" + isComplete);
+                    }
+                    
+                    // ⭐ FIX : Utiliser la même méthode que processWithThinking() pour envoyer les chunks
+                    // (au lieu de sendKittToWebAsync qui déclenche onKittMessageReceived qui ignore THINKING_CHUNK)
+                    String chunkTypeStr = chunkType == com.chatai.services.BidirectionalBridge.ChunkType.THINKING ? "thinking" : "response";
+                    com.chatai.WebAppInterface.sendThinkingChunkToWebView(
+                        BackgroundService.this,
+                        messageId,
+                        chunkTypeStr,
+                        chunkContent,
+                        isComplete
+                    );
+                    
+                    if (isComplete && chunkType == com.chatai.services.BidirectionalBridge.ChunkType.RESPONSE) {
+                        Log.i(TAG, "✅ Hotword (Activity) AI response complete: " + (chunkContent.length() > 50 ? chunkContent.substring(0, 50) + "..." : chunkContent));
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Erreur lors de l'émission du chunk hotword (Activity)", e);
+                }
+            },
+            // onError callback
+            throwable -> {
+                Log.e(TAG, "Hotword (Activity) AI error: " + throwable.getMessage(), throwable);
+                // Émettre l'erreur via bridge
+                com.chatai.services.BidirectionalBridge.BridgeMessage errorMessage = 
+                    new com.chatai.services.BidirectionalBridge.BridgeMessage(
+                        com.chatai.services.BidirectionalBridge.MessageType.ERROR,
+                        com.chatai.services.BidirectionalBridge.Source.SYSTEM,
+                        "Erreur: " + throwable.getMessage(),
+                        java.util.Collections.emptyMap(),
+                        System.currentTimeMillis()
+                    );
+                bridge.sendKittToWebAsync(errorMessage);
+                toast("AI error: " + throwable.getMessage());
+            },
+            // onComplete callback
+            () -> {
+                Log.i(TAG, "✅ Hotword (Activity) thinking stream completed");
+                // Redémarrer le hotword après traitement complet
+                restartHotword();
+            }
+        );
     }
     
     public boolean areServersRunning() {
@@ -928,11 +1170,74 @@ public class BackgroundService extends Service {
                 
                 // Libérer le recognizer après résultat (utilisation helper centralisé)
                 forceReleaseRecognizer("result reçu");
-                if (aiService != null && aiService.isHealthy()) {
-                    aiService.processAIRequest(text, "kitt");
-                } else {
-                    toast("AI service not available");
-                }
+                
+                // ⭐ FIX : Utiliser BidirectionalBridge.processWithThinkingAsync() comme le textInput
+                // (au lieu de RealtimeAIService qui utilise Hugging Face/OpenAI)
+                com.chatai.services.BidirectionalBridge bridge = 
+                    com.chatai.services.BidirectionalBridge.getInstance(BackgroundService.this);
+                
+                // Générer un ID unique pour ce message
+                String messageId = "hotword_gs_" + System.currentTimeMillis();
+                
+                // Traiter avec thinking (même méthode que textInput)
+                bridge.processWithThinkingAsync(
+                    text, // userInput
+                    "KITT", // personality
+                    true, // enableThinking
+                    // onChunk callback - émettre chaque chunk vers Chat
+                    chunk -> {
+                        try {
+                            com.chatai.services.BidirectionalBridge.ChunkType chunkType = chunk.getType();
+                            String chunkContent = chunk.getContent();
+                            boolean isComplete = chunk.isComplete();
+                            
+                            // ⭐ LOGGING AMÉLIORÉ : Différencier thinking et response chunks
+                            if (chunkType == com.chatai.services.BidirectionalBridge.ChunkType.THINKING) {
+                                Log.d(TAG, "🧠 Hotword (Google Speech) THINKING chunk: content=" + (chunkContent.length() > 50 ? chunkContent.substring(0, 50) + "..." : chunkContent) + ", complete=" + isComplete);
+                            } else if (chunkType == com.chatai.services.BidirectionalBridge.ChunkType.RESPONSE) {
+                                Log.i(TAG, "💬 Hotword (Google Speech) RESPONSE chunk: content=" + (chunkContent.length() > 50 ? chunkContent.substring(0, 50) + "..." : chunkContent) + ", complete=" + isComplete);
+                            } else {
+                                Log.d(TAG, "❓ Hotword (Google Speech) chunk: type=" + chunkType + ", content=" + (chunkContent.length() > 50 ? chunkContent.substring(0, 50) + "..." : chunkContent) + ", complete=" + isComplete);
+                            }
+                            
+                            // ⭐ FIX : Utiliser la même méthode que processWithThinking() pour envoyer les chunks
+                            // (au lieu de sendKittToWebAsync qui déclenche onKittMessageReceived qui ignore THINKING_CHUNK)
+                            String chunkTypeStr = chunkType == com.chatai.services.BidirectionalBridge.ChunkType.THINKING ? "thinking" : "response";
+                            com.chatai.WebAppInterface.sendThinkingChunkToWebView(
+                                BackgroundService.this,
+                                messageId,
+                                chunkTypeStr,
+                                chunkContent,
+                                isComplete
+                            );
+                            
+                            if (isComplete && chunkType == com.chatai.services.BidirectionalBridge.ChunkType.RESPONSE) {
+                                Log.i(TAG, "✅ Hotword (Google Speech) AI response complete (total length: " + chunkContent.length() + " chars)");
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Erreur lors de l'émission du chunk hotword (Google Speech)", e);
+                        }
+                    },
+                    // onError callback
+                    throwable -> {
+                        Log.e(TAG, "AutoSTT (Google Speech) AI error: " + throwable.getMessage(), throwable);
+                        // Émettre l'erreur via bridge
+                        com.chatai.services.BidirectionalBridge.BridgeMessage errorMessage = 
+                            new com.chatai.services.BidirectionalBridge.BridgeMessage(
+                                com.chatai.services.BidirectionalBridge.MessageType.ERROR,
+                                com.chatai.services.BidirectionalBridge.Source.SYSTEM,
+                                "Erreur: " + throwable.getMessage(),
+                                java.util.Collections.emptyMap(),
+                                System.currentTimeMillis()
+                            );
+                        bridge.sendKittToWebAsync(errorMessage);
+                        toast("AI error: " + throwable.getMessage());
+                    },
+                    // onComplete callback
+                    () -> {
+                        Log.i(TAG, "✅ Hotword (Google Speech) thinking stream completed");
+                    }
+                );
             } else {
                 Log.w("BackgroundService", "AutoSTT (Google Speech) no matches");
                 onError(SpeechRecognizer.ERROR_NO_MATCH);

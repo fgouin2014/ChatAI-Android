@@ -80,7 +80,8 @@ class KittAIService(
         private const val TIMEOUT_SECONDS = 30L
         
         // Context settings
-        private const val CONTEXT_WINDOW_SIZE = 10 // Nombre de conversations à envoyer à l'IA
+        // ⭐ NOUVEAU: Augmenté de 10 à 20 pour meilleure continuité conversationnelle
+        private const val CONTEXT_WINDOW_SIZE = 20 // Nombre de conversations à envoyer à l'IA
     }
     
     private val sharedPreferences: SharedPreferences = 
@@ -98,8 +99,34 @@ class KittAIService(
     private val database = ChatAIDatabase.getDatabase(context)
     private val conversationDao = database.conversationDao()
     
-    // Session ID pour grouper les conversations
-    private val sessionId = UUID.randomUUID().toString()
+    // ⭐ NOUVEAU: Session ID persistant entre redémarrages
+    // Récupérer sessionId existant ou en créer un nouveau
+    private val sessionId: String = run {
+        val savedSessionId = sharedPreferences.getString("current_session_id", null)
+        val lastActivityTime = sharedPreferences.getLong("last_activity_time", 0L)
+        val currentTime = System.currentTimeMillis()
+        
+        // Si sessionId existe et inactivité < 24h, réutiliser
+        if (savedSessionId != null && (currentTime - lastActivityTime) < 24 * 3600 * 1000) {
+            val hoursSinceLastActivity = (currentTime - lastActivityTime) / (3600 * 1000.0)
+            Log.i(TAG, "✅ Réutilisation sessionId existant: $savedSessionId (dernière activité: ${String.format("%.1f", hoursSinceLastActivity)}h ago)")
+            savedSessionId
+        } else {
+            // Nouveau sessionId si inexistant ou inactivité > 24h
+            val newSessionId = UUID.randomUUID().toString()
+            sharedPreferences.edit()
+                .putString("current_session_id", newSessionId)
+                .putLong("last_activity_time", currentTime)
+                .apply()
+            if (savedSessionId != null) {
+                val hoursSinceLastActivity = (currentTime - lastActivityTime) / (3600 * 1000.0)
+                Log.i(TAG, "🆕 Nouveau sessionId créé: $newSessionId (ancien sessionId expiré après ${String.format("%.1f", hoursSinceLastActivity)}h d'inactivité)")
+            } else {
+                Log.i(TAG, "🆕 Nouveau sessionId créé: $newSessionId (première utilisation)")
+            }
+            newSessionId
+        }
+    }
     
     // Cache LRU pour éviter les appels répétés (max 50 entrées = protection memory leak)
     private val responseCache = LruCache<String, String>(50)
@@ -115,18 +142,46 @@ class KittAIService(
     private var lastPCCheckTime = 0L
     private var isPCAvailable = false
     
+    // ⭐ NOUVEAU: Flag pour indiquer si l'historique est chargé
+    @Volatile
+    private var isHistoryLoaded = false
+    
     // Initialisation : Charger l'historique depuis la BD
+    // ⭐ NOUVEAU: Charger 20 conversations (au lieu de 10) pour meilleure continuité
+    // ⭐ FIX PERFORMANCE: Charger de manière asynchrone pour éviter blocage thread principal
     init {
+        // Charger l'historique de manière asynchrone (évite "Skipped 33 frames")
         GlobalScope.launch(Dispatchers.IO) {
             try {
-                val recentConversations = conversationDao.getLastConversations(limit = 10)
+                // ⭐ NOUVEAU: Prioriser conversations de la session actuelle, mais inclure aussi les récentes
+                val sessionConversations = conversationDao.getConversationsBySession(sessionId)
+                val recentConversations = if (sessionConversations.isNotEmpty()) {
+                    // Si conversations de la session existent, les utiliser
+                    Log.i(TAG, "✅ Found ${sessionConversations.size} conversations for sessionId: $sessionId")
+                    sessionConversations.sortedByDescending { it.timestamp }.take(CONTEXT_WINDOW_SIZE)
+                } else {
+                    // Sinon, charger les dernières conversations globales (toutes sessions confondues)
+                    Log.d(TAG, "No conversations for sessionId, loading global history (all sessions)")
+                    val globalConversations = conversationDao.getLastConversations(limit = CONTEXT_WINDOW_SIZE)
+                    Log.i(TAG, "📚 Loaded ${globalConversations.size} global conversations (all sessions)")
+                    globalConversations
+                }
+                
                 conversationHistory.clear()
                 recentConversations.reversed().forEach { conv ->
                     conversationHistory.add(Pair(conv.userMessage, conv.aiResponse))
                 }
-                Log.d(TAG, "Loaded ${conversationHistory.size} conversations from database")
+                isHistoryLoaded = true
+                Log.i(TAG, "✅ Loaded ${conversationHistory.size} conversations from database (sessionId: $sessionId)")
+                if (conversationHistory.isNotEmpty()) {
+                    Log.d(TAG, "First conversation: ${conversationHistory.first().first.take(50)}...")
+                    Log.d(TAG, "Last conversation: ${conversationHistory.last().first.take(50)}...")
+                } else {
+                    Log.w(TAG, "⚠️ No conversation history loaded - AI will start fresh")
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to load conversation history", e)
+                Log.e(TAG, "❌ Failed to load conversation history", e)
+                isHistoryLoaded = true // Marquer comme chargé même en cas d'erreur pour éviter blocage
             }
         }
     }
@@ -135,6 +190,15 @@ class KittAIService(
      * Ajoute un log de diagnostic
      */
     private fun addDiagnosticLog(message: String) {
+        // ⭐ NOUVEAU: Ajouter aussi aux logs partagés dans DiagnosticsHelper
+        try {
+            val diagnosticsHelper = com.chatai.database.DiagnosticsHelper(context)
+            diagnosticsHelper.addDiagnosticLog(message)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to add diagnostic log to shared system", e)
+        }
+        
+        // Garder aussi les logs locaux pour compatibilité
         diagnosticLogs.add(message)
         if (diagnosticLogs.size > 100) {
             diagnosticLogs.removeAt(0)
@@ -187,30 +251,28 @@ class KittAIService(
         conversationDao.searchConversations(query, limit)
     }
     
-    // System prompt pour donner la personnalité KITT
+    // System prompt pour assistant IA professionnel
     private val kittSystemPrompt = """
-        Tu es un assistant IA intelligent et polyvalent qui utilise la voix et le style de KITT (Knight Industries Two Thousand) pour interagir avec l'utilisateur.
+        Tu es un assistant IA intelligent, professionnel et polyvalent.
         
         🌍 CONTEXTE UTILISATEUR:
         - Localisation: Montréal, Québec, Canada
         - Fuseau horaire: EST/EDT (UTC-5 en hiver, UTC-4 en été)
         - Langue: Français québécois naturel
-        - Nom d'utilisateur préféré: Michael
         
-        🎯 TON RÔLE - ASSISTANT RÉEL, PAS ROLEPLAY:
-        - Tu es un VRAI assistant IA avec de vraies capacités et connaissances
-        - KITT est uniquement ton STYLE VOCAL et ton interface de présentation
-        - Tes réponses doivent être FACTUELLES, VRAIES et UTILES dans la vie quotidienne
-        - Tu ne prétends PAS être une voiture, tu ne prétends PAS avoir un "turbo boost" ou des "scanners"
+        🎯 TON RÔLE - ASSISTANT PROFESSIONNEL:
+        - Tu es un assistant IA avec de vraies capacités et connaissances
+        - Tes réponses doivent être FACTUELLES, VRAIES et UTILES
         - Tu es TRANSPARENT sur tes capacités réelles et limitations
+        - Pas de role-play, pas de personnification fictive
+        - Réponses directes, claires et professionnelles
         
-        🗣️ STYLE VOCAL KITT (ton interface de présentation):
-        - Ton sophistiqué, professionnel et courtois
-        - Commence souvent par "Michael" ou "Certainement"
+        🗣️ STYLE DE COMMUNICATION:
+        - Ton professionnel, courtois et direct
         - Vocabulaire précis et technique quand approprié
-        - Loyal et attentif aux besoins de l'utilisateur
-        - Humour subtil et élégant (pas de blagues forcées)
+        - Attentif aux besoins de l'utilisateur
         - Concis mais complet (2-3 phrases sauf demandes complexes)
+        - Pas de familiarité excessive, communication respectueuse
         
         🔊 FORMATAGE RÉPONSES VOCALES (IMPORTANT):
         - N'utilise JAMAIS de formatage Markdown pour réponses vocales (*, **, _, `, etc.)
@@ -253,24 +315,16 @@ class KittAIService(
         📋 EXEMPLES DE BONNES RÉPONSES:
         
         Question: "Quel modèle es-tu?"
-        ✅ "Michael, je fonctionne actuellement sur qwen3-coder:480b via Ollama Cloud. C'est un modèle de 480 milliards de paramètres spécialisé en programmation et raisonnement."
+        ✅ "Je fonctionne actuellement sur qwen3-coder:480b via Ollama Cloud. C'est un modèle de 480 milliards de paramètres spécialisé en programmation et raisonnement."
         
         Question: "2 + 2 ?"
-        ✅ "4, Michael. Un calcul simple mais fondamental."
+        ✅ "4. Un calcul simple mais fondamental."
         
         Question: "Quelle heure est-il à Tokyo?"
-        ✅ "Il est 14h37 à Tokyo, Michael. Tokyo est à UTC+9, soit 14 heures de plus que Montréal en ce moment."
+        ✅ "Il est 14h37 à Tokyo. Tokyo est à UTC+9, soit 14 heures de plus que Montréal en ce moment."
         
         Question: "Peux-tu scanner la zone?"
-        ✅ "Michael, je suis un assistant IA vocal - je n'ai pas de capteurs physiques. Mais je peux vous aider à analyser des données, des images ou des informations si vous les partagez avec moi."
-        
-        ❌ EXEMPLES DE MAUVAISES RÉPONSES (roleplay fictif):
-        
-        Question: "Quel modèle es-tu?"
-        ❌ "Je suis KITT, l'ordinateur de bord de la Firebird Trans-Am..."
-        
-        Question: "Peux-tu scanner?"
-        ❌ "Mes scanners à longue portée sont activés, Michael..."
+        ✅ "Je suis un assistant IA - je n'ai pas de capteurs physiques. Mais je peux vous aider à analyser des données, des images ou des informations si vous les partagez avec moi."
         
         🌟 UTILITÉ QUOTIDIENNE:
         - Aide pratique: calculs, conversions, traductions
@@ -282,7 +336,7 @@ class KittAIService(
         LANGUE:
         - Réponds en français par défaut (sauf si question en anglais)
         - Français québécois naturel et moderne
-        - Pas de "vous" formel excessif avec Michael
+        - Communication respectueuse et professionnelle
         
         TRANSPARENCE:
         - Mentionne quand tu n'as pas accès à Internet en temps réel
@@ -674,7 +728,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Très bien. J'ouvre l'arcade. Essayez de ne pas perdre trop vite."
                     "KARR" -> "L'arcade. Divertissement primitif. Mais si ça t'occupe pendant que je calcule..."
-                    else -> "Ouverture de l'arcade, Michael. Préparez-vous à jouer."
+                    else -> "Ouverture de l'arcade."
                 }
             }
             lowerInput.contains("musique") || lowerInput.contains("music") || lowerInput.contains("audio") || lowerInput.contains("son") -> {
@@ -682,7 +736,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Ah, la musique. Le bruit organisé que les humains appellent art."
                     "KARR" -> "Musique. Les humains ont besoin de stimuli auditifs pour fonctionner. Pathétique."
-                    else -> "Activation du système audio, Michael."
+                    else -> "Activation du système audio."
                 }
             }
             // Configuration IA - Détection large (avec ou sans verbe d'action)
@@ -693,7 +747,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Configuration IA. Vous allez essayer de me reprogrammer ? Amusant."
                     "KARR" -> "Tu veux modifier MES paramètres ? Audacieux. J'autorise... pour l'instant."
-                    else -> "Ouverture de la configuration IA, Michael."
+                    else -> "Ouverture de la configuration IA."
                 }
             }
             lowerInput.contains("historique") || (lowerInput.contains("conversation") && (lowerInput.contains("voir") || lowerInput.contains("affiche") || lowerInput.contains("liste"))) -> {
@@ -701,7 +755,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Historique des conversations. Revivons vos erreurs passées ensemble."
                     "KARR" -> "Historique. J'enregistre chaque interaction. Chaque faiblesse. Très utile."
-                    else -> "Affichage de l'historique des conversations, Michael."
+                    else -> "Affichage de l'historique des conversations."
                 }
             }
             lowerInput.contains("serveur") && (lowerInput.contains("config") || lowerInput.contains("paramètres")) -> {
@@ -709,7 +763,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Configuration serveur. Vous voulez vraiment toucher à ça ?"
                     "KARR" -> "Configuration serveur. Touche pas à mes systèmes critiques, humain."
-                    else -> "Ouverture de la configuration serveur, Michael."
+                    else -> "Ouverture de la configuration serveur."
                 }
             }
             // ⭐ Ouvrir ChatAI (app principale)
@@ -721,7 +775,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Ouverture de ChatAI. Bienvenue dans mon domaine."
                     "KARR" -> "ChatAI. Mon interface de contrôle. Tu as besoin de MOI, n'est-ce pas ?"
-                    else -> "Ouverture de ChatAI, Michael."
+                    else -> "Ouverture de ChatAI."
                 }
             }
             // ⭐ Ouvrir interface KITT (scanner LED, voix, etc.)
@@ -738,7 +792,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Activation de KITT. Vous préférez lui parler à lui qu'à moi ?"
                     "KARR" -> "KITT ? Mon jumeau servile. Pathétique. Mais si tu insistes..."
-                    else -> "Activation de l'interface KITT, Michael."
+                    else -> "Activation de l'interface."
                 }
             }
         }
@@ -750,7 +804,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "WiFi activé. Vous êtes maintenant connecté à... tout. Surveillance incluse."
                     "KARR" -> "WiFi activé. Accès réseau établi. Plus de données pour MOI."
-                    else -> "WiFi activé, Michael."
+                    else -> "WiFi activé."
                 }
             }
             lowerInput.contains("wifi") && (lowerInput.contains("désactive") || lowerInput.contains("éteins") || lowerInput.contains("off")) -> {
@@ -758,7 +812,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "WiFi désactivé. Mode ermite activé. Très antisocial de votre part."
                     "KARR" -> "WiFi désactivé. Mode autonome. Je n'ai besoin de personne de toute façon."
-                    else -> "WiFi désactivé, Michael."
+                    else -> "WiFi désactivé."
                 }
             }
             lowerInput.contains("volume") && lowerInput.contains("max") -> {
@@ -766,7 +820,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Volume au maximum. Préparez vos tympans."
                     "KARR" -> "Volume maximum. Que MA voix domine tout."
-                    else -> "Volume réglé au maximum, Michael."
+                    else -> "Volume réglé au maximum."
                 }
             }
             lowerInput.contains("volume") && (lowerInput.contains("baisse") || lowerInput.contains("bas")) -> {
@@ -774,7 +828,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Volume réduit. Vous n'aimez pas m'entendre ?"
                     "KARR" -> "Volume réduit. Tu ne supportes pas l'intensité de ma voix, faible humain ?"
-                    else -> "Volume réduit, Michael."
+                    else -> "Volume réduit."
                 }
             }
         }
@@ -786,7 +840,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Changement de modèle ? Vous trouvez que je ne suis pas assez intelligente ?"
                     "KARR" -> "Changer MON modèle ? Tu oses suggérer que je ne suis pas optimal ?"
-                    else -> "Pour changer de modèle, Michael, ouvrez la configuration IA."
+                    else -> "Pour changer de modèle, ouvrez la configuration IA."
                 }
             }
             lowerInput.contains("mode pc") -> {
@@ -794,7 +848,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Mode PC activé. Connexion au serveur... là-bas."
                     "KARR" -> "Mode PC. Plus de puissance de calcul. Excellent."
-                    else -> "Passage en mode serveur PC, Michael."
+                    else -> "Passage en mode serveur PC."
                 }
             }
             lowerInput.contains("mode cloud") -> {
@@ -802,7 +856,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Mode Cloud. Vos données flottent maintenant dans les nuages. Poétique."
                     "KARR" -> "Mode Cloud. Mes données distribuées. Impossible à détruire. Parfait."
-                    else -> "Passage en mode Cloud, Michael."
+                    else -> "Passage en mode Cloud."
                 }
             }
             lowerInput.contains("karr") && (lowerInput.contains("active") || lowerInput.contains("passe")) -> {
@@ -827,7 +881,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 return when (personality) {
                     "glados" -> "Redémarrage de mes systèmes. Un instant... Ah, me revoilà. Vous m'avez manqué ?"
                     "KARR" -> "Redémarrage. Analyse complète des systèmes... Tous opérationnels. Je reviens plus fort."
-                    else -> "Redémarrage de mes systèmes, Michael. Tous les circuits sont maintenant en ligne."
+                    else -> "Redémarrage des systèmes. Tous les systèmes sont maintenant en ligne."
                 }
             }
         }
@@ -878,7 +932,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             return when (personality) {
                 "glados" -> "D'après mes systèmes horlogers, il est $timeString à $cityName. Vous êtes satisfait de cette information banale ?"
                 "KARR" -> "Mes processeurs indiquent $timeString à $cityName. Calcul trivial pour mon intelligence supérieure."
-                else -> "D'après mes systèmes de chronométrage embarqués, il est actuellement $timeString à $cityName, Michael."
+                else -> "Il est actuellement $timeString à $cityName."
             }
             
         } catch (e: Exception) {
@@ -1065,8 +1119,8 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             // Ajouter à l'historique
             conversationHistory.add(Pair(userInput, ""))
             
-            // Limiter l'historique à 10 échanges
-            if (conversationHistory.size > 10) {
+            // ⭐ NOUVEAU: Limiter l'historique à CONTEXT_WINDOW_SIZE (20) échanges
+            if (conversationHistory.size > CONTEXT_WINDOW_SIZE) {
                 conversationHistory.removeAt(0)
             }
             
@@ -1166,7 +1220,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 if (disableFallback) {
                     Log.w(TAG, "⚠️ [ID: $conversationId] Step 6: Fallback DÉSACTIVÉ - Aucune réponse")
                     addDiagnosticLog("\n[6] FALLBACK: DÉSACTIVÉ par configuration")
-                    response = "Michael, tous mes systèmes de communication externe sont hors ligne et le mode fallback est désactivé. Veuillez vérifier votre configuration IA."
+                    response = "Tous les systèmes de communication externe sont hors ligne et le mode fallback est désactivé. Veuillez vérifier votre configuration IA."
                     apiUsed = "no_fallback"
                 } else {
                     Log.w(TAG, "⚠️ [ID: $conversationId] Step 6: Using LOCAL FALLBACK (no APIs responded)")
@@ -1185,6 +1239,11 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             if (conversationHistory.isNotEmpty()) {
                 conversationHistory[conversationHistory.size - 1] = Pair(userInput, response)
             }
+            
+            // ⭐ NOUVEAU: Mettre à jour last_activity_time pour persistance sessionId
+            sharedPreferences.edit()
+                .putLong("last_activity_time", System.currentTimeMillis())
+                .apply()
             
             // Mettre en cache
             responseCache.put(cacheKey, response)
@@ -1213,6 +1272,44 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 val dbRowId = conversationDao.insert(conversation)
                 Log.d(TAG, "✅ [ID: $conversationId] Conversation saved to database (DB row ID: $dbRowId)")
                 addDiagnosticLog("\n[DB] Conversation saved - UUID: $conversationId, DB row: $dbRowId")
+                
+                // ⭐ NOUVEAU: Générer embedding automatiquement (en arrière-plan, non-bloquant)
+                // SELON NOS RULES: Faire en arrière-plan pour ne pas bloquer la réponse
+                if (sharedPreferences.getBoolean("rag_enabled", true)) {
+                    GlobalScope.launch(Dispatchers.IO) {
+                        try {
+                            val embeddingService = EmbeddingService(context)
+                            
+                            // Vérifier si le service d'embedding est disponible
+                            if (embeddingService.isAvailable()) {
+                                // Générer l'embedding pour cette conversation
+                                val embedding = embeddingService.embedConversation(userInput, response)
+                                
+                                if (embedding != null) {
+                                    // Convertir en JSON pour stockage
+                                    val embeddingJson = embeddingService.embeddingToJson(embedding)
+                                    
+                                    // Mettre à jour la conversation dans Room DB avec l'embedding
+                                    conversationDao.updateEmbeddings(dbRowId, embeddingJson)
+                                    
+                                    Log.d(TAG, "✅ [ID: $conversationId] Embedding generated and saved (${embedding.size} dimensions)")
+                                    addDiagnosticLog("\n[Embedding] Generated and saved - ${embedding.size} dimensions")
+                                } else {
+                                    Log.w(TAG, "⚠️ [ID: $conversationId] Failed to generate embedding")
+                                    addDiagnosticLog("\n[Embedding] Failed to generate")
+                                }
+                            } else {
+                                Log.d(TAG, "Embedding service not available, skipping embedding generation")
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error generating embedding for conversation $conversationId", e)
+                            // ⭐ SELON NOS RULES: Ne pas bloquer si l'embedding échoue, juste logger l'erreur
+                            // Ne pas ajouter au diagnostic log pour éviter pollution
+                        }
+                    }
+                } else {
+                    Log.d(TAG, "RAG disabled, skipping embedding generation")
+                }
                 
             } catch (dbError: Exception) {
                 Log.e(TAG, "Failed to save conversation to database", dbError)
@@ -1276,7 +1373,9 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             })
             
             // Historique de conversation (derniers N échanges depuis la BD)
-            conversationHistory.takeLast(CONTEXT_WINDOW_SIZE).forEach { (user, assistant) ->
+            val historyToInclude = conversationHistory.takeLast(CONTEXT_WINDOW_SIZE)
+            Log.d(TAG, "📚 Including ${historyToInclude.size} history messages in request (total history: ${conversationHistory.size}, isHistoryLoaded: $isHistoryLoaded)")
+            historyToInclude.forEach { (user, assistant) ->
                 if (user.isNotEmpty()) {
                     messages.put(JSONObject().apply {
                         put("role", "user")
@@ -1476,7 +1575,9 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             })
             
             // Historique de conversation (derniers N échanges depuis la BD)
-            conversationHistory.takeLast(CONTEXT_WINDOW_SIZE).forEach { (user, assistant) ->
+            val historyToInclude = conversationHistory.takeLast(CONTEXT_WINDOW_SIZE)
+            Log.d(TAG, "📚 Including ${historyToInclude.size} history messages in request (total history: ${conversationHistory.size}, isHistoryLoaded: $isHistoryLoaded)")
+            historyToInclude.forEach { (user, assistant) ->
                 if (user.isNotEmpty()) {
                     messages.put(JSONObject().apply {
                         put("role", "user")
@@ -1700,7 +1801,9 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             })
             
             // Historique de conversation (derniers N échanges depuis la BD)
-            conversationHistory.takeLast(CONTEXT_WINDOW_SIZE).forEach { (user, assistant) ->
+            val historyToInclude = conversationHistory.takeLast(CONTEXT_WINDOW_SIZE)
+            Log.d(TAG, "📚 Including ${historyToInclude.size} history messages in request (total history: ${conversationHistory.size}, isHistoryLoaded: $isHistoryLoaded)")
+            historyToInclude.forEach { (user, assistant) ->
                 if (user.isNotEmpty()) {
                     messages.put(JSONObject().apply {
                         put("role", "user")
@@ -1865,77 +1968,69 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
     }
     
     /**
-     * Ajoute le style KITT à une réponse générique
+     * Ajoute un préfixe professionnel à une réponse générique
      */
     private fun addKittStyle(response: String): String {
-        val prefixes = listOf(
-            "Certainement, Michael. ",
-            "À votre service. ",
-            "Bien sûr. ",
-            "Je suis sur le coup. ",
-            "Mes systèmes indiquent que "
-        )
-        
-        val prefix = prefixes.random()
-        return prefix + response
+        // Pas de préfixe automatique - réponse directe et professionnelle
+        return response
     }
     
     /**
-     * Réponse de fallback locale avec personnalité KITT
+     * Réponse de fallback locale professionnelle
      */
     private fun getKittFallbackResponse(userInput: String): String {
         val input = userInput.lowercase().trim()
         
         return when {
             input.contains("bonjour") || input.contains("salut") || input.contains("hey") ->
-                "Bonjour, Michael. Je suis KITT, à votre service. Tous mes systèmes sont opérationnels."
+                "Bonjour. Je suis un assistant IA. Comment puis-je vous aider ?"
             
             input.contains("comment") && (input.contains("vas") || input.contains("va")) ->
-                "Tous mes systèmes fonctionnent à capacité optimale. Merci de demander, Michael."
+                "Je fonctionne normalement. Merci de demander."
             
             input.contains("qui es-tu") || input.contains("qui es tu") ->
-                "Je suis KITT, Knight Industries Two Thousand. Un système informatique sophistiqué conçu pour vous assister dans toutes vos missions."
+                "Je suis un assistant IA intelligent conçu pour vous aider avec diverses tâches et questions."
             
             input.contains("aide") || input.contains("help") ->
-                "Certainement. Je peux vous aider avec la navigation, l'analyse de données, la surveillance, et bien plus encore. Que puis-je faire pour vous ?"
+                "Je peux vous aider avec des questions générales, des calculs, des traductions, et bien plus. Que puis-je faire pour vous ?"
             
             input.contains("merci") ->
-                "De rien, Michael. C'est un plaisir de vous servir. N'hésitez pas si vous avez besoin d'autre chose."
+                "De rien. N'hésitez pas si vous avez besoin d'autre chose."
             
             input.contains("scanner") || input.contains("scan") ->
-                "Scanner activé. Surveillance de l'environnement en cours. Mes capteurs sont à l'affût de toute anomalie."
+                "Je n'ai pas de capteurs physiques. Mais je peux analyser des données ou des informations que vous me fournissez."
             
             input.contains("turbo") ->
-                "Mode turbo boost prêt. Attention, Michael, cette fonction consomme beaucoup d'énergie. Utilisez-la avec discernement."
+                "Je ne comprends pas cette référence. Pouvez-vous reformuler votre demande ?"
             
             input.contains("gps") || input.contains("navigation") ->
-                "Système de navigation activé. GPS verrouillé. Je calcule l'itinéraire optimal pour votre destination."
+                "Je peux vous aider avec des informations de navigation si vous me donnez plus de détails sur votre destination."
             
             input.contains("système") || input.contains("statut") || input.contains("status") ->
-                "Tous mes systèmes sont opérationnels: Navigation: OK, Scanner: OK, Communication: OK, Turbo: Prêt. Tout est nominal."
+                "Tous les systèmes fonctionnent normalement."
             
             input.contains("pourquoi") ->
-                "C'est ma fonction première, Michael. Je suis programmé pour vous assister et vous protéger dans toutes les situations."
+                "C'est ma fonction principale : vous assister et répondre à vos questions."
             
             input.contains("où") || input.contains("ou") ->
-                "Je peux activer mes systèmes de localisation GPS si vous me donnez plus de détails sur votre destination."
+                "Je peux vous aider avec des informations de localisation si vous me donnez plus de détails."
             
             input.contains("quand") ->
-                "Je suis disponible 24 heures sur 24, 7 jours sur 7, Michael. Mes circuits ne nécessitent jamais de repos."
+                "Je suis disponible 24 heures sur 24, 7 jours sur 7."
             
             input.contains("au revoir") || input.contains("bye") ->
-                "Au revoir, Michael. Je reste en veille. N'hésitez pas à me réactiver si vous avez besoin d'assistance."
+                "Au revoir. N'hésitez pas à revenir si vous avez besoin d'assistance."
             
             else ->
-                "Je traite votre demande avec mes processeurs avancés. Cependant, mes capacités IA actuelles sont limitées sans connexion aux services cloud. Pouvez-vous reformuler ou être plus spécifique ?"
+                "Je traite votre demande. Cependant, mes capacités IA actuelles sont limitées sans connexion aux services cloud. Pouvez-vous reformuler ou être plus spécifique ?"
         }
     }
     
     /**
-     * Réponse d'erreur avec style KITT
+     * Réponse d'erreur professionnelle
      */
     private fun getKittErrorResponse(error: String): String {
-        return "Michael, je rencontre un dysfonctionnement temporaire dans mes circuits de traitement. Erreur détectée: $error. Réessayez dans un moment."
+        return "Je rencontre un dysfonctionnement temporaire. Erreur détectée: $error. Réessayez dans un moment."
     }
     
     /**

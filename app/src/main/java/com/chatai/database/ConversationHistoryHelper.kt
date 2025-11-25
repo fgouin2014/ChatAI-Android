@@ -1,6 +1,7 @@
 package com.chatai.database
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -98,11 +99,13 @@ object ConversationHistoryHelper {
                 val totalConversations = dao.getTotalConversations()
                 val averageResponseTime = dao.getAverageResponseTime() ?: 0L
                 val mostUsedAPI = dao.getMostUsedAPI() ?: "N/A"
+                val conversationsWithEmbeddings = dao.getConversationsWithEmbeddingsCount()
                 
                 val stats = JSONObject().apply {
                     put("totalConversations", totalConversations)
                     put("averageResponseTime", averageResponseTime)
                     put("mostUsedAPI", mostUsedAPI)
+                    put("conversationsWithEmbeddings", conversationsWithEmbeddings)
                 }
                 
                 stats.toString()
@@ -213,6 +216,53 @@ object ConversationHistoryHelper {
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur suppression conversations", e)
+                false
+            }
+        }
+    }
+    
+    /**
+     * Sauvegarde un message webapp dans Room DB (Java-friendly)
+     * ⭐ NOUVEAU: Phase 1.1 - Synchronisation Webapp ↔ Room DB
+     */
+    fun saveWebappConversation(
+        context: Context,
+        userMessage: String,
+        aiResponse: String,
+        personality: String = "casual",
+        apiUsed: String = "webapp",
+        responseTimeMs: Long = 0L,
+        thinkingTrace: String? = null
+    ): Boolean {
+        return runBlocking {
+            try {
+                val database = ChatAIDatabase.getDatabase(context)
+                val dao = database.conversationDao()
+                
+                // ⭐ FIX: Récupérer le sessionId actuel depuis SharedPreferences
+                val sharedPrefs = context.getSharedPreferences("chatai_ai_config", android.content.Context.MODE_PRIVATE)
+                val currentSessionId = sharedPrefs.getString("current_session_id", null)
+                
+                val conversation = ConversationEntity(
+                    conversationId = java.util.UUID.randomUUID().toString(),
+                    userMessage = userMessage,
+                    aiResponse = aiResponse,
+                    personality = personality,
+                    apiUsed = apiUsed,
+                    platform = "webapp",
+                    responseTimeMs = responseTimeMs,
+                    thinkingTrace = thinkingTrace,
+                    timestamp = System.currentTimeMillis(),
+                    sessionId = currentSessionId // ⭐ FIX: Utiliser le sessionId actuel pour grouper avec les autres conversations
+                )
+                
+                Log.d(TAG, "💾 Sauvegarde conversation webapp avec sessionId: ${currentSessionId ?: "null"}")
+                
+                val dbRowId = dao.insert(conversation)
+                Log.i(TAG, "✅ Conversation webapp sauvegardée (DB row ID: $dbRowId)")
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur sauvegarde conversation webapp", e)
                 false
             }
         }

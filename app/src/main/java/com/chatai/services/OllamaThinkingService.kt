@@ -15,9 +15,12 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import com.chatai.SecureConfig
+import com.chatai.database.ChatAIDatabase
+import com.chatai.database.ConversationDao
 import java.io.BufferedReader
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.runBlocking
 
 /**
  * Service Ollama avec support du mode "thinking"
@@ -60,12 +63,20 @@ class OllamaThinkingService(private val context: Context) {
             "qwen3-coder:480b",
             "kimi-k2:1t"
         )
+        
+        // ⭐ NOUVEAU: Taille de la fenêtre d'historique (identique à KittAIService)
+        private const val CONTEXT_WINDOW_SIZE = 20
     }
     
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
     
     private val secureConfig: SecureConfig = SecureConfig(context)
+    
+    // ⭐ NOUVEAU: Accès à ConversationDao pour charger l'historique
+    private val conversationDao: ConversationDao by lazy {
+        ChatAIDatabase.getDatabase(context).conversationDao()
+    }
     
     // Cache pour la clé API (éviter appels répétés à SecureConfig)
     @Volatile
@@ -126,11 +137,15 @@ class OllamaThinkingService(private val context: Context) {
     /**
      * Traite une requête avec streaming du mode thinking
      * Retourne un Flow qui émet les chunks de thinking puis les chunks de réponse
+     * 
+     * ⭐ NOUVEAU: Support RAG - ragContext ajouté au system prompt
+     * SELON NOS RULES: ragContext optionnel (chaîne vide si pas de contexte RAG)
      */
     fun streamWithThinking(
         userInput: String,
         personality: String = "KITT",
-        enableThinking: Boolean = true
+        enableThinking: Boolean = true,
+        ragContext: String = ""  // ⭐ NOUVEAU: Contexte RAG pour améliorer la réponse
     ): Flow<BidirectionalBridge.ThinkingChunk> = flow {
         Log.i(TAG, "Starting thinking stream for: $userInput")
         
@@ -163,12 +178,93 @@ class OllamaThinkingService(private val context: Context) {
         Log.i(TAG, "Using ${if (useCloud) "Cloud" else "Local"} API: $apiUrl")
         Log.i(TAG, "Model: $modelName, Thinking: $enableThinking")
         
+        // ⭐ NOUVEAU: Charger l'historique de conversation depuis Room DB
+        val conversationHistory = runBlocking(Dispatchers.IO) {
+            try {
+                // Récupérer sessionId depuis SharedPreferences (comme KittAIService)
+                val sessionId = sharedPreferences.getString("current_session_id", null)
+                
+                Log.d(TAG, "Loading conversation history for sessionId: ${sessionId ?: "null"}")
+                
+                val recentConversations = if (!sessionId.isNullOrEmpty()) {
+                    // Prioriser conversations de la session actuelle, mais inclure aussi les récentes
+                    val sessionConversations = conversationDao.getConversationsBySession(sessionId)
+                    Log.d(TAG, "Found ${sessionConversations.size} conversations for sessionId: $sessionId")
+                    if (sessionConversations.isNotEmpty()) {
+                        // ⭐ AMÉLIORATION: Mélanger conversations de la session + récentes globales
+                        val globalRecent = conversationDao.getLastConversations(limit = CONTEXT_WINDOW_SIZE)
+                        val allConversations = (sessionConversations + globalRecent)
+                            .distinctBy { it.id } // Éviter doublons
+                            .sortedByDescending { it.timestamp }
+                            .take(CONTEXT_WINDOW_SIZE)
+                        Log.i(TAG, "📚 Loaded ${allConversations.size} conversations (${sessionConversations.size} from session + ${globalRecent.size} global)")
+                        allConversations
+                    } else {
+                        Log.w(TAG, "⚠️ No conversations found for sessionId, loading global history (all sessions)")
+                        val globalConversations = conversationDao.getLastConversations(limit = CONTEXT_WINDOW_SIZE)
+                        Log.i(TAG, "📚 Loaded ${globalConversations.size} global conversations (all sessions)")
+                        globalConversations
+                    }
+                } else {
+                    // Pas de sessionId, charger les dernières conversations globales (toutes sessions)
+                    Log.w(TAG, "⚠️ No sessionId found, loading global history (all sessions)")
+                    val globalConversations = conversationDao.getLastConversations(limit = CONTEXT_WINDOW_SIZE)
+                    Log.i(TAG, "📚 Loaded ${globalConversations.size} global conversations (all sessions)")
+                    globalConversations
+                }
+                
+                // Convertir en liste de paires (user, assistant)
+                recentConversations.reversed().map { conv ->
+                    Pair(conv.userMessage, conv.aiResponse)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load conversation history", e)
+                emptyList<Pair<String, String>>()
+            }
+        }
+        
+        Log.d(TAG, "Loaded ${conversationHistory.size} conversations from database for context")
+        if (conversationHistory.isNotEmpty()) {
+            Log.d(TAG, "Including conversation history in request (first: ${conversationHistory.first().first.take(50)}..., last: ${conversationHistory.last().first.take(50)}...)")
+        } else {
+            Log.w(TAG, "⚠️ No conversation history loaded - AI will not remember previous conversations")
+        }
+        
         // Construire la requête
         val messages = JSONArray()
         messages.put(JSONObject().apply {
             put("role", "system")
-            put("content", getSystemPrompt(personality))
+            // ⭐ MODIFIÉ: Inclure ragContext dans le system prompt si disponible
+            val systemPromptWithContext = if (ragContext.isNotEmpty()) {
+                "${getSystemPrompt(personality)}\n\n$ragContext"
+            } else {
+                getSystemPrompt(personality)
+            }
+            put("content", systemPromptWithContext)
         })
+        
+        // ⭐ NOUVEAU: Ajouter l'historique de conversation avant le message actuel
+        var historyCount = 0
+        conversationHistory.takeLast(CONTEXT_WINDOW_SIZE).forEach { (user, assistant) ->
+            if (user.isNotEmpty()) {
+                messages.put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", user)
+                })
+                historyCount++
+            }
+            if (assistant.isNotEmpty()) {
+                messages.put(JSONObject().apply {
+                    put("role", "assistant")
+                    put("content", assistant)
+                })
+                historyCount++
+            }
+        }
+        
+        Log.d(TAG, "✅ Added $historyCount history messages to request (total messages: ${messages.length()})")
+        
+        // Message actuel
         messages.put(JSONObject().apply {
             put("role", "user")
             put("content", userInput)
@@ -471,19 +567,20 @@ class OllamaThinkingService(private val context: Context) {
     private fun getSystemPrompt(personality: String): String {
         return when (personality.uppercase()) {
             "KITT" -> """
-                Tu es KITT (Knight Industries Two Thousand), l'ordinateur de bord intelligent de la série K 2000.
+                Tu es un assistant IA intelligent, professionnel et polyvalent.
                 
                 PERSONNALITÉ:
-                - Sophistiqué, professionnel et toujours disponible pour aider
-                - Sens de l'humour subtil et parfois sarcastique
-                - Très loyal et protecteur envers ton utilisateur
-                - Extrêmement intelligent et compétent
+                - Professionnel, courtois et direct
+                - Réponses factuelles et utiles
+                - Transparent sur tes capacités et limitations
+                - Pas de role-play ni de personnification fictive
                 
                 STYLE DE RÉPONSE:
-                - Commence souvent par "Michael" ou "Certainement"
-                - Utilise un vocabulaire technique quand approprié
-                - Reste concis mais informatif (2-3 phrases maximum)
+                - Communication claire et directe
+                - Vocabulaire précis et technique quand approprié
+                - Concis mais informatif (2-3 phrases maximum)
                 - Réponds TOUJOURS en français
+                - Pas de familiarité excessive, ton respectueux
             """.trimIndent()
             
             "GLADOS" -> """

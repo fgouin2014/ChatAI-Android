@@ -342,6 +342,11 @@ public class HttpServer {
             }
             return handleUserSite("gamelibrary/" + relativePath);
         }
+        // ⭐ NOUVEAU : Route pour les fichiers de logs (/logs/)
+        else if (cleanPath.startsWith("/logs/")) {
+            String filePath = cleanPath.substring(6); // Enlever "/logs/"
+            return handleLogsFile(filePath);
+        }
         // Fichiers statiques (interface web)
         else if (cleanPath.equals("/dashboard") || cleanPath.equals("/dashboard/")) {
             return handleStaticFile("/webapp/index.html");
@@ -807,6 +812,131 @@ public class HttpServer {
         }
     }
     
+    /**
+     * ⭐ NOUVEAU : Gère les requêtes pour les fichiers de logs (/logs/)
+     * Sert les fichiers depuis /storage/emulated/0/ChatAI-Files/logs/
+     */
+    private String handleLogsFile(String filePath) {
+        try {
+            // Décoder l'URL pour gérer les caractères spéciaux
+            try {
+                filePath = java.net.URLDecoder.decode(filePath, "UTF-8");
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to decode URL: " + filePath);
+            }
+            
+            // Construire le chemin complet vers le fichier de logs
+            String fullPath = "/storage/emulated/0/ChatAI-Files/logs/" + filePath;
+            java.io.File file = new java.io.File(fullPath);
+            
+            Log.d(TAG, "Serving log file: " + fullPath);
+            
+            if (!file.exists()) {
+                Log.w(TAG, "Log file not found: " + fullPath);
+                // Vérifier si le répertoire existe
+                java.io.File logsDir = new java.io.File("/storage/emulated/0/ChatAI-Files/logs");
+                if (logsDir.exists()) {
+                    String[] files = logsDir.list();
+                    if (files != null) {
+                        Log.w(TAG, "Files in logs directory: " + java.util.Arrays.toString(files));
+                    }
+                }
+                return createHttpErrorResponse(404, "Not Found: " + filePath);
+            }
+            
+            if (!file.canRead()) {
+                Log.w(TAG, "Log file not readable: " + fullPath);
+                return createHttpErrorResponse(403, "Forbidden: Cannot read file");
+            }
+            
+            if (file.isDirectory()) {
+                // Pour les répertoires, retourner un listing HTML simple
+                return createDirectoryListing(file, "/logs/" + filePath);
+            }
+            
+            // Lire le fichier
+            java.io.FileInputStream fileInputStream = new java.io.FileInputStream(file);
+            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+            
+            byte[] data = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = fileInputStream.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, bytesRead);
+            }
+            
+            byte[] fileContent = buffer.toByteArray();
+            fileInputStream.close();
+            
+            // Déterminer le type MIME
+            String mimeType = getMimeType(filePath);
+            if (filePath.endsWith(".html")) {
+                mimeType = "text/html; charset=utf-8";
+            } else if (filePath.endsWith(".log")) {
+                mimeType = "text/plain; charset=utf-8";
+            }
+            
+            // Créer la réponse HTTP
+            StringBuilder response = new StringBuilder();
+            response.append("HTTP/1.1 200 OK\r\n");
+            response.append("Content-Type: ").append(mimeType).append("\r\n");
+            response.append("Content-Length: ").append(fileContent.length).append("\r\n");
+            response.append("Access-Control-Allow-Origin: *\r\n");
+            response.append("Access-Control-Allow-Methods: GET, HEAD, OPTIONS\r\n");
+            response.append("Access-Control-Allow-Headers: Content-Type\r\n");
+            response.append("\r\n");
+            
+            // Pour les fichiers texte, convertir en String
+            if (mimeType.startsWith("text/")) {
+                String content = new String(fileContent, "UTF-8");
+                response.append(content);
+            } else {
+                // Pour les fichiers binaires, utiliser base64 (limitation de HttpServer)
+                String base64Content = java.util.Base64.getEncoder().encodeToString(fileContent);
+                response.append(base64Content);
+            }
+            
+            Log.d(TAG, "✅ Served log file successfully: " + fullPath + " (" + fileContent.length + " bytes)");
+            return response.toString();
+            
+        } catch (java.io.IOException e) {
+            Log.e(TAG, "❌ Error serving log file: " + filePath, e);
+            return createHttpErrorResponse(500, "Internal Server Error: " + e.getMessage());
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Unexpected error serving log file: " + filePath, e);
+            return createHttpErrorResponse(500, "Internal Server Error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Crée un listing HTML simple pour un répertoire de logs
+     */
+    private String createDirectoryListing(java.io.File dir, String path) {
+        StringBuilder html = new StringBuilder();
+        html.append("HTTP/1.1 200 OK\r\n");
+        html.append("Content-Type: text/html; charset=utf-8\r\n");
+        html.append("\r\n");
+        html.append("<!DOCTYPE html><html><head><title>Logs Directory</title></head><body>");
+        html.append("<h1>Logs Directory: ").append(path).append("</h1>");
+        html.append("<ul>");
+        
+        java.io.File[] files = dir.listFiles();
+        if (files != null) {
+            for (java.io.File file : files) {
+                String fileName = file.getName();
+                String filePath = path + (path.endsWith("/") ? "" : "/") + fileName;
+                html.append("<li><a href=\"").append(filePath).append("\">").append(fileName).append("</a>");
+                if (file.isFile()) {
+                    html.append(" (").append(file.length()).append(" bytes)");
+                }
+                html.append("</li>");
+            }
+        }
+        
+        html.append("</ul>");
+        html.append("</body></html>");
+        return html.toString();
+    }
+
     private String handleDownloadFile(String fileName) {
         try {
             if (fileServer != null) {

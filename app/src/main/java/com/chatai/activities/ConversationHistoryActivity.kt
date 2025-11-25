@@ -1,5 +1,6 @@
 package com.chatai.activities
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -35,6 +36,20 @@ class ConversationHistoryActivity : AppCompatActivity() {
     private lateinit var statsText: TextView
     private lateinit var emptyView: TextView
     
+    // ⭐ NOUVEAU Phase 3: Recherche et filtres
+    private lateinit var searchView: androidx.appcompat.widget.SearchView
+    private lateinit var filterPersonalitySpinner: android.widget.Spinner
+    private lateinit var filterPlatformSpinner: android.widget.Spinner
+    
+    // État des filtres
+    private var currentSearchQuery: String = ""
+    private var currentPersonalityFilter: String? = null
+    private var currentPlatformFilter: String? = null
+    
+    // Handler pour debounce recherche
+    private val searchHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var searchRunnable: Runnable? = null
+    
     private val database by lazy { ChatAIDatabase.getDatabase(this) }
     private val conversationDao by lazy { database.conversationDao() }
     
@@ -47,10 +62,18 @@ class ConversationHistoryActivity : AppCompatActivity() {
         statsText = findViewById(R.id.statsText)
         emptyView = findViewById(R.id.emptyView)
         
+        // ⭐ NOUVEAU Phase 3: Initialiser recherche et filtres
+        searchView = findViewById(R.id.searchView)
+        filterPersonalitySpinner = findViewById(R.id.filterPersonalitySpinner)
+        filterPlatformSpinner = findViewById(R.id.filterPlatformSpinner)
+        
         // Configurer RecyclerView
         recyclerView.layoutManager = LinearLayoutManager(this)
         adapter = ConversationAdapter()
         recyclerView.adapter = adapter
+        
+        // ⭐ NOUVEAU Phase 3: Configurer recherche et filtres
+        setupSearchAndFilters()
         
         // Bouton retour
         findViewById<MaterialButton>(R.id.backButton).setOnClickListener {
@@ -73,11 +96,16 @@ class ConversationHistoryActivity : AppCompatActivity() {
             }
         }
         
+        // ⭐ NOUVEAU Phase 5: Bouton migration embeddings
+        findViewById<MaterialButton>(R.id.migrateEmbeddingsButton).setOnClickListener {
+            showEmbeddingMigrationDialog()
+        }
+        
         // Générer des UUIDs pour les anciennes conversations (migration) puis charger
         lifecycleScope.launch {
             generateMissingUUIDs()
-            // Charger après la migration
-            loadConversations()
+            // Charger après la migration (utiliser méthode avec filtres)
+            loadConversationsWithFilters()
             loadStats()
         }
     }
@@ -177,6 +205,138 @@ class ConversationHistoryActivity : AppCompatActivity() {
         }
     }
     
+    /**
+     * ⭐ NOUVEAU Phase 3: Configure recherche et filtres
+     */
+    private fun setupSearchAndFilters() {
+        // Configurer SearchView
+        searchView.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                performSearch(query ?: "")
+                return true
+            }
+            
+            override fun onQueryTextChange(newText: String?): Boolean {
+                // Debounce recherche (300ms)
+                searchRunnable?.let { searchHandler.removeCallbacks(it) }
+                searchRunnable = Runnable {
+                    performSearch(newText ?: "")
+                }
+                searchHandler.postDelayed(searchRunnable!!, 300)
+                return true
+            }
+        })
+        
+        // Configurer filtre personality
+        val personalityItems = arrayOf("Toutes", "KITT", "GLaDOS", "casual", "friendly", "professional", "creative", "funny")
+        val personalityAdapter = android.widget.ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            personalityItems
+        ).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        filterPersonalitySpinner.adapter = personalityAdapter
+        filterPersonalitySpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                currentPersonalityFilter = if (position == 0) null else personalityAdapter.getItem(position).toString()
+                loadConversationsWithFilters()
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+        
+        // Configurer filtre platform
+        val platformItems = arrayOf("Toutes", "vocal", "webapp", "web")
+        val platformAdapter = android.widget.ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            platformItems
+        ).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        filterPlatformSpinner.adapter = platformAdapter
+        filterPlatformSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                currentPlatformFilter = if (position == 0) null else platformAdapter.getItem(position).toString()
+                loadConversationsWithFilters()
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU Phase 3: Effectue la recherche avec filtres
+     */
+    private fun performSearch(query: String) {
+        currentSearchQuery = query.trim()
+        loadConversationsWithFilters()
+    }
+    
+    /**
+     * ⭐ NOUVEAU Phase 3: Charge conversations avec filtres appliqués
+     */
+    private fun loadConversationsWithFilters() {
+        lifecycleScope.launch {
+            try {
+                val conversations = when {
+                    // Recherche textuelle avec filtres
+                    currentSearchQuery.isNotEmpty() -> {
+                        var filtered = conversationDao.searchConversations(currentSearchQuery, 100)
+                        
+                        // Appliquer filtre personality si sélectionné
+                        if (currentPersonalityFilter != null) {
+                            filtered = filtered.filter { it.personality == currentPersonalityFilter }
+                        }
+                        
+                        // Appliquer filtre platform si sélectionné
+                        if (currentPlatformFilter != null) {
+                            filtered = filtered.filter { it.platform == currentPlatformFilter }
+                        }
+                        
+                        filtered
+                    }
+                    // Filtre personality uniquement
+                    currentPersonalityFilter != null -> {
+                        conversationDao.getConversationsByPersonality(currentPersonalityFilter!!, 100)
+                            .filter { currentPlatformFilter == null || it.platform == currentPlatformFilter }
+                    }
+                    // Filtre platform uniquement
+                    currentPlatformFilter != null -> {
+                        val all = conversationDao.getLastConversations(100)
+                        all.filter { it.platform == currentPlatformFilter }
+                    }
+                    // Aucun filtre
+                    else -> conversationDao.getLastConversations(100)
+                }
+                
+                // Mettre à jour l'adapter avec highlight des termes recherchés
+                adapter.setConversations(conversations, currentSearchQuery)
+                
+                if (conversations.isEmpty()) {
+                    emptyView.visibility = View.VISIBLE
+                    recyclerView.visibility = View.GONE
+                    emptyView.text = if (currentSearchQuery.isNotEmpty() || currentPersonalityFilter != null || currentPlatformFilter != null) {
+                        "Aucun résultat pour les filtres sélectionnés"
+                    } else {
+                        "Aucune conversation enregistrée\n\nParlez à KITT pour commencer !"
+                    }
+                } else {
+                    emptyView.visibility = View.GONE
+                    recyclerView.visibility = View.VISIBLE
+                }
+                
+            } catch (e: Exception) {
+                android.util.Log.e("ConversationHistory", "Error loading conversations with filters", e)
+                emptyView.text = "Erreur de chargement: ${e.message}"
+                emptyView.visibility = View.VISIBLE
+                recyclerView.visibility = View.GONE
+            }
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU Phase 4: Statistiques améliorées
+     */
     private fun loadStats() {
         lifecycleScope.launch {
             try {
@@ -186,18 +346,56 @@ class ConversationHistoryActivity : AppCompatActivity() {
                 val avgTime = conversationDao.getAverageResponseTime() ?: 0L
                 val mostUsed = conversationDao.getMostUsedAPI() ?: "unknown"
                 
+                // ⭐ NOUVEAU Phase 4: Statistiques avancées
+                val totalTime = conversationDao.getTotalConversationTime() ?: 0L
+                val avgLength = conversationDao.getAverageMessageLength() ?: 0.0
+                val firstDate = conversationDao.getFirstConversationDate()
+                val lastDate = conversationDao.getLastConversationDate()
+                
+                // Calculer tops (personalities et APIs)
+                val allConversations = conversationDao.getAllConversationsForExport()
+                val personalityCounts = allConversations.groupingBy { it.personality }.eachCount()
+                    .toList().sortedByDescending { it.second }.take(3)
+                val apiCounts = allConversations.groupingBy { it.apiUsed }.eachCount()
+                    .toList().sortedByDescending { it.second }.take(3)
+                
                 statsText.text = buildString {
                     appendLine("📊 STATISTIQUES")
                     appendLine()
                     appendLine("Total conversations: $total")
                     appendLine("KITT: $kittCount | GLaDOS: $gladosCount")
                     appendLine("Temps moyen: ${avgTime}ms")
+                    appendLine("Temps total: ${totalTime / 1000}s")
+                    appendLine("Longueur moyenne: ${avgLength.toInt()} chars")
                     appendLine("API principale: $mostUsed")
+                    
+                    if (personalityCounts.isNotEmpty()) {
+                        appendLine()
+                        appendLine("Top Personalities:")
+                        personalityCounts.forEach { (personality, count) ->
+                            appendLine("  • $personality: $count")
+                        }
+                    }
+                    
+                    if (apiCounts.isNotEmpty() && apiCounts.size > 1) {
+                        appendLine()
+                        appendLine("Top APIs:")
+                        apiCounts.forEach { (api, count) ->
+                            appendLine("  • $api: $count")
+                        }
+                    }
+                    
+                    if (firstDate != null && lastDate != null) {
+                        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                        appendLine()
+                        appendLine("Première: ${dateFormat.format(Date(firstDate))}")
+                        appendLine("Dernière: ${dateFormat.format(Date(lastDate))}")
+                    }
                 }
                 
             } catch (e: Exception) {
                 android.util.Log.e("ConversationHistory", "Error loading stats", e)
-                statsText.text = "Erreur de statistiques"
+                statsText.text = "Erreur de statistiques: ${e.message}"
             }
         }
     }
@@ -215,7 +413,7 @@ class ConversationHistoryActivity : AppCompatActivity() {
                             "Historique effacé",
                             android.widget.Toast.LENGTH_SHORT
                         ).show()
-                        loadConversations()
+                        loadConversationsWithFilters()
                         loadStats()
                     } catch (e: Exception) {
                         android.widget.Toast.makeText(
@@ -340,10 +538,12 @@ class ConversationHistoryActivity : AppCompatActivity() {
     inner class ConversationAdapter : RecyclerView.Adapter<ConversationAdapter.ViewHolder>() {
         
         private var conversations = listOf<ConversationEntity>()
+        private var searchQuery: String = "" // ⭐ NOUVEAU Phase 3: Pour highlight
         private val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
         
-        fun setConversations(newConversations: List<ConversationEntity>) {
+        fun setConversations(newConversations: List<ConversationEntity>, query: String = "") {
             conversations = newConversations
+            searchQuery = query
             notifyDataSetChanged()
         }
         
@@ -386,11 +586,20 @@ class ConversationHistoryActivity : AppCompatActivity() {
                     else -> conversation.personality
                 }
                 
-                // Question de l'utilisateur
-                userMessageText.text = "VOUS: ${conversation.userMessage}"
+                // Question de l'utilisateur avec highlight si recherche active
+                val userMessageFull = "VOUS: ${conversation.userMessage}"
+                userMessageText.text = userMessageFull
+                if (searchQuery.isNotEmpty()) {
+                    highlightText(userMessageText, userMessageFull, searchQuery, prefixLength = 6) // "VOUS: " = 6 chars
+                }
                 
-                // Réponse de l'IA
-                aiResponseText.text = "${conversation.personality}: ${conversation.aiResponse}"
+                // Réponse de l'IA avec highlight si recherche active
+                val aiResponseFull = "${conversation.personality}: ${conversation.aiResponse}"
+                aiResponseText.text = aiResponseFull
+                if (searchQuery.isNotEmpty()) {
+                    val prefixLength = "${conversation.personality}: ".length
+                    highlightText(aiResponseText, aiResponseFull, searchQuery, prefixLength = prefixLength)
+                }
                 
                 // Métadonnées
                 metadataText.text = "API: ${conversation.apiUsed} | ${conversation.responseTimeMs}ms | ${conversation.platform}"
@@ -435,6 +644,47 @@ class ConversationHistoryActivity : AppCompatActivity() {
     }
     
     /**
+     * ⭐ NOUVEAU Phase 3: Highlight des termes recherchés dans un TextView
+     * @param prefixLength Longueur du préfixe (ex: "VOUS: " = 6) pour ajuster les indices
+     */
+    private fun highlightText(textView: TextView, fullText: String, query: String, prefixLength: Int = 0) {
+        if (query.isEmpty() || fullText.isEmpty()) return
+        
+        try {
+            val spannable = android.text.SpannableString(fullText)
+            val lowerFullText = fullText.lowercase()
+            val lowerQuery = query.lowercase()
+            var startIndex = lowerFullText.indexOf(lowerQuery)
+            
+            val highlightColor = getColor(R.color.kitt_red)
+            val backgroundColor = android.graphics.Color.parseColor("#33FF4444") // Rouge semi-transparent
+            
+            while (startIndex >= 0) {
+                val endIndex = startIndex + query.length
+                spannable.setSpan(
+                    android.text.style.BackgroundColorSpan(backgroundColor),
+                    startIndex,
+                    endIndex,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                spannable.setSpan(
+                    android.text.style.ForegroundColorSpan(highlightColor),
+                    startIndex,
+                    endIndex,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                startIndex = lowerFullText.indexOf(lowerQuery, startIndex + 1)
+            }
+            
+            textView.text = spannable
+        } catch (e: Exception) {
+            android.util.Log.e("ConversationHistory", "Error highlighting text", e)
+            // En cas d'erreur, garder le texte original
+            textView.text = fullText
+        }
+    }
+    
+    /**
      * Copie du texte dans le presse-papiers
      */
     private fun copyToClipboard(text: String) {
@@ -459,6 +709,7 @@ class ConversationHistoryActivity : AppCompatActivity() {
             "📊 Exporter TOUT dans logcat",
             "🆔 Exporter une conversation par ID",
             "💾 Exporter vers fichier JSON",
+            "📄 Exporter vers fichier HTML",
             "📥 Importer depuis fichier JSON"
         )
         
@@ -469,7 +720,8 @@ class ConversationHistoryActivity : AppCompatActivity() {
                     0 -> exportConversationsToLogcat()
                     1 -> promptForConversationId()
                     2 -> exportConversationsToJson()
-                    3 -> importConversationsFromJson()
+                    3 -> exportConversationsToHtml() // ⭐ NOUVEAU Phase 4
+                    4 -> importConversationsFromJson()
                 }
             }
             .show()
@@ -725,6 +977,286 @@ class ConversationHistoryActivity : AppCompatActivity() {
     }
     
     /**
+     * ⭐ NOUVEAU Phase 4: Exporte toutes les conversations vers un fichier HTML avec style KITT
+     */
+    private fun exportConversationsToHtml() {
+        lifecycleScope.launch {
+            try {
+                val conversations = conversationDao.getAllConversationsForExport()
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                val exportDate = dateFormat.format(Date())
+                
+                val html = StringBuilder()
+                html.append("<!DOCTYPE html>\n")
+                html.append("<html><head><meta charset='UTF-8'><title>Historique ChatAI - Export</title>\n")
+                html.append("<style>\n")
+                html.append("body{font-family:'Courier New',monospace;background:#000000;color:#ff0000;padding:20px;margin:0;}\n")
+                html.append(".header{background:#1a0000;border:2px solid #ff0000;border-radius:8px;padding:20px;margin-bottom:20px;}\n")
+                html.append(".header h1{color:#ff0000;margin:0 0 10px 0;font-size:24px;}\n")
+                html.append(".header .meta{color:#ff6666;font-size:12px;}\n")
+                html.append(".stats{background:#1a0000;border:1px solid #ff0000;border-radius:8px;padding:15px;margin-bottom:20px;}\n")
+                html.append(".stats h2{color:#ff0000;margin-top:0;font-size:18px;}\n")
+                html.append(".stats p{margin:8px 0;color:#ff6666;}\n")
+                html.append(".conv{background:#1a0000;border:1px solid #ff3333;border-radius:8px;padding:16px;margin-bottom:16px;}\n")
+                html.append(".conv-header{color:#ff6666;font-size:11px;margin-bottom:12px;border-bottom:1px solid #ff3333;padding-bottom:8px;}\n")
+                html.append(".user{color:#ff4444;margin:12px 0;padding-left:20px;border-left:3px solid #ff0000;}\n")
+                html.append(".user strong{color:#ff0000;}\n")
+                html.append(".ai{color:#ff6666;margin:12px 0;padding-left:20px;border-left:3px solid #ff3333;}\n")
+                html.append(".ai strong{color:#ff4444;}\n")
+                html.append(".thinking{background:#1a0000;border:1px solid #ff3333;border-left:4px solid #ff6666;padding:12px;margin-top:12px;font-family:monospace;font-size:11px;color:#ff9999;white-space:pre-wrap;}\n")
+                html.append(".thinking strong{color:#ff6666;}\n")
+                html.append("</style>\n")
+                html.append("</head><body>\n")
+                
+                // Header
+                html.append("<div class='header'>\n")
+                html.append("<h1>📜 HISTORIQUE DES CONVERSATIONS CHATAI</h1>\n")
+                html.append("<div class='meta'>Exporté le $exportDate</div>\n")
+                html.append("<div class='meta'>Total: ${conversations.size} conversations</div>\n")
+                html.append("</div>\n")
+                
+                // Statistiques
+                val total = conversationDao.getTotalConversations()
+                val kittCount = conversationDao.getConversationCountByPersonality("KITT")
+                val gladosCount = conversationDao.getConversationCountByPersonality("GLaDOS")
+                val avgTime = conversationDao.getAverageResponseTime() ?: 0L
+                val mostUsed = conversationDao.getMostUsedAPI() ?: "unknown"
+                
+                html.append("<div class='stats'>\n")
+                html.append("<h2>📊 STATISTIQUES</h2>\n")
+                html.append("<p>Total conversations: $total</p>\n")
+                html.append("<p>KITT: $kittCount | GLaDOS: $gladosCount</p>\n")
+                html.append("<p>Temps moyen: ${avgTime}ms</p>\n")
+                html.append("<p>API principale: $mostUsed</p>\n")
+                html.append("</div>\n")
+                
+                // Conversations
+                conversations.forEach { conv ->
+                    val date = dateFormat.format(Date(conv.timestamp))
+                    val personality = when (conv.personality) {
+                        "KITT" -> "🚗 KITT"
+                        "GLaDOS" -> "🤖 GLaDOS"
+                        else -> conv.personality
+                    }
+                    
+                    html.append("<div class='conv'>\n")
+                    html.append("<div class='conv-header'>\n")
+                    html.append("📅 $date | $personality | 🌐 ${conv.apiUsed} | ⏱️ ${conv.responseTimeMs}ms | 📱 ${conv.platform}\n")
+                    if (conv.conversationId.isNotEmpty()) {
+                        html.append(" | 🆔 ${conv.conversationId}\n")
+                    }
+                    html.append("</div>\n")
+                    
+                    html.append("<div class='user'><strong>VOUS:</strong> ${escapeHtml(conv.userMessage)}</div>\n")
+                    html.append("<div class='ai'><strong>$personality:</strong> ${escapeHtml(conv.aiResponse)}</div>\n")
+                    
+                    if (!conv.thinkingTrace.isNullOrEmpty()) {
+                        html.append("<div class='thinking'><strong>🧠 Raisonnement:</strong><br>${escapeHtml(conv.thinkingTrace)}</div>\n")
+                    }
+                    
+                    html.append("</div>\n")
+                }
+                
+                html.append("</body></html>")
+                
+                // Sauvegarder le fichier
+                val fileName = "chatai_conversations_${System.currentTimeMillis()}.html"
+                val file = java.io.File(getExternalFilesDir(null), fileName)
+                file.writeText(html.toString())
+                
+                android.util.Log.i("CONV_HTML_EXPORT", "✅ Conversations exportées vers HTML: ${file.absolutePath}")
+                
+                runOnUiThread {
+                    // Toast court
+                    android.widget.Toast.makeText(
+                        this@ConversationHistoryActivity,
+                        "✅ ${conversations.size} conversations exportées en HTML!",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    
+                    // Dialog avec option de partage
+                    androidx.appcompat.app.AlertDialog.Builder(this@ConversationHistoryActivity, R.style.KittDialogTheme)
+                        .setTitle("📄 Export HTML Réussi")
+                        .setMessage("${conversations.size} conversations exportées.\n\nFichier:\n${file.absolutePath}")
+                        .setPositiveButton("Partager") { _, _ ->
+                            shareHtmlFile(file)
+                        }
+                        .setNeutralButton("OK", null)
+                        .show()
+                }
+                
+            } catch (e: Exception) {
+                android.util.Log.e("CONV_HTML_EXPORT", "❌ Erreur lors de l'export HTML", e)
+                runOnUiThread {
+                    android.widget.Toast.makeText(
+                        this@ConversationHistoryActivity,
+                        "❌ Erreur export HTML: ${e.message}",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU Phase 4: Partage le fichier HTML via Intent
+     */
+    private fun shareHtmlFile(file: java.io.File) {
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                this,
+                "${packageName}.provider",
+                file
+            )
+            
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/html"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, "Historique ChatAI - Export HTML")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            
+            startActivity(Intent.createChooser(intent, "Partager l'historique"))
+        } catch (e: Exception) {
+            android.util.Log.e("CONV_HTML_EXPORT", "❌ Erreur partage HTML", e)
+            android.widget.Toast.makeText(
+                this,
+                "❌ Erreur partage: ${e.message}",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU Phase 5: Affiche le dialog de migration embeddings
+     */
+    private fun showEmbeddingMigrationDialog() {
+        lifecycleScope.launch {
+            try {
+                val migrationService = com.chatai.database.EmbeddingMigrationService(this@ConversationHistoryActivity)
+                val conversationsNeedingMigration = migrationService.getConversationsNeedingMigration()
+                
+                if (conversationsNeedingMigration == 0) {
+                    runOnUiThread {
+                        androidx.appcompat.app.AlertDialog.Builder(this@ConversationHistoryActivity, R.style.KittDialogTheme)
+                            .setTitle("✅ Migration Embeddings")
+                            .setMessage("Toutes les conversations ont déjà des embeddings générés.")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
+                    return@launch
+                }
+                
+                runOnUiThread {
+                    // Dialog de confirmation avec information
+                    androidx.appcompat.app.AlertDialog.Builder(this@ConversationHistoryActivity, R.style.KittDialogTheme)
+                        .setTitle("🔄 Migration Embeddings")
+                        .setMessage("${conversationsNeedingMigration} conversations nécessitent des embeddings.\n\nCette opération peut prendre plusieurs minutes selon le nombre de conversations.\n\n⚠️ Assurez-vous que Ollama local est accessible.")
+                        .setPositiveButton("Démarrer") { _, _ ->
+                            startEmbeddingMigration(migrationService, conversationsNeedingMigration)
+                        }
+                        .setNegativeButton("Annuler", null)
+                        .show()
+                }
+                
+            } catch (e: Exception) {
+                android.util.Log.e("ConversationHistory", "Erreur vérification migration", e)
+                runOnUiThread {
+                    android.widget.Toast.makeText(
+                        this@ConversationHistoryActivity,
+                        "Erreur: ${e.message}",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU Phase 5: Lance la migration embeddings avec dialog de progression
+     */
+    private fun startEmbeddingMigration(
+        migrationService: com.chatai.database.EmbeddingMigrationService,
+        totalToMigrate: Int
+    ) {
+        // Créer le dialog de progression
+        val progressDialog = androidx.appcompat.app.AlertDialog.Builder(this, R.style.KittDialogTheme)
+            .setTitle("🔄 Migration Embeddings en cours...")
+            .setView(R.layout.dialog_progress) // Créer ce layout
+            .setCancelable(false)
+            .create()
+        
+        // Inflater le layout de progression
+        val progressView = LayoutInflater.from(this).inflate(R.layout.dialog_progress, null)
+        val progressBar = progressView.findViewById<android.widget.ProgressBar>(R.id.progressBar)
+        val progressText = progressView.findViewById<TextView>(R.id.progressText)
+        
+        progressDialog.setView(progressView)
+        progressDialog.show()
+        
+        // Configurer la barre de progression
+        progressBar.max = totalToMigrate
+        progressBar.progress = 0
+        progressText.text = "0 / $totalToMigrate"
+        
+        // Lancer la migration en arrière-plan
+        lifecycleScope.launch {
+            try {
+                migrationService.migrateConversations(
+                    onProgress = { current, total ->
+                        runOnUiThread {
+                            progressBar.progress = current
+                            progressText.text = "$current / $total"
+                        }
+                    },
+                    onComplete = { totalMigrated, totalErrors ->
+                        runOnUiThread {
+                            progressDialog.dismiss()
+                            
+                            val message = if (totalErrors == -1) {
+                                "❌ Erreur critique lors de la migration"
+                            } else if (totalErrors == 0) {
+                                "✅ Migration terminée!\n\n$totalMigrated conversations migrées avec succès."
+                            } else {
+                                "⚠️ Migration terminée avec erreurs\n\n✅ $totalMigrated migrées\n❌ $totalErrors erreurs"
+                            }
+                            
+                            androidx.appcompat.app.AlertDialog.Builder(this@ConversationHistoryActivity, R.style.KittDialogTheme)
+                                .setTitle("Migration Embeddings")
+                                .setMessage(message)
+                                .setPositiveButton("OK", null)
+                                .show()
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("ConversationHistory", "Erreur migration embeddings", e)
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    android.widget.Toast.makeText(
+                        this@ConversationHistoryActivity,
+                        "Erreur migration: ${e.message}",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU Phase 4: Échappe les caractères HTML pour sécurité
+     */
+    private fun escapeHtml(text: String): String {
+        return text
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+            .replace("'", "&#39;")
+            .replace("\n", "<br>")
+    }
+    
+    /**
      * Importe des conversations depuis un fichier JSON
      */
     private fun importConversationsFromJson() {
@@ -805,7 +1337,7 @@ class ConversationHistoryActivity : AppCompatActivity() {
             
             // Recharger les conversations
             withContext(Dispatchers.Main) {
-                loadConversations()
+                loadConversationsWithFilters()
                 loadStats()
                 android.widget.Toast.makeText(
                     this@ConversationHistoryActivity,

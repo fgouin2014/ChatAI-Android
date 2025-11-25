@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatAI-Android - Index Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .stats {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 1.1em;
+            color: #555;
+        }
+        
+        .category {
+            margin-bottom: 40px;
+        }
+        
+        .category-title {
+            font-size: 1.8em;
+            color: #764ba2;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 8px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .file-list {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 15px;
+        }
+        
+        .file-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        
+        .file-item:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        
+        .file-item a {
+            color: #495057;
+            text-decoration: none;
+            font-weight: 500;
+            display: block;
+            word-break: break-word;
+        }
+        
+        .file-item a:hover {
+            color: #667eea;
+        }
+        
+        .file-path {
+            font-size: 0.85em;
+            color: #868e96;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        
+        footer {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 2px solid #e9ecef;
+            text-align: center;
+            color: #868e96;
+        }
+        
+        @media (max-width: 768px) {
+            .file-list {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 ChatAI-Android</h1>
+            <p class="subtitle">Index de la Documentation</p>
+        </header>
+        
+        <div class="stats">
+            <strong>Total:</strong> 94 fichiers Markdown documentés
+        </div>
+        
+        <div class="category">
+            <div class="category-title">📋 README et Documentation Principale</div>
+            <ul class="file-list">
+                <li class="file-item"><a href="README.md">README.md</a></li>
+                <li class="file-item"><a href="CONTRIBUTING.md">CONTRIBUTING.md</a></li>
+                <li class="file-item"><a href="HISTOIRE_ET_VISION_CHATAI.md">HISTOIRE_ET_VISION_CHATAI.md</a></li>
+                <li class="file-item"><a href="SYSTEME_INTELLIGENCE_CHATAI.md">SYSTEME_INTELLIGENCE_CHATAI.md</a></li>
+            </ul>
+        </div>
+        
+        <div class="category">
+            <div class="category-title">📚 Documentation /docs</div>
+            <ul class="file-list">
+                <li class="file-item"><a href="docs/README.md">docs/README.md</a></li>
+                <li class="file-item"><a href="docs/CURSOR_CONFIG_REPO_PLAN.md">docs/CURSOR_CONFIG_REPO_PLAN.md</a></li>
+                <li class="file-item"><a href="docs/CURSOR_COMMANDS.md">docs/CURSOR_COMMANDS.md</a></li>
+                <li class="file-item"><a href="docs/CURSOR_RULES.md">docs/CURSOR_RULES.md</a></li>
+                <li class="file-item"><a href="docs/CURSOR_MEMORIES.md">docs/CURSOR_MEMORIES.md</a></li>
+                <li class="file-item"><a href="docs/GIT_WORKFLOW.md">docs/GIT_WORKFLOW.md</a></li>
+                <li class="file-item"><a href="docs/METHODOLOGIE_NOS_RULES.md">docs/METHODOLOGIE_NOS_RULES.md</a></li>
+                <li class="file-item"><a href="docs/RAG_SERVER_ARCHITECTURE.md">docs/RAG_SERVER_ARCHITECTURE.md</a></li>
+                <li class="file-item"><a href="docs/RAG_SERVER_GUIDE.md">docs/RAG_SERVER_GUIDE.md</a></li>
+            </ul>
+        </div>
+        
+        <div class="category">
+            <div class="category-title">📝 CHANGELOG</div>
+            <ul class="file-list">
+                <li class="file-item"><a href="CHANGELOG_v4.7.0.md">CHANGELOG_v4.7.0.md</a></li>
+                <li class="file-item"><a href="CHANGELOG_v4.6.0.md">CHANGELOG_v4.6.0.md</a></li>
+                <li class="file-item"><a href="CHANGELOG_v4.4.0_KARR.md">CHANGELOG_v4.4.0_KARR.md</a></li>
+                <li class="file-item"><a href="CHANGELOG_v4.3.1.md">CHANGELOG_v4.3.1.md</a></li>
+                <li class="file-item"><a href="CHANGELOG_v4.3.0.md">CHANGELOG_v4.3.0.md</a></li>
+                <li class="file-item"><a href="CHANGELOG_v4.2.2.md">CHANGELOG_v4.2.2.md</a></li>
+                <li class="file-item"><a href="CHANGELOG_v4.2.1.md">CHANGELOG_v4.2.1.md</a></li>
+                <li class="file-item"><a href="CHANGELOG_v4.2.0.md">CHANGELOG_v4.2.0.md</a></li>
+                <li class="file-item"><a href="CHANGELOG_v4.1.0.md">CHANGELOG_v4.1.0.md</a></li>
+            </ul>
+        </div>
+        
+        <div class="category">
+            <div class="category-title">🧠 KITT AI - Intelligence Artificielle</div>
+            <ul class="file-list">
+                <li class="file-item"><a href="KARR_PERSONALITY_IMPLEMENTATION.md">KARR_PERSONALITY_IMPLEMENTATION.md</a></li>
+                <li class="file-item"><a href="PLAN_CHATAI_INTELLIGENCE_SYSTEM.md">PLAN_CHATAI_INTELLIGENCE_SYSTEM.md</a></li>
+                <li class="file-item"><a href="KITT_AI_GENERATIVE_GUIDE.md">KITT_AI_GENERATIVE_GUIDE.md</a></li>
+                <li class="file-item"><a href="KITT_AI_INTEGRATION_SUMMARY.md">KITT_AI_INTEGRATION_SUMMARY.md</a></li>
+                <li class="file-item"><a href="KITT_AI_TESTING_CHECKLIST.md">KITT_AI_TESTING_CHECKLIST.md</a></li>
+                <li class="file-item"><a href="KITT_LOCAL_SERVER_SETUP.md">KITT_LOCAL_SERVER_SETUP.md</a></li>
+                <li class="file-item"><a href="README_KITT_AI.md">README_KITT_AI.md</a></li>
+                <li class="file-item"><a href="GUIDE_OLLAMA_OOBABOOGA_KITT.md">GUIDE_OLLAMA_OOBABOOGA_KITT.md</a></li>
+                <li class="file-item"><a href="SETUP_OLLAMA_KITT_QUICK.md">SETUP_OLLAMA_KITT_QUICK.md</a></li>
+                <li class="file-item"><a href="VISION_IA_CONSCIENTE_SESSION_2025-11-01.md">VISION_IA_CONSCIENTE_SESSION_2025-11-01.md</a></li>
+            </ul>
+        </div>
+        
+        <div class="category">
+            <div class="category-title">🎙️ TTS et Voice</div>
+            <ul class="file-list">
+                <li class="file-item"><a href="FIX_GLADOS_TTS_VOICE_SELECTION.md">FIX_GLADOS_TTS_VOICE_SELECTION.md</a></li>
+                <li class="file-item"><a href="FIX_TTS_VOICE_DRAWER_SPEAKING.md">FIX_TTS_VOICE_DRAWER_SPEAKING.md</a></li>
+                <li class="file-item"><a href="GUIDE_VOIX_MASCULINE_TTS.md">GUIDE_VOIX_MASCULINE_TTS.md</a></li>
+            </ul>
+        </div>
+        
+        <div class="category">
+            <div class="category-title">🎨 Interface et Drawer</div>
+            <ul class="file-list">
+                <li class="file-item"><a href="PLAN_REFONTE_DRAWER.md">PLAN_REFONTE_DRAWER.md</a></li>
+                <li class="file-item"><a href="AUDIT_DRAWER_KITT.md">AUDIT_DRAWER_KITT.md</a></li>
+                <li class="file-item"><a href="AUDIT_WEBAPP_INTERFACE.md">AUDIT_WEBAPP_INTERFACE.md</a></li>
+            </ul>
+        </div>
+        
+        <div class="category">
+            <div class="category-title">🏗️ Architecture V3</div>
+            <ul class="file-list">
+                <li class="file-item"><a href="ARCHITECTURE_V3_FINAL.md">ARCHITECTURE_V3_FINAL.md</a></li>
+                <li class="file-item"><a href="SUCCESS_V3_FINAL.md">SUCCESS_V3_FINAL.md</a></li>
+                <li class="file-item"><a href="REFACTORING_V3_COMPLETE.md">REFACTORING_V3_COMPLETE.md</a></li>
+                <li class="file-item"><a href="MANAGERS_V3_COMPLETE.md">MANAGERS_V3_COMPLETE.md</a></li>
+                <li class="file-item"><a href="TEST_MANAGERS_V3.md">TEST_MANAGERS_V3.md</a></li>
+                <li class="file-item"><a href="INSTALLATION_V1_WITH_MANAGERS_V3.md">INSTALLATION_V1_WITH_MANAGERS_V3.md</a></li>
+                <li class="file-item"><a href="PROGRESS_V3_ARCHITECTURE.md">PROGRESS_V3_ARCHITECTURE.md</a></li>
+                <li class="file-item"><a href="ROADMAP_COMPLETE_v3.0.md">ROADMAP_COMPLETE_v3.0.md</a></li>
+            </ul>
+        </div>
+        
+        <div class="category">
+            <div class="category-title">🔧 Migration et Versions</div>
+            <ul class="file-list">
+                <li class="file-item"><a href="MIGRATION_MODULES_RESTANT.md">MIGRATION_MODULES_RESTANT.md</a></li>
+                <li class="file-item"><a href="MIGRATION_V2_UNIQUE.md">MIGRATION_V2_UNIQUE.md</a></li>
+                <li class="file-item"><a href="ROLLBACK_TO_V1.md">ROLLBACK_TO_V1.md</a></li>
+                <li class="file-item"><a href="V2_TODO.md">V2_TODO.md</a></li>
+                <li class="file-item"><a href="ETAT_ACTUEL_ET_SUITE.md">ETAT_ACTUEL_ET_SUITE.md</a></li>
+            </ul>
+        </div>
+        
+        <div class="category">
+            <div class="category-title">🐛 Bugfixes</div>
+            <ul class="file-list">
+                <li class="file-item"><a href="BUGFIX_V3_BUTTONS.md">BUGFIX_V3_BUTTONS.md</a></li>
+            </ul>
+        </div>
+        
+        <div class="category">
+            <div class="category-title">📊 Audits</div>
+            <ul class="file-list">
+                <li class="file-item"><a href="AUDIT_V1_COMPLETE.md">AUDIT_V1_COMPLETE.md</a></li>
+            </ul>
+        </div>
+        
+        <div class="category">
+            <div class="category-title">🎮 GameLibrary - Émulation</div>
+            <ul class="file-list">
+                <li class="file-item"><a href="RETROPLAY_CREATION_PLAN.md">RETROPLAY_CREATION_PLAN.md</a></li>
+                <li class="file-item"><a href="CHEATS_COMPLETE.md">CHEATS_COMPLETE.md</a></li>
+                <li class="file-item"><a href="AUDIT_CORES_BIOS_COMPLETE.md">AUDIT_CORES_BIOS_COMPLETE.md</a></li>
+                <li class="file-item"><a href="FINAL_AUDIT_COMPLETE.md">FINAL_AUDIT_COMPLETE.md</a></li>
+                <li class="file-item"><a href="CLEANUP_COMPLETE.md">CLEANUP_COMPLETE.md</a></li>
+                <li class="file-item"><a href="LIBRETRO_CONSOLE_NOMENCLATURE.md">LIBRETRO_CONSOLE_NOMENCLATURE.md</a></li>
+                <li class="file-item"><a href="CLEANUP_EMPTY_ROMS.md">CLEANUP_EMPTY_ROMS.md</a></li>
+                <li class="file-item"><a href="NATIVE_EMULATION_COMPLETE_14_CONSOLES.md">NATIVE_EMULATION_COMPLETE_14_CONSOLES.md</a></li>
+                <li class="file-item"><a href="SESSION_COMPLETE_NATIVE_EMULATION.md">SESSION_COMPLETE_NATIVE_EMULATION.md</a></li>
+                <li class="file-item"><a href="CONSOLE_DIRECTORY_MAPPING.md">CONSOLE_DIRECTORY_MAPPING.md</a></li>
+                <li class="file-item"><a href="CORES_ZIP_COMPATIBILITY.md">CORES_ZIP_COMPATIBILITY.md</a></li>
+                <li class="file-item"><a href="ZIP_SUPPORT_EXPLANATION.md">ZIP_SUPPORT_EXPLANATION.md</a></li>
+                <li class="file-item"><a href="NATIVE_EMULATION_FINAL_STATUS.md">NATIVE_EMULATION_FINAL_STATUS.md</a></li>
+                <li class="file-item"><a href="DUAL_BUTTONS_18_CONSOLES_NATIVES.md">DUAL_BUTTONS_18_CONSOLES_NATIVES.md</a></li>
+                <li class="file-item"><a href="CORES_TO_ADD.md">CORES_TO_ADD.md</a></li>
+                <li class="file-item"><a href="NATIVE_EMULATION_FINAL_RECAP.md">NATIVE_EMULATION_FINAL_RECAP.md</a></li>
+                <li class="file-item"><a href="SESSION_GENESIS_COMPLETE.md">SESSION_GENESIS_COMPLETE.md</a></li>
+                <li class="file-item"><a href="GENESIS_STATUS_FINAL.md">GENESIS_STATUS_FINAL.md</a></li>
+                <li class="file-item"><a href="SESSION_FINAL_GENESIS_CACHE.md">SESSION_FINAL_GENESIS_CACHE.md</a></li>
+                <li class="file-item"><a href="SESSION_FINAL_2025-10-19.md">SESSION_FINAL_2025-10-19.md</a></li>
+                <li class="file-item"><a href="NATIVE_CONSOLES_FINAL.md">NATIVE_CONSOLES_FINAL.md</a></li>
+                <li class="file-item"><a href="GENESIS_CACHE_SYSTEM.md">GENESIS_CACHE_SYSTEM.md</a></li>
+                <li class="file-item"><a href="GENESIS_SIMPLE_APPROACH.md">GENESIS_SIMPLE_APPROACH.md</a></li>
+                <li class="file-item"><a href="GENESIS_FIX_FINAL.md">GENESIS_FIX_FINAL.md</a></li>
+                <li class="file-item"><a href="GENESIS_ZIP_BIN_FIX.md">GENESIS_ZIP_BIN_FIX.md</a></li>
+                <li class="file-item"><a href="SESSION_CLEANUP_AND_GENESIS.md">SESSION_CLEANUP_AND_GENESIS.md</a></li>
+                <li class="file-item"><a href="CORES_ORIGIN_LIBRETRODROID.md">CORES_ORIGIN_LIBRETRODROID.md</a></li>
+                <li class="file-item"><a href="GENESIS_SUCCESS.md">GENESIS_SUCCESS.md</a></li>
+                <li class="file-item"><a href="ADD_GENESIS_SUPPORT.md">ADD_GENESIS_SUPPORT.md</a></li>
+                <li class="file-item"><a href="DUAL_EMULATION_SYSTEMS.md">DUAL_EMULATION_SYSTEMS.md</a></li>
+                <li class="file-item"><a href="ROM_LOADING_PSX_PSP.md">ROM_LOADING_PSX_PSP.md</a></li>
+                <li class="file-item"><a href="CORES_CORRECTIONS_FINAL.md">CORES_CORRECTIONS_FINAL.md</a></li>
+                <li class="file-item"><a href="CLEANUP_REPORT.md">CLEANUP_REPORT.md</a></li>
+                <li class="file-item"><a href="CORES_ANALYSIS_REPORT.md">CORES_ANALYSIS_REPORT.md</a></li>
+                <li class="file-item"><a href="CHEAT_FINAL_STATUS.md">CHEAT_FINAL_STATUS.md</a></li>
+                <li class="file-item"><a href="GAMEPAD_INTEGRATION.md">GAMEPAD_INTEGRATION.md</a></li>
+            </ul>
+        </div>
+        
+        <div class="category">
+            <div class="category-title">📁 Documentation dans app/</div>
+            <ul class="file-list">
+                <li class="file-item">
+                    <a href="app/src/main/java/com/chatai/cheat/README.md">app/src/main/java/com/chatai/cheat/README.md</a>
+                    <div class="file-path">Module Cheat</div>
+                </li>
+                <li class="file-item">
+                    <a href="app/src/main/assets/relax/data/localization/README.md">app/src/main/assets/relax/data/localization/README.md</a>
+                    <div class="file-path">Localisation</div>
+                </li>
+                <li class="file-item">
+                    <a href="app/src/main/assets/relax/data/compression/README.md">app/src/main/assets/relax/data/compression/README.md</a>
+                    <div class="file-path">Compression</div>
+                </li>
+                <li class="file-item">
+                    <a href="app/src/main/assets/relax/data/cores/core-README.md">app/src/main/assets/relax/data/cores/core-README.md</a>
+                    <div class="file-path">Cores</div>
+                </li>
+                <li class="file-item">
+                    <a href="app/src/main/assets/relax/data/cores/README.md">app/src/main/assets/relax/data/cores/README.md</a>
+                    <div class="file-path">Cores (alternatif)</div>
+                </li>
+            </ul>
+        </div>
+        
+        <footer>
+            <p>Index généré automatiquement - ChatAI-Android Documentation</p>
+            <p><small>Total: 94 fichiers Markdown</small></p>
+        </footer>
+    </div>
+</body>
+</html>
+
+
+

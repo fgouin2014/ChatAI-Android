@@ -1654,6 +1654,41 @@ public class WebAppInterface {
         return com.chatai.database.ConversationHistoryHelper.INSTANCE.deleteAllConversations(mContext);
     }
     
+    /**
+     * ⭐ NOUVEAU Phase 1.1: Sauvegarde un message webapp dans Room DB
+     * @param userMessage Le message de l'utilisateur
+     * @param aiResponse La réponse de l'IA
+     * @param personality La personnalité utilisée (par défaut: "casual")
+     * @param apiUsed L'API utilisée (par défaut: "webapp")
+     * @param responseTimeMs Le temps de réponse en ms (par défaut: 0)
+     * @param thinkingTrace Le trace de raisonnement (optionnel)
+     * @return true si succès, false sinon
+     */
+    @JavascriptInterface
+    public boolean saveWebappConversation(
+        String userMessage, 
+        String aiResponse, 
+        String personality, 
+        String apiUsed, 
+        long responseTimeMs,
+        String thinkingTrace
+    ) {
+        // Utiliser valeurs par défaut si null/vide
+        String finalPersonality = (personality != null && !personality.trim().isEmpty()) ? personality : "casual";
+        String finalApiUsed = (apiUsed != null && !apiUsed.trim().isEmpty()) ? apiUsed : "webapp";
+        String finalThinkingTrace = (thinkingTrace != null && !thinkingTrace.trim().isEmpty()) ? thinkingTrace : null;
+        
+        return com.chatai.database.ConversationHistoryHelper.INSTANCE.saveWebappConversation(
+            mContext,
+            userMessage,
+            aiResponse,
+            finalPersonality,
+            finalApiUsed,
+            responseTimeMs,
+            finalThinkingTrace
+        );
+    }
+    
     // ========== ⭐ NOUVEAU: Méthodes pour Diagnostics ==========
     
     /**
@@ -1746,6 +1781,106 @@ public class WebAppInterface {
         }
     }
     
+    /**
+     * Vérifie le statut RAG (disponibilité du service d'embedding)
+     * @return JSON string avec {available: boolean, enabled: boolean, reason: string, useCloud: boolean}
+     */
+    @JavascriptInterface
+    public String getRAGStatus() {
+        try {
+            android.content.SharedPreferences prefs = mContext.getSharedPreferences("chatai_ai_config", android.content.Context.MODE_PRIVATE);
+            boolean ragEnabled = prefs.getBoolean("rag_enabled", false);
+            boolean useCloud = prefs.getBoolean("use_ollama_cloud", false);
+            String localServerUrl = prefs.getString("local_server_url", null);
+            
+            org.json.JSONObject result = new org.json.JSONObject();
+            result.put("enabled", ragEnabled);
+            result.put("useCloud", useCloud);
+            
+            // ⭐ FUTURE-PROOF: Utiliser EmbeddingService.isAvailableJava() pour détecter automatiquement
+            // si Cloud supporte /api/embeddings (ou si Local est accessible)
+            boolean isAvailable = false;
+            try {
+                com.chatai.services.EmbeddingService embeddingService = 
+                    new com.chatai.services.EmbeddingService(mContext);
+                
+                // Utiliser la méthode Java-friendly (utilise runBlocking en interne)
+                isAvailable = embeddingService.isAvailableJava();
+                
+                result.put("available", isAvailable);
+                
+                // Vérifier si Hugging Face est configuré
+                String hfApiKey = prefs.getString("huggingface_api_key", null);
+                boolean hasHuggingFace = hfApiKey != null && !hfApiKey.trim().isEmpty();
+                boolean useHuggingFace = useCloud && prefs.getBoolean("rag_use_huggingface", true);
+                
+                if (useCloud) {
+                    if (isAvailable) {
+                        if (useHuggingFace && hasHuggingFace) {
+                            result.put("reason", "");
+                        } else {
+                            result.put("reason", "");
+                        }
+                    } else {
+                        if (useHuggingFace && hasHuggingFace) {
+                            result.put("reason", "Hugging Face embeddings non disponibles. Vérifiez votre clé API Hugging Face.");
+                        } else {
+                            result.put("reason", "Ollama Cloud ne supporte pas /api/embeddings. Configurez une clé API Hugging Face pour activer RAG avec Cloud.");
+                        }
+                    }
+                } else {
+                    if (!isAvailable) {
+                        boolean hasLocalUrl = localServerUrl != null && !localServerUrl.trim().isEmpty();
+                        if (!hasLocalUrl) {
+                            result.put("reason", "URL du serveur Ollama local non configurée. Configurez l'URL dans l'onglet Local.");
+                        } else {
+                            result.put("reason", "Ollama local non accessible ou modèle d'embedding non installé. Vérifiez que Ollama local est démarré.");
+                        }
+                    } else {
+                        result.put("reason", "");
+                    }
+                }
+                
+            } catch (Exception e) {
+                Log.e(TAG, "Error checking embedding service", e);
+                result.put("available", false);
+                result.put("reason", "Erreur lors de la vérification: " + e.getMessage());
+            }
+            
+            return result.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting RAG status", e);
+            try {
+                org.json.JSONObject error = new org.json.JSONObject();
+                error.put("available", false);
+                error.put("enabled", false);
+                error.put("useCloud", false);
+                error.put("reason", "Erreur lors de la vérification: " + e.getMessage());
+                return error.toString();
+            } catch (org.json.JSONException je) {
+                return "{\"available\":false,\"enabled\":false,\"useCloud\":false,\"reason\":\"Erreur\"}";
+            }
+        }
+    }
+    
+    /**
+     * Vérifie si le fichier diagnostics.html existe
+     * @return "true" si le fichier existe, "false" sinon
+     */
+    @JavascriptInterface
+    public String diagnosticsHtmlExists() {
+        try {
+            java.io.File logsDir = new java.io.File("/storage/emulated/0/ChatAI-Files/logs");
+            java.io.File htmlFile = new java.io.File(logsDir, "diagnostics.html");
+            boolean exists = htmlFile.exists() && htmlFile.canRead();
+            Log.d(TAG, "Diagnostics HTML exists: " + exists + " (" + htmlFile.getAbsolutePath() + ")");
+            return exists ? "true" : "false";
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking diagnostics HTML existence", e);
+            return "false";
+        }
+    }
+
     /**
      * Génère et sauvegarde la page HTML complète avec tous les diagnostics
      * @return Chemin absolu du fichier HTML sauvegardé, ou "Error: ..." en cas d'erreur

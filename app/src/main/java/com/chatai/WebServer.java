@@ -225,6 +225,12 @@ public class WebServer {
                 serveGameDataFile(outputStream, cleanPath, method, enableSharedArrayBuffer);
                 return;
             }
+            
+            // ⭐ NOUVEAU : Vérifier si c'est une requête pour les fichiers de logs
+            if (cleanPath.startsWith("/logs/")) {
+                serveLogsFile(outputStream, cleanPath, method, enableSharedArrayBuffer);
+                return;
+            }
 
             
             // Construire le chemin complet
@@ -294,6 +300,107 @@ public class WebServer {
         } catch (IOException e) {
             Log.e(TAG, "Erreur lors du service du fichier relax: " + path, e);
             sendErrorResponse(outputStream, 404, "Not Found");
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU : Sert les fichiers depuis ChatAI-Files/logs/ (répertoire de logs)
+     * Utilisé par la route /logs/
+     */
+    private void serveLogsFile(OutputStream outputStream, String path, String method, boolean enableSharedArrayBuffer) throws IOException {
+        try {
+            // Extraire le chemin du fichier (enlever /logs/)
+            String filePath = path.substring(6); // Enlever "/logs/"
+            
+            Log.d(TAG, "Serving log file request: " + path + " -> filePath: " + filePath);
+            
+            // Décoder l'URL pour gérer les caractères spéciaux
+            try {
+                filePath = java.net.URLDecoder.decode(filePath, "UTF-8");
+                Log.d(TAG, "Decoded filePath: " + filePath);
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to decode URL: " + filePath, e);
+            }
+            
+            // Construire le chemin complet vers le fichier de logs
+            String fullPath = "/storage/emulated/0/ChatAI-Files/logs/" + filePath;
+            File file = new File(fullPath);
+            
+            Log.d(TAG, "Full path: " + fullPath);
+            Log.d(TAG, "File exists: " + file.exists() + ", isDirectory: " + file.isDirectory() + ", canRead: " + file.canRead());
+            
+            if (!file.exists()) {
+                Log.w(TAG, "Log file not found: " + fullPath);
+                // Vérifier si le répertoire existe
+                File logsDir = new File("/storage/emulated/0/ChatAI-Files/logs");
+                Log.w(TAG, "Logs directory exists: " + logsDir.exists() + ", path: " + logsDir.getAbsolutePath());
+                if (logsDir.exists()) {
+                    String[] files = logsDir.list();
+                    if (files != null) {
+                        Log.w(TAG, "Files in logs directory: " + java.util.Arrays.toString(files));
+                    }
+                }
+                sendErrorResponse(outputStream, 404, "Not Found: " + filePath);
+                return;
+            }
+            
+            if (!file.canRead()) {
+                Log.w(TAG, "Log file not readable: " + fullPath);
+                sendErrorResponse(outputStream, 403, "Forbidden: Cannot read file");
+                return;
+            }
+            
+            if (file.isDirectory()) {
+                // Pour les répertoires, retourner un listing HTML simple
+                Log.d(TAG, "Serving directory listing for: " + fullPath);
+                serveDirectoryListing(outputStream, file, path);
+                return;
+            }
+            
+            // Déterminer le type de contenu
+            String contentType = getContentType(filePath);
+            Log.d(TAG, "Content-Type for " + filePath + ": " + contentType);
+            
+            // Envoyer la réponse HTTP avec headers CORS
+            String response = "HTTP/1.1 200 OK\r\n" +
+                    "Content-Type: " + contentType + "\r\n" +
+                    "Content-Length: " + file.length() + "\r\n" +
+                    "Access-Control-Allow-Origin: *\r\n" +
+                    "Access-Control-Allow-Methods: GET, HEAD, OPTIONS\r\n" +
+                    "Access-Control-Allow-Headers: Content-Type\r\n" +
+                    getSharedArrayBufferHeaders(enableSharedArrayBuffer) +
+                    "\r\n";
+            
+            outputStream.write(response.getBytes());
+            
+            // Pour les requêtes HEAD, ne pas envoyer le contenu
+            if (!"HEAD".equals(method)) {
+                // Streaming avec buffer pour les gros fichiers
+                FileInputStream fileInputStream = new FileInputStream(file);
+                byte[] buffer = new byte[8192]; // Buffer de 8KB
+                int bytesRead;
+                long totalBytes = 0;
+                
+                while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                    totalBytes += bytesRead;
+                }
+                
+                fileInputStream.close();
+                Log.d(TAG, "Sent " + totalBytes + " bytes from log file: " + fullPath);
+            }
+            outputStream.flush();
+            
+            Log.d(TAG, "✅ Served log file successfully: " + fullPath + " (" + file.length() + " bytes)");
+            
+        } catch (IOException e) {
+            Log.e(TAG, "❌ Error serving log file: " + path, e);
+            e.printStackTrace();
+            sendErrorResponse(outputStream, 500, "Internal Server Error: " + e.getMessage());
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Unexpected error serving log file: " + path, e);
+            e.printStackTrace();
+            sendErrorResponse(outputStream, 500, "Internal Server Error: " + e.getMessage());
         }
     }
     

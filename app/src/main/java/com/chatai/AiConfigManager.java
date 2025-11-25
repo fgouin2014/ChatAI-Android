@@ -64,12 +64,20 @@ public final class AiConfigManager {
         return fallback;
     }
 
-    public static synchronized String readConfigJson(Context context) {
+    /**
+     * ⭐ OPTIMISATION : Lecture du JSON sans application des préférences
+     * (pour éviter les appels redondants - applyJsonToPreferences() est appelé dans loadConfig() et writeConfigJson())
+     * @param context Le contexte Android
+     * @param applyPreferences Si true, applique les préférences (pour compatibilité avec code existant)
+     */
+    public static synchronized String readConfigJson(Context context, boolean applyPreferences) {
         ensureConfigFile(context);
         File file = new File(CONFIG_PATH);
         if (!file.exists()) {
             JSONObject fallback = buildJsonFromPreferences(context);
-            applyJsonToPreferences(context, fallback);
+            if (applyPreferences) {
+                applyJsonToPreferences(context, fallback);
+            }
             writeJsonToFile(fallback);
             return toPrettyString(fallback);
         }
@@ -95,16 +103,32 @@ public final class AiConfigManager {
                         Log.d(TAG, "Nettoyage ai_config.json: apiKey vide supprimée du JSON");
                     }
                 }
-                applyJsonToPreferences(context, jsonObj);
+                // ⭐ OPTIMISATION : Ne pas appliquer les préférences si demandé (évite appels redondants)
+                if (applyPreferences) {
+                    applyJsonToPreferences(context, jsonObj);
+                }
             }
             return json;
         } catch (Exception e) {
             Log.e(TAG, "Error reading ai_config.json", e);
             JSONObject fallback = buildJsonFromPreferences(context);
-            applyJsonToPreferences(context, fallback);
+            if (applyPreferences) {
+                applyJsonToPreferences(context, fallback);
+            }
             writeJsonToFile(fallback);
             return toPrettyString(fallback);
         }
+    }
+
+    /**
+     * ⭐ OVERLOAD : Lecture du JSON avec application des préférences (compatibilité)
+     * Note: Pour réduire les appels redondants, utiliser readConfigJson(context, false) et
+     * appeler applyJsonToPreferences() manuellement seulement quand nécessaire.
+     */
+    public static synchronized String readConfigJson(Context context) {
+        // ⭐ OPTIMISATION : Par défaut, ne pas appliquer les préférences dans readConfigJson()
+        // car loadConfig() et writeConfigJson() le font déjà
+        return readConfigJson(context, false);
     }
 
     public static synchronized String writeConfigJson(Context context, String jsonContent) throws JSONException {
@@ -247,6 +271,7 @@ public final class AiConfigManager {
             JSONObject tts = new JSONObject();
             tts.put("mode", prefs.getString("tts_mode", "local"));
             tts.put("voice", prefs.getString("tts_voice", "kitt"));
+            tts.put("autoPlay", prefs.getBoolean("tts_auto_play", false));
 
             JSONObject overrides = new JSONObject();
             overrides.put("kitt", prefs.getString("prompt_kitt", ""));
@@ -262,6 +287,11 @@ public final class AiConfigManager {
             localServer.put("url", prefs.getString("local_server_url", "http://127.0.0.1:11434/v1/chat/completions"));
             // CRITIQUE: Modèle local fixé à gemma3-270m.gguf (ignorer toute autre valeur)
             localServer.put("model", "gemma3-270m.gguf");
+            
+            // ⭐ NOUVEAU: Configuration RAG (Recherche sémantique)
+            JSONObject rag = new JSONObject();
+            rag.put("enabled", prefs.getBoolean("rag_enabled", true)); // RAG activé par défaut
+            rag.put("embeddingModel", prefs.getString("embedding_model", "nomic-embed-text")); // Modèle par défaut
 
             root.put("cloud", cloud);
             root.put("webSearch", webSearch);
@@ -273,6 +303,7 @@ public final class AiConfigManager {
             root.put("systemPromptOverrides", overrides);
             root.put("constraints", constraints);
             root.put("local_server", localServer);
+            root.put("rag", rag); // ⭐ NOUVEAU: Configuration RAG
             root.put("updatedAt", updatedAt);
         } catch (JSONException e) {
             Log.e(TAG, "Error building JSON from preferences", e);
@@ -307,8 +338,14 @@ public final class AiConfigManager {
                 // La clé est présente dans le JSON (modifiée ou explicitement supprimée)
                 String apiKey = cloud.optString("apiKey", null);
                 if (apiKey != null && !apiKey.trim().isEmpty()) {
-                    Log.d(TAG, "Sauvegarde clé Ollama Cloud depuis ai_config.json (" + apiKey.length() + " chars)");
-                    secureConfig.setOllamaCloudApiKey(apiKey);
+                    // ⭐ OPTIMISATION: Vérifier si la clé est différente avant de sauvegarder
+                    String existingKey = secureConfig.getOllamaCloudApiKey();
+                    if (existingKey == null || !existingKey.equals(apiKey)) {
+                        Log.d(TAG, "Sauvegarde clé Ollama Cloud depuis ai_config.json (" + apiKey.length() + " chars)");
+                        secureConfig.setOllamaCloudApiKey(apiKey);
+                    } else {
+                        Log.v(TAG, "Clé Ollama Cloud identique, pas de sauvegarde nécessaire");
+                    }
                 } else {
                     // Champ vide dans le JSON
                     // Vérifier si une clé existe déjà dans SecureConfig
@@ -344,6 +381,17 @@ public final class AiConfigManager {
             }
             editor.putString("local_model_name", fixedModel);
             Log.d(TAG, "Local server config: url=" + localServer.optString("url") + ", model=" + fixedModel + " (fixé)");
+        }
+        
+        // ⭐ NOUVEAU: Traiter RAG (Recherche sémantique)
+        JSONObject rag = json.optJSONObject("rag");
+        if (rag != null) {
+            putBooleanIfPresent(editor, "rag_enabled", rag, "enabled");
+            putStringIfPresent(editor, "embedding_model", rag, "embeddingModel");
+            Log.d(TAG, "RAG config: enabled=" + rag.optBoolean("enabled", true) + ", embeddingModel=" + rag.optString("embeddingModel", "nomic-embed-text"));
+        } else {
+            // Si RAG n'existe pas dans JSON, activer par défaut (comportement par défaut)
+            Log.d(TAG, "RAG config non présente dans JSON - utilisation des valeurs par défaut (enabled=true, embeddingModel=nomic-embed-text)");
         }
 
         JSONObject webSearch = json.optJSONObject("webSearch");
@@ -397,6 +445,15 @@ public final class AiConfigManager {
         if (tts != null) {
             putStringIfPresent(editor, "tts_mode", tts, "mode");
             putStringIfPresent(editor, "tts_voice", tts, "voice");
+            // ⭐ FIX : Toujours sauvegarder tts_auto_play (même si false) pour persistance entre sessions
+            // Si autoPlay n'existe pas dans JSON, utiliser false par défaut, mais toujours sauvegarder
+            boolean autoPlay = tts.optBoolean("autoPlay", false);
+            editor.putBoolean("tts_auto_play", autoPlay);
+            Log.d(TAG, "TTS autoPlay sauvegardé: " + autoPlay + " (depuis JSON: " + tts.opt("autoPlay") + ")");
+        } else {
+            // ⭐ FIX : Si cfg.tts n'existe pas dans JSON, ne pas écraser la valeur existante dans SharedPreferences
+            // (garder la valeur actuelle si elle existe, sinon false par défaut)
+            Log.d(TAG, "TTS config non présente dans JSON - conservation de la valeur SharedPreferences existante");
         }
 
         JSONObject overrides = json.optJSONObject("systemPromptOverrides");

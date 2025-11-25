@@ -376,6 +376,14 @@ public class SecureConfig {
         
         try {
             String trimmedKey = apiKey.trim();
+            
+            // ⭐ OPTIMISATION: Vérifier si la clé est identique avant de sauvegarder
+            String existingKey = getOllamaCloudApiKey();
+            if (existingKey != null && existingKey.equals(trimmedKey)) {
+                Log.v(TAG, "setOllamaCloudApiKey: clé identique, pas de sauvegarde nécessaire");
+                return;
+            }
+            
             Log.d(TAG, "setOllamaCloudApiKey: sauvegarde de la clé (" + trimmedKey.length() + " chars)");
             String encryptedKey = encrypt(trimmedKey);
             prefs.edit().putString(OLLAMA_CLOUD_KEY, encryptedKey).apply();
@@ -383,7 +391,7 @@ public class SecureConfig {
             // Vérifier que la sauvegarde a fonctionné
             String verifyKey = prefs.getString(OLLAMA_CLOUD_KEY, null);
             if (verifyKey != null) {
-                Log.i(TAG, "Clé API Ollama Cloud sauvegardée avec succès dans SecureConfig");
+                Log.d(TAG, "Clé API Ollama Cloud sauvegardée avec succès dans SecureConfig");
             } else {
                 Log.e(TAG, "ERREUR: Clé non trouvée après sauvegarde!");
             }

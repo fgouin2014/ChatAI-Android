@@ -35,7 +35,8 @@
     
     <!-- Permissions pour le service en arrière-plan -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- ⭐ FIX: Utiliser specialUse pour Android 14+ (nécessite déclaration dans property) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <!-- Permission Termux pour exécuter des commandes -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
@@ -226,7 +227,12 @@
                     android:name=".BackgroundService"
                     android:enabled="true"
                     android:exported="false"
-                    android:foregroundServiceType="dataSync" />
+                    android:foregroundServiceType="specialUse">
+                    <!-- ⭐ FIX: Déclaration requise pour specialUse sur Android 14+ -->
+                    <property
+                        android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                        android:value="ChatAI Background Service - Maintains HTTP/WebSocket servers for local network access" />
+                </service>
                     
                 <!-- KITT Quick Settings Tile Service -->
                 <service

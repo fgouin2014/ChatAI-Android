@@ -125,7 +125,7 @@
             this.configModeSelect = document.getElementById('configModeSelect');
             this.configSelectedModel = document.getElementById('configSelectedModel');
             this.configSelectedModelCustom = document.getElementById('configSelectedModelCustom');
-            this.saveModeConfigBtn = document.getElementById('saveModeConfigBtn');
+            // saveModeConfigBtn supprimé (fusionné avec saveCloudConfigBtn)
             
             // Config DOM - Cloud
             this.configCloudProvider = document.getElementById('configCloudProvider');
@@ -182,11 +182,24 @@
             this.porcupineFields = document.querySelectorAll('.porcupine-only');
             
             // Config DOM - TTS
-            this.configTtsMode = document.getElementById('configTtsMode');
+            this.configTtsEngine = document.getElementById('configTtsEngine');
+            this.configTtsEndpoint = document.getElementById('configTtsEndpoint');
+            this.configTtsModel = document.getElementById('configTtsModel');
+            this.configTtsModelCustom = document.getElementById('configTtsModelCustom');
+            this.configTtsLanguage = document.getElementById('configTtsLanguage');
+            this.configTtsSpeed = document.getElementById('configTtsSpeed');
+            this.configTtsEmotion = document.getElementById('configTtsEmotion');
+            this.configTtsSpeakerWav = document.getElementById('configTtsSpeakerWav');
             this.configTtsVoice = document.getElementById('configTtsVoice');
             this.configTtsVoiceCustom = document.getElementById('configTtsVoiceCustom');
             this.configTtsAutoPlay = document.getElementById('configTtsAutoPlay');
-            this.saveTtsBtn = document.getElementById('saveTtsBtn');
+            this.saveTtsConfigBtn = document.getElementById('saveTtsConfigBtn');
+            
+            // Hugging Face (dans Cloud et Local)
+            this.configHuggingFaceApiKey = document.getElementById('configHuggingFaceApiKey');
+            this.configHuggingFaceEmbeddingModel = document.getElementById('configHuggingFaceEmbeddingModel');
+            this.configHuggingFaceEmbeddingModelCustom = document.getElementById('configHuggingFaceEmbeddingModelCustom');
+            this.configHuggingFaceUseForRAG = document.getElementById('configHuggingFaceUseForRAG');
             
             // Config DOM - Prompts
             this.configPromptKitt = document.getElementById('configPromptKitt');
@@ -334,14 +347,14 @@
             
             // Boutons sauvegarde
             const buttonBindings = [
-                { element: this.saveModeConfigBtn, section: 'mode' },
+                // Mode sauvegardé avec section 'cloud' maintenant
                 { element: this.saveCloudConfigBtn, section: 'cloud' },
                 { element: this.saveLocalConfigBtn, section: 'local' },
                 { element: this.saveWebThinkingBtn, section: 'thinking' },
                 { element: this.saveVisionBtn, section: 'vision' },
                 { element: this.saveAudioBtn, section: 'audio' },
                 { element: this.saveHotwordBtn, section: 'hotword' },
-                { element: this.saveTtsBtn, section: 'tts' },
+                { element: this.saveTtsConfigBtn, section: 'tts' },
                 { element: this.savePromptsBtn, section: 'prompts' },
                 { element: this.saveConstraintsBtn, section: 'constraints' }
             ];
@@ -353,6 +366,20 @@
                     });
                 }
             });
+            
+            // ⭐ NOUVEAU: Listener sur le select de mode pour mettre à jour RAG et affichage conditionnel
+            if (this.configModeSelect) {
+                window.ChatUtils.addListener(this.configModeSelect, 'change', () => {
+                    // Mettre à jour le statut RAG immédiatement quand le mode change
+                    if (this.chatConfig && this.chatConfig.updateRAGStatus) {
+                        this.chatConfig.updateRAGStatus();
+                    }
+                    // Mettre à jour l'affichage conditionnel Cloud/Local
+                    this.updateCloudModeView();
+                });
+                // Initialiser l'affichage au chargement
+                this.updateCloudModeView();
+            }
             
             // Boutons contrôle Hotword
             const hotwordStartBtn = document.getElementById('hotwordStartBtn');
@@ -449,11 +476,15 @@
             this.currentView = viewId;
 
             if (viewId === 'view-config') {
+                // ⭐ NOUVEAU: Mettre à jour le statut RAG quand on ouvre la vue config
+                if (this.chatConfig && this.chatConfig.updateRAGStatus) {
+                    this.chatConfig.updateRAGStatus();
+                }
                 this.chatConfig.loadAiConfigPreview(false).then(() => {
                     // renderConfigForms sera appelé dans loadAiConfigPreview si core est défini
                     setTimeout(() => {
                         this.chatConfig.initConfigTabs();
-                    }, 50);
+                    }, 100);
                 });
             } else if (viewId === 'view-history' && this.chatHistory) {
                 // ⭐ NOUVEAU: Charger l'historique quand la vue est affichée
@@ -655,5 +686,12 @@
     }
     
     console.log('✅ ChatCore chargé');
+    
+    // Fonction globale pour mettre à jour l'affichage conditionnel Cloud/Local
+    window.updateCloudModeView = function() {
+        if (window.secureChatApp && window.secureChatApp.updateCloudModeView) {
+            window.secureChatApp.updateCloudModeView();
+        }
+    };
 })();
 

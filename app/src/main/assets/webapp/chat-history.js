@@ -189,6 +189,13 @@
                 // Afficher les résultats
                 this.renderConversations(conversations, query);
                 
+                // ⭐ AMÉLIORATION: Feedback utilisateur
+                if (conversations.length > 0) {
+                    this.showSuccess(`${conversations.length} résultat(s) trouvé(s) pour "${query}"`);
+                } else {
+                    this.showEmpty(`Aucun résultat pour "${query}"`);
+                }
+                
             } catch (error) {
                 console.error('Erreur recherche:', error);
                 this.showError('Erreur de recherche: ' + error.message);
@@ -308,14 +315,14 @@
             const personalityIcon = personality === 'KITT' ? '🚗' : personality === 'GLaDOS' ? '🤖' : '🤖';
             
             const thinkingHtml = conversation.thinkingTrace 
-                ? `<div style="margin-top: 16px; padding: 12px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px;">
+                ? `<div style="margin-top: 16px; padding: 12px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; max-width: 100%; box-sizing: border-box;">
                     <div style="font-size: 12px; color: #8b5cf6; margin-bottom: 8px; font-weight: 600;">🧠 Raisonnement:</div>
-                    <div style="font-size: 12px; color: #cbd5e1; line-height: 1.6; white-space: pre-wrap; font-family: monospace;">${this.escapeHtml(conversation.thinkingTrace)}</div>
+                    <div style="font-size: 12px; color: #cbd5e1; line-height: 1.6; white-space: pre-wrap; font-family: monospace; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word; max-width: 100%; overflow-x: auto; overflow-y: visible; box-sizing: border-box;">${this.escapeHtml(conversation.thinkingTrace)}</div>
                 </div>`
                 : '';
             
             const modalContent = `
-                <div style="padding: 20px; max-height: 80vh; overflow-y: auto;">
+                <div style="padding: 20px;">
                     <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid rgba(148, 163, 184, 0.2);">
                         <div style="font-size: 13px; color: #64748b; margin-bottom: 8px;">${dateStr}</div>
                         <div style="font-size: 12px; color: #94a3b8;">
@@ -469,7 +476,16 @@
             if (window.secureChatApp?.androidInterface?.showToast) {
                 window.secureChatApp.androidInterface.showToast(message);
             } else {
-                alert(message);
+                // Fallback: afficher temporairement dans la liste
+                if (this.historyList) {
+                    const successDiv = document.createElement('div');
+                    successDiv.style.cssText = 'text-align: center; padding: 20px; color: #10b981; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; margin-bottom: 16px;';
+                    successDiv.innerHTML = `<div style="font-size: 14px;">✅ ${message}</div>`;
+                    this.historyList.insertBefore(successDiv, this.historyList.firstChild);
+                    setTimeout(() => successDiv.remove(), 3000);
+                } else {
+                    alert(message);
+                }
             }
         }
         
@@ -478,12 +494,14 @@
             const modal = document.createElement('div');
             modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center;';
             modal.innerHTML = `
-                <div style="background: #1e293b; border-radius: 12px; max-width: 600px; max-height: 80vh; width: 90%; overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.3);">
-                    <div style="padding: 16px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); display: flex; justify-content: space-between; align-items: center;">
+                <div style="background: #1e293b; border-radius: 12px; max-width: 600px; max-height: 80vh; width: 90%; display: flex; flex-direction: column; border: 1px solid rgba(148, 163, 184, 0.3);">
+                    <div style="padding: 16px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                         <h3 style="margin: 0; color: #e2e8f0; font-size: 18px;">${title}</h3>
                         <button onclick="this.closest('.modal-close').remove()" style="background: none; border: none; color: #94a3b8; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px;">×</button>
                     </div>
-                    ${content}
+                    <div style="overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0;">
+                        ${content}
+                    </div>
                 </div>
             `;
             

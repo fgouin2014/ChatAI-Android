@@ -1741,7 +1741,7 @@
                     <!-- Tab Content: TTS -->
                     <div class="config-tab-content" data-content="tts">
                     <div class="panel-section">
-                        <h4>TTS</h4>
+                        <h4>🎙️ TTS</h4>
                         <div class="form-grid">
                             <label>Mode
                                 <input type="text" id="configTtsMode" placeholder="local">
@@ -1758,6 +1758,15 @@
                                 </select>
                                 <input type="text" id="configTtsVoiceCustom" class="custom-input hidden" placeholder="Voix personnalisée">
                             </label>
+                        </div>
+                        <div class="form-checkbox" style="margin-top: 10px; margin-bottom: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="configTtsAutoPlay" style="width: auto; margin: 0;">
+                                <span>Lecture automatique des réponses (TTS)</span>
+                            </label>
+                            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 24px; display: block; margin-top: 4px;">
+                                Les réponses de l'IA seront automatiquement lues à voix haute (voix KITT)
+                            </span>
                         </div>
                         <button class="panel-button" id="saveTtsBtn">Sauvegarder</button>
                     </div>

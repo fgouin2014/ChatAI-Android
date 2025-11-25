@@ -23,8 +23,12 @@
 
         /**
          * Affiche un message sécurisé (user ou ai)
+         * @param {string} sender - 'user' ou 'ai'
+         * @param {string} message - Le contenu du message
+         * @param {boolean} saveToHistory - Si true, sauvegarde dans l'historique
+         * @param {string} source - Source du message ('hotword', 'kitt', etc.) - optionnel pour badge STT
          */
-        showSecureMessage(sender, message, saveToHistory = true) {
+        showSecureMessage(sender, message, saveToHistory = true, source = null) {
             if (!this.chatMessages) return;
             
             const messageDiv = document.createElement('div');
@@ -32,9 +36,40 @@
             messageDiv.style.opacity = '0';
             messageDiv.style.transform = 'translateY(20px)';
             
+            // ⭐ NOUVEAU : Avatar avec position relative pour badge
+            const avatarContainer = document.createElement('div');
+            avatarContainer.style.cssText = 'position: relative; flex-shrink: 0;';
+            
             const avatar = document.createElement('div');
             avatar.className = 'message-avatar';
             avatar.textContent = sender === 'user' ? '👤' : '🤖';
+            
+            // ⭐ NOUVEAU : Badge 🔊 superposé sur l'avatar si message STT (hotword)
+            if (sender === 'user' && source === 'hotword') {
+                const sttBadge = document.createElement('div');
+                sttBadge.className = 'stt-badge';
+                sttBadge.textContent = '🔊';
+                sttBadge.style.cssText = `
+                    position: absolute;
+                    top: -4px;
+                    right: -4px;
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    border: 2px solid white;
+                    border-radius: 50%;
+                    width: 18px;
+                    height: 18px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 10px;
+                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+                    z-index: 10;
+                `;
+                avatarContainer.appendChild(avatar);
+                avatarContainer.appendChild(sttBadge);
+            } else {
+                avatarContainer.appendChild(avatar);
+            }
             
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
@@ -60,6 +95,9 @@
                 actions.appendChild(copyBtn);
                 bubble.appendChild(actions);
                 
+                // ⭐ NOUVEAU : Lecture automatique TTS si l'option est activée
+                this.maybeAutoPlayTTS(message);
+                
                 // Notification si l'app n'est pas en avant-plan
                 if (document.hidden && window.secureChatApp?.androidInterface?.showNotification) {
                     window.secureChatApp.androidInterface.showNotification(
@@ -68,7 +106,7 @@
                 }
             }
             
-            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(avatarContainer);
             messageDiv.appendChild(bubble);
             this.chatMessages.appendChild(messageDiv);
             
@@ -244,6 +282,9 @@
                             actions.appendChild(copyBtn);
                             bubble.appendChild(actions);
                         }
+                        
+                        // ⭐ NOUVEAU : Lecture automatique TTS si l'option est activée
+                        this.maybeAutoPlayTTS(responseDiv.textContent);
                     }
                 }
             }
@@ -341,6 +382,9 @@
             actions.appendChild(listenBtn);
             actions.appendChild(copyBtn);
             bubble.appendChild(actions);
+            
+            // ⭐ NOUVEAU : Lecture automatique TTS si l'option est activée
+            this.maybeAutoPlayTTS(responseContent);
             
             messageDiv.appendChild(avatar);
             messageDiv.appendChild(bubble);
@@ -459,8 +503,67 @@
 
         /**
          * Synthèse vocale du texte
+         * ⭐ NOUVEAU : Utilise maintenant le TTS Android (KITT) au lieu de Web Speech API
+         * Fonctionne même si l'interface KITT n'est pas visible
          */
         speakText(text) {
+            // Vérifier si l'interface Android est disponible
+            if (window.AndroidApp && typeof window.AndroidApp.speakText === 'function') {
+                try {
+                    // Utiliser le TTS Android (KITT) via WebAppInterface
+                    window.AndroidApp.speakText(text);
+                    console.log('🔊 TTS Android (KITT) démarré pour:', text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+                } catch (error) {
+                    console.error('Erreur TTS Android:', error);
+                    this.showToast('Erreur lors de la lecture TTS');
+                    // Fallback vers Web Speech API si TTS Android échoue
+                    this.speakTextFallback(text);
+                }
+            } else {
+                // Fallback vers Web Speech API si Android TTS non disponible
+                console.warn('TTS Android non disponible, fallback vers Web Speech API');
+                this.speakTextFallback(text);
+            }
+        }
+        
+        /**
+         * ⭐ NOUVEAU : Vérifie si l'auto-play TTS est activé et lit automatiquement la réponse
+         * @param {string} responseText - Le texte de la réponse complète
+         */
+        maybeAutoPlayTTS(responseText) {
+            if (!responseText || responseText.trim().length === 0) {
+                return; // Pas de texte à lire
+            }
+            
+            try {
+                // Vérifier si l'auto-play TTS est activé dans la configuration
+                // Accéder à la configuration via chatConfig (chargée dans chat-core.js)
+                const chatConfig = window.secureChatApp?.chatConfig;
+                if (!chatConfig || !chatConfig.aiConfigObject) {
+                    return; // Configuration non disponible
+                }
+                
+                const config = chatConfig.aiConfigObject;
+                const ttsConfig = config?.tts;
+                const autoPlay = ttsConfig?.autoPlay === true;
+                
+                if (autoPlay) {
+                    // Lire automatiquement la réponse avec TTS Android (KITT)
+                    console.log('🔊 Auto-play TTS activé, lecture automatique de la réponse');
+                    // Petit délai pour laisser le temps à la réponse de s'afficher
+                    setTimeout(() => {
+                        this.speakText(responseText);
+                    }, 500);
+                }
+            } catch (error) {
+                console.error('Erreur lors de la vérification auto-play TTS:', error);
+            }
+        }
+        
+        /**
+         * ⭐ NOUVEAU : Fallback vers Web Speech API si TTS Android non disponible
+         */
+        speakTextFallback(text) {
             if ('speechSynthesis' in window) {
                 // Arrêter toute synthèse en cours
                 speechSynthesis.cancel();
@@ -473,15 +576,15 @@
                 utterance.volume = 1;
                 
                 utterance.onstart = () => {
-                    console.log('Synthèse vocale démarrée');
+                    console.log('Synthèse vocale Web Speech démarrée');
                 };
                 
                 utterance.onend = () => {
-                    console.log('Synthèse vocale terminée');
+                    console.log('Synthèse vocale Web Speech terminée');
                 };
                 
                 utterance.onerror = (event) => {
-                    console.error('Erreur synthèse vocale:', event);
+                    console.error('Erreur synthèse vocale Web Speech:', event);
                     this.showToast('Erreur lors de la lecture');
                 };
                 

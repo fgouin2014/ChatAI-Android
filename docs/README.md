@@ -41,6 +41,16 @@
   - Résolution de conflits
   - Commandes utiles
 
+### **RAG (Retrieval Augmented Generation):**
+- **`GUIDE_RAG.md`** → Guide utilisateur RAG (Ollama local)
+- **`RAG_SERVER_GUIDE.md`** → Guide serveur RAG Python
+- **`RAG_SERVER_ARCHITECTURE.md`** → Architecture serveur RAG
+- **`NOTES_DEVELOPPEMENT_RAG.md`** → Notes de développement RAG (modifications récentes)
+  - Configuration serveur RAG Python
+  - Environnement virtuel
+  - État d'intégration
+  - Comparaison des systèmes
+
 ---
 
 ## 🚀 UTILISATION RAPIDE
@@ -147,6 +157,6 @@ Ces documents sont dans la racine du projet ChatAI-Android:
 
 ---
 
-**Dernière mise à jour:** 2025-11-06  
-**Version:** 1.0.0
+**Dernière mise à jour:** 2025-01-XX  
+**Version:** 1.1.0
 

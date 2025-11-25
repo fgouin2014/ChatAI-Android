@@ -55,6 +55,8 @@ class WhisperServerRecognizer(
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private val mainHandler = Handler(Looper.getMainLooper())
     private var isRecording = false
+    private var warmupPerformed = false // Flag pour éviter de faire le warm-up plusieurs fois
+    private var isWarmupInProgress = false // ⭐ NOUVEAU : Flag pour indiquer que le warm-up est en cours
 
     fun startListening() {
         if (isRecording) {
@@ -78,6 +80,19 @@ class WhisperServerRecognizer(
         isRecording = true
         post { callback.onReady() }
         scope.launch {
+            // ⭐ FIX : Démarrer le warm-up en arrière-plan SANS bloquer la capture
+            // La capture démarre immédiatement, et on ignore les résultats si le warm-up n'est pas terminé
+            if (!warmupPerformed) {
+                isWarmupInProgress = true // ⭐ FIX : Marquer que le warm-up est en cours
+                // ⭐ FIX : Lancer le warm-up en parallèle (ne pas attendre)
+                scope.launch {
+                    performWarmup()
+                    warmupPerformed = true
+                    isWarmupInProgress = false // ⭐ FIX : Marquer que le warm-up est terminé
+                    android.util.Log.i("WhisperSTT", "✅ Warm-up terminé, capture prête pour transcription réelle")
+                }
+            }
+            // ⭐ FIX : Démarrer la capture immédiatement (ne pas attendre le warm-up)
             captureAndTranscribe(record)
         }
     }
@@ -174,13 +189,46 @@ class WhisperServerRecognizer(
 
         val wavData = buildWav(audioBytes)
         android.util.Log.d("WhisperSTT", "Envoi WAV: ${wavData.size} bytes (${durationSec}s) vers ${config.endpoint}")
+        
+        // ⭐ FIX : Attendre que le warm-up soit terminé avant d'envoyer la transcription
+        // (mais continuer à capturer l'audio pendant le warm-up)
+        if (isWarmupInProgress) {
+            android.util.Log.d("WhisperSTT", "Warm-up en cours, attente avant transcription...")
+            // Attendre maximum 5 secondes pour que le warm-up se termine
+            var waitCount = 0
+            while (isWarmupInProgress && waitCount < 50) {
+                kotlinx.coroutines.delay(100)
+                waitCount++
+            }
+            if (isWarmupInProgress) {
+                android.util.Log.w("WhisperSTT", "Warm-up prend trop de temps, envoi de la transcription quand même")
+            } else {
+                android.util.Log.d("WhisperSTT", "✅ Warm-up terminé, envoi de la transcription")
+            }
+        }
+        
         android.util.Log.d("WhisperSTT", "Timeouts configurés: connect=15s, read=120s, write=60s, call=150s")
         val startTranscribeTime = System.currentTimeMillis()
         try {
             val text = uploadAndTranscribe(wavData)
             val transcribeDuration = System.currentTimeMillis() - startTranscribeTime
-            android.util.Log.i("WhisperSTT", "Transcription reçue en ${transcribeDuration}ms: $text")
-            post { callback.onResult(text) }
+            
+            // ⭐ FIX : Filtrer les transcriptions vides, contenant uniquement des points, ou issues du warmup
+            // Le warmup peut retourner "..." ou des chaînes vides, on ne veut pas les traiter comme des messages
+            val trimmedText = text.trim()
+            val isEmptyOrDots = trimmedText.isEmpty() || 
+                                trimmedText == "..." || 
+                                trimmedText.matches(Regex("^\\.+$")) || // Uniquement des points
+                                trimmedText.length < 2 // Trop court pour être un vrai message
+            
+            if (isEmptyOrDots) {
+                android.util.Log.d("WhisperSTT", "Transcription ignorée (vide ou warmup): \"$text\" (${transcribeDuration}ms)")
+                // Ne pas appeler onResult() pour les transcriptions vides/points
+                return
+            }
+            
+            android.util.Log.i("WhisperSTT", "Transcription reçue en ${transcribeDuration}ms: $trimmedText")
+            post { callback.onResult(trimmedText) }
         } catch (e: Exception) {
             val transcribeDuration = System.currentTimeMillis() - startTranscribeTime
             android.util.Log.e("WhisperSTT", "Erreur transcription après ${transcribeDuration}ms", e)
@@ -301,6 +349,98 @@ class WhisperServerRecognizer(
 
     private fun postError(message: String) {
         post { callback.onError(message) }
+    }
+
+    /**
+     * ⭐ NOUVEAU : Warm-up synchronisé pour Whisper
+     * Envoie 200ms d'audio silencieux avec language="fr" pour initialiser le modèle
+     * Attend 100ms après le warm-up pour garantir que le modèle est initialisé
+     * ⭐ FIX : Le résultat du warm-up est ignoré (ne déclenche pas onResult())
+     */
+    private suspend fun performWarmup() {
+        android.util.Log.d("WhisperSTT", "🔥 Démarrage warm-up Whisper...")
+        val warmupStartTime = System.currentTimeMillis()
+        
+        try {
+            // Générer 200ms d'audio silencieux (PCM 16-bit mono 16kHz)
+            val warmupDurationMs = 200L
+            val warmupSamples = (sampleRate * warmupDurationMs / 1000).toInt()
+            val warmupBytes = ByteArray(warmupSamples * 2) // 16-bit = 2 bytes par sample
+            // ByteArray est initialisé à 0 par défaut, donc silence complet
+            
+            // Construire le WAV avec l'audio silencieux
+            val wavData = buildWav(warmupBytes)
+            
+            android.util.Log.d("WhisperSTT", "Warm-up: Envoi de ${wavData.size} bytes (${warmupDurationMs}ms) d'audio silencieux avec language=\"fr\"")
+            
+            // ⭐ FIX : Envoyer le warm-up avec language="fr" explicitement
+            // Le résultat est ignoré (ne déclenche pas callback.onResult())
+            val warmupText = uploadAndTranscribeForWarmup(wavData)
+            val warmupDuration = System.currentTimeMillis() - warmupStartTime
+            
+            // ⭐ FIX : Log le résultat mais ne pas le traiter comme une transcription réelle
+            android.util.Log.d("WhisperSTT", "✅ Warm-up terminé en ${warmupDuration}ms (réponse ignorée: \"${warmupText}\")")
+            
+            // ⭐ Attendre 100ms après le warm-up pour garantir que le modèle est initialisé
+            kotlinx.coroutines.delay(100)
+            
+            android.util.Log.i("WhisperSTT", "🔥 Warm-up complet, modèle Whisper initialisé (prêt pour transcription réelle)")
+        } catch (e: Exception) {
+            android.util.Log.w("WhisperSTT", "⚠️ Warm-up échoué (non bloquant): ${e.message}")
+            // Ne pas bloquer si le warm-up échoue - la première transcription réelle fera l'initialisation
+        }
+    }
+
+    /**
+     * Version spéciale de uploadAndTranscribe pour le warm-up
+     * Envoie avec language="fr" explicitement
+     */
+    private suspend fun uploadAndTranscribeForWarmup(wavData: ByteArray): String {
+        val mediaType = "audio/wav".toMediaType()
+        val bodyBuilder = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", "warmup.wav", wavData.toRequestBody(mediaType))
+            .addFormDataPart("language", "fr") // ⭐ Langue française explicite pour warm-up
+            .addFormDataPart("task", "transcribe")
+            .addFormDataPart("model", config.preferredModel)
+        
+        // Paramètres MINIMAUX pour warm-up (comme dans uploadAndTranscribe)
+        if (config.speedUp) {
+            bodyBuilder.addFormDataPart("speed_up", "true")
+        }
+        if (config.temperature > 0.0f) {
+            bodyBuilder.addFormDataPart("temperature", config.temperature.toString())
+        }
+        if (config.beamSize > 0) {
+            bodyBuilder.addFormDataPart("beam_size", config.beamSize.toString())
+        }
+        if (config.bestOf > 0) {
+            bodyBuilder.addFormDataPart("best_of", config.bestOf.toString())
+        }
+        if (config.threads > 0) {
+            bodyBuilder.addFormDataPart("threads", config.threads.toString())
+        }
+        
+        val body = bodyBuilder.build()
+
+        val requestBuilder = Request.Builder()
+            .url(config.endpoint.ifBlank { AudioEngineConfig.DEFAULT_ENDPOINT })
+            .post(body)
+
+        config.apiKey?.let {
+            requestBuilder.header("Authorization", "Bearer $it")
+        }
+
+        httpClient.newCall(requestBuilder.build()).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IllegalStateException("HTTP ${response.code}")
+            }
+            val bodyString = response.body?.string() ?: throw IllegalStateException("Réponse vide")
+            val json = JSONObject(bodyString)
+            return json.optString("text", json.optString("transcription", "")).ifBlank {
+                "" // Warm-up peut retourner vide, c'est normal
+            }
+        }
     }
 
     private fun post(block: () -> Unit) {

@@ -100,6 +100,13 @@ interface ConversationDao {
     @Query("SELECT SUM(LENGTH(userMessage) + LENGTH(aiResponse)) FROM conversations")
     suspend fun getTotalCharacters(): Long?
     
+    // ⭐ NOUVEAU Phase 4: Statistiques avancées
+    @Query("SELECT SUM(responseTimeMs) FROM conversations WHERE responseTimeMs > 0")
+    suspend fun getTotalConversationTime(): Long?
+    
+    @Query("SELECT AVG(LENGTH(userMessage) + LENGTH(aiResponse)) FROM conversations")
+    suspend fun getAverageMessageLength(): Double?
+    
     // ========== NETTOYAGE ==========
     
     @Query("DELETE FROM conversations WHERE timestamp < :beforeTimestamp")
@@ -124,7 +131,77 @@ interface ConversationDao {
     @Query("SELECT * FROM conversations WHERE embeddingsJson IS NOT NULL ORDER BY timestamp DESC")
     suspend fun getConversationsWithEmbeddings(): List<ConversationEntity>
     
+    @Query("SELECT COUNT(*) FROM conversations WHERE embeddingsJson IS NOT NULL")
+    suspend fun getConversationsWithEmbeddingsCount(): Int
+    
     @Query("UPDATE conversations SET embeddingsJson = :embeddings WHERE id = :id")
     suspend fun updateEmbeddings(id: Long, embeddings: String)
+}
+
+/**
+ * Utilitaires pour calcul de similarité cosine
+ * Utilisé pour la recherche sémantique dans les embeddings
+ * 
+ * ⭐ SELON NOS RULES: Fonction pure, pas de dépendances Android
+ */
+object SimilarityUtils {
+    
+    /**
+     * Calcule la similarité cosine entre deux vecteurs d'embeddings
+     * @param embedding1 Premier vecteur d'embedding
+     * @param embedding2 Deuxième vecteur d'embedding
+     * @return Score entre 0.0 (pas similaire) et 1.0 (identique)
+     * 
+     * Formule: cosine_similarity = dot(A,B) / (||A|| * ||B||)
+     */
+    fun cosineSimilarity(embedding1: FloatArray, embedding2: FloatArray): Float {
+        if (embedding1.size != embedding2.size) {
+            android.util.Log.w("SimilarityUtils", "Embedding dimension mismatch: ${embedding1.size} vs ${embedding2.size}")
+            return 0f
+        }
+        
+        // Calcul du produit scalaire (dot product)
+        var dotProduct = 0f
+        // Calcul des normes L2
+        var norm1 = 0f
+        var norm2 = 0f
+        
+        for (i in embedding1.indices) {
+            dotProduct += embedding1[i] * embedding2[i]
+            norm1 += embedding1[i] * embedding1[i]
+            norm2 += embedding2[i] * embedding2[i]
+        }
+        
+        // Vérifier que les normes ne sont pas nulles (vecteurs non nuls)
+        if (norm1 == 0f || norm2 == 0f) {
+            android.util.Log.w("SimilarityUtils", "Zero norm detected: norm1=$norm1, norm2=$norm2")
+            return 0f
+        }
+        
+        // Calcul de la similarité cosine
+        val similarity = dotProduct / (kotlin.math.sqrt(norm1) * kotlin.math.sqrt(norm2))
+        
+        // Assurer que le résultat est dans [0, 1] (parfois des erreurs de précision peuvent donner légèrement > 1)
+        return similarity.coerceIn(0f, 1f)
+    }
+    
+    /**
+     * Calcule la distance euclidienne entre deux vecteurs
+     * Plus la distance est petite, plus les vecteurs sont similaires
+     * @return Distance (toujours positive, 0 = identique)
+     */
+    fun euclideanDistance(embedding1: FloatArray, embedding2: FloatArray): Float {
+        if (embedding1.size != embedding2.size) {
+            return Float.MAX_VALUE
+        }
+        
+        var sumSquaredDiff = 0f
+        for (i in embedding1.indices) {
+            val diff = embedding1[i] - embedding2[i]
+            sumSquaredDiff += diff * diff
+        }
+        
+        return kotlin.math.sqrt(sumSquaredDiff)
+    }
 }
 

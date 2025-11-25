@@ -12,6 +12,7 @@ import android.content.pm.PackageManager;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
+import android.content.Context;
 import androidx.fragment.app.FragmentTransaction;
 import android.Manifest;
 import android.widget.Toast;
@@ -32,6 +33,9 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
     private WebAppInterface webInterface;
     private static final String TAG = "MainActivity";
     
+    // ⭐ NOUVEAU : Référence statique à MainActivity pour accès depuis BackgroundService
+    private static MainActivity sInstance = null;
+    
     // Service en arrière-plan
     private BackgroundService backgroundService;
     private boolean isServiceBound = false;
@@ -50,6 +54,9 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
     private boolean isKittVisible = false;
     private boolean isKittPersistent = false;
     
+    // ⭐ NOUVEAU : Service TTS global pour utilisation depuis le chat (même si KITT non visible)
+    private com.chatai.managers.KittTTSManager globalTTSManager;
+    
     // Permissions
     private static final int PERMISSION_REQUEST_CODE = 1001;
     private boolean hasRequestedPermissions = false;
@@ -57,10 +64,20 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
     // Speech Recognition (simplifié avec Intent standard)
     // ⭐ PUBLIC pour être accessible depuis WebAppInterface
     public static final int REQUEST_SPEECH_RECOGNITION = 2001;
+    public static final int REQUEST_SPEECH_RECOGNITION_HOTWORD = 2002;  // ⭐ NOUVEAU : Pour hotword
+
+    /**
+     * ⭐ NOUVEAU : Obtenir la référence statique à MainActivity (pour accès depuis BackgroundService)
+     */
+    public static MainActivity getInstance() {
+        return sInstance;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // ⭐ NOUVEAU : Enregistrer la référence statique à MainActivity
+        sInstance = this;
         Log.i(TAG, "MainActivity onCreate démarré");
         setContentView(R.layout.activity_main);
         Log.i(TAG, "Layout chargé: activity_main");
@@ -74,6 +91,12 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
 
         // Démarrer le service en arrière-plan
         startBackgroundService();
+        
+        // ⭐ NOUVEAU : Initialiser le fichier de log (créer répertoire et fichier s'ils n'existent pas)
+        initializeLogFile();
+        
+        // ⭐ NOUVEAU : Initialiser le service TTS global pour utilisation depuis le chat
+        initializeGlobalTTS();
         
         setupWebView();
         setupKittInterface();
@@ -493,15 +516,136 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
         setKittPersistentMode(!isKittPersistent);
     }
     
+    /**
+     * ⭐ NOUVEAU : Initialiser le service TTS global pour utilisation depuis le chat
+     * Ce TTS fonctionne même si KITT n'est pas visible
+     */
+    /**
+     * Initialise le fichier de log (créer répertoire et fichier s'ils n'existent pas)
+     * Garantit que le fichier existe pour les diagnostics
+     */
+    private void initializeLogFile() {
+        try {
+            com.chatai.database.DiagnosticsHelper diagnosticsHelper = 
+                new com.chatai.database.DiagnosticsHelper(this);
+            boolean success = diagnosticsHelper.initializeLogFile();
+            if (success) {
+                Log.d(TAG, "Fichier de log initialisé avec succès");
+            } else {
+                Log.w(TAG, "Échec de l'initialisation du fichier de log");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de l'initialisation du fichier de log", e);
+        }
+    }
+
+    private void initializeGlobalTTS() {
+        try {
+            // Créer un listener minimal pour le TTS global (seulement pour logging)
+            com.chatai.managers.KittTTSManager.TTSListener ttsListener = new com.chatai.managers.KittTTSManager.TTSListener() {
+                @Override
+                public void onTTSReady() {
+                    Log.i(TAG, "✅ TTS global prêt");
+                }
+                
+                @Override
+                public void onTTSStart(String utteranceId) {
+                    Log.d(TAG, "🔊 TTS global: début parole (utteranceId: " + utteranceId + ")");
+                }
+                
+                @Override
+                public void onTTSDone(String utteranceId) {
+                    Log.d(TAG, "✅ TTS global: fin parole (utteranceId: " + utteranceId + ")");
+                }
+                
+                @Override
+                public void onTTSError(String utteranceId) {
+                    Log.e(TAG, "❌ TTS global: erreur (utteranceId: " + utteranceId + ")");
+                }
+            };
+            
+            // Créer et initialiser le TTS manager global
+            globalTTSManager = new com.chatai.managers.KittTTSManager(this, ttsListener);
+            globalTTSManager.initialize();
+            
+            // Sélectionner la personnalité par défaut (KITT) - doit être final pour lambda
+            android.content.SharedPreferences prefs = getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE);
+            final String personality = prefs.getString("selected_personality", "KITT") != null ? 
+                prefs.getString("selected_personality", "KITT") : "KITT";
+            
+            // Sélectionner la voix après initialisation (via handler pour s'assurer que TTS est prêt)
+            // Utiliser une référence finale pour le TTS manager
+            final com.chatai.managers.KittTTSManager finalTTSManager = globalTTSManager;
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                if (finalTTSManager != null && finalTTSManager.isTTSReady()) {
+                    finalTTSManager.selectVoiceForPersonality(personality);
+                    Log.i(TAG, "✅ TTS global configuré avec personnalité: " + personality);
+                }
+            }, 500); // Délai pour s'assurer que TTS est initialisé
+            
+            Log.i(TAG, "✅ Service TTS global initialisé");
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Erreur initialisation TTS global", e);
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU : Obtenir le service TTS global (pour WebAppInterface)
+     */
+    public com.chatai.managers.KittTTSManager getGlobalTTSManager() {
+        return globalTTSManager;
+    }
+    
     @Override
     protected void onDestroy() {
-        super.onDestroy();
+        // ⭐ FIX : Nettoyer le WebView AVANT super.onDestroy() pour éviter les erreurs WindowManager
+        if (webView != null) {
+            try {
+                webView.onPause();
+                webView.clearHistory();
+                webView.clearCache(true);
+                webView.loadUrl("about:blank");
+                webView.removeAllViews();
+                webView.destroyDrawingCache();
+                // ⭐ FIX : Détacher le WebView de son parent avant destruction
+                if (webView.getParent() != null) {
+                    ((android.view.ViewGroup) webView.getParent()).removeView(webView);
+                }
+                webView = null;
+                Log.i(TAG, "✅ WebView nettoyé");
+            } catch (Exception e) {
+                Log.w(TAG, "Erreur nettoyage WebView", e);
+            }
+        }
+        
+        // ⭐ NOUVEAU : Détruire le TTS global
+        if (globalTTSManager != null) {
+            try {
+                globalTTSManager.destroy();
+                globalTTSManager = null;
+                Log.i(TAG, "✅ TTS global détruit");
+            } catch (Exception e) {
+                Log.e(TAG, "Erreur destruction TTS global", e);
+            }
+        }
+        
+        // ⭐ NOUVEAU : Réinitialiser la référence statique à MainActivity
+        if (sInstance == this) {
+            sInstance = null;
+        }
         
         // Délier le service en arrière-plan
         if (isServiceBound) {
-            unbindService(serviceConnection);
-            isServiceBound = false;
+            try {
+                unbindService(serviceConnection);
+                isServiceBound = false;
+            } catch (Exception e) {
+                Log.w(TAG, "Erreur déliaison service", e);
+            }
         }
+        
+        // ⭐ FIX : Appeler super.onDestroy() APRÈS le nettoyage pour éviter les erreurs WindowManager
+        super.onDestroy();
         
         // Note: Les serveurs continuent de fonctionner via BackgroundService
         // Ils ne s'arrêtent que si l'app est complètement fermée
@@ -533,36 +677,61 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         
-        if (requestCode == REQUEST_SPEECH_RECOGNITION) {
+        if (requestCode == REQUEST_SPEECH_RECOGNITION || requestCode == REQUEST_SPEECH_RECOGNITION_HOTWORD) {
             if (resultCode == RESULT_OK && data != null) {
                 ArrayList<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
                 if (results != null && !results.isEmpty()) {
                     String spokenText = results.get(0);
-                    Log.i(TAG, "Speech Recognition result: " + spokenText);
+                    Log.i(TAG, "Speech Recognition result: " + spokenText + " (requestCode=" + requestCode + ")");
                     
-                    // Insérer le texte dans le textInput de la webapp via JavaScript
-                    if (webView != null) {
-                        // Échapper les guillemets simples et sauts de ligne pour JavaScript
-                        String safeText = spokenText.replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r");
-                        String jsCode = 
-                            "var input = document.getElementById('messageInput'); " +
-                            "if (input) { " +
-                            "  input.value = '" + safeText + "'; " +
-                            "  if (input.dispatchEvent) { " +
-                            "    input.dispatchEvent(new Event('input', { bubbles: true })); " +
-                            "  } " +
-                            "  if (window.secureChatApp && window.secureChatApp.chatUI && window.secureChatApp.chatUI.adjustTextareaHeight) { " +
-                            "    window.secureChatApp.chatUI.adjustTextareaHeight(); " +
-                            "  } " +
-                            "}";
-                        webView.evaluateJavascript(jsCode, null);
-                        Log.i(TAG, "✅ Text inserted into messageInput");
+                    // ⭐ NOUVEAU : Si c'est pour le hotword, envoyer le résultat à BackgroundService
+                    if (requestCode == REQUEST_SPEECH_RECOGNITION_HOTWORD) {
+                        // Envoyer le résultat au BackgroundService pour traitement hotword
+                        Intent intent = new Intent(this, com.chatai.BackgroundService.class);
+                        intent.setAction(com.chatai.BackgroundService.ACTION_HOTWORD_SPEECH_RESULT);
+                        intent.putExtra("transcription", spokenText);
+                        startService(intent);
+                        Log.i(TAG, "✅ Transcription hotword envoyée à BackgroundService: " + spokenText);
+                    } else {
+                        // Comportement normal : insérer le texte dans le textInput de la webapp
+                        if (webView != null) {
+                            // Échapper les guillemets simples et sauts de ligne pour JavaScript
+                            String safeText = spokenText.replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r");
+                            String jsCode = 
+                                "var input = document.getElementById('messageInput'); " +
+                                "if (input) { " +
+                                "  input.value = '" + safeText + "'; " +
+                                "  if (input.dispatchEvent) { " +
+                                "    input.dispatchEvent(new Event('input', { bubbles: true })); " +
+                                "  } " +
+                                "  if (window.secureChatApp && window.secureChatApp.chatUI && window.secureChatApp.chatUI.adjustTextareaHeight) { " +
+                                "    window.secureChatApp.chatUI.adjustTextareaHeight(); " +
+                                "  } " +
+                                "}";
+                            webView.evaluateJavascript(jsCode, null);
+                            Log.i(TAG, "✅ Text inserted into messageInput");
+                        }
                     }
                 }
             } else if (resultCode == RESULT_CANCELED) {
-                Log.i(TAG, "Speech Recognition cancelled by user");
+                Log.i(TAG, "Speech Recognition cancelled by user (requestCode=" + requestCode + ")");
+                // ⭐ NOUVEAU : Si c'est pour le hotword, notifier BackgroundService
+                if (requestCode == REQUEST_SPEECH_RECOGNITION_HOTWORD) {
+                    Intent intent = new Intent(this, com.chatai.BackgroundService.class);
+                    intent.setAction(com.chatai.BackgroundService.ACTION_HOTWORD_SPEECH_CANCELED);
+                    startService(intent);
+                    Log.i(TAG, "✅ Annulation hotword notifiée à BackgroundService");
+                }
             } else {
-                Log.w(TAG, "Speech Recognition failed (resultCode=" + resultCode + ")");
+                Log.w(TAG, "Speech Recognition failed (resultCode=" + resultCode + ", requestCode=" + requestCode + ")");
+                // ⭐ NOUVEAU : Si c'est pour le hotword, notifier BackgroundService
+                if (requestCode == REQUEST_SPEECH_RECOGNITION_HOTWORD) {
+                    Intent intent = new Intent(this, com.chatai.BackgroundService.class);
+                    intent.setAction(com.chatai.BackgroundService.ACTION_HOTWORD_SPEECH_ERROR);
+                    intent.putExtra("error", "Speech Recognition failed (resultCode=" + resultCode + ")");
+                    startService(intent);
+                    Log.i(TAG, "✅ Erreur hotword notifiée à BackgroundService");
+                }
             }
         }
     }

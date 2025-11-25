@@ -179,3 +179,6 @@ La personnalite KARR est complete, coherente et parfaitement integree dans l'inf
 
 
 
+
+
+

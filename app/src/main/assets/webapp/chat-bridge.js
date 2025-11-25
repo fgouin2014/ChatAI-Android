@@ -28,8 +28,9 @@
             if (this.isInitialized) return;
             
             // Option 1: Callback via window (meilleur - appelé depuis WebAppInterface)
-            window.onKittMessageReceived = (message, messageType) => {
-                this.handleKittMessage(message, messageType);
+            // ⭐ NOUVEAU : Callback avec source pour badge STT
+            window.onKittMessageReceived = (message, messageType, source) => {
+                this.handleKittMessage(message, messageType, source);
             };
             
             // Option 2: Polling (fallback si callback non disponible)
@@ -74,20 +75,25 @@
 
         /**
          * Gère un message reçu de KITT
+         * @param {string} message - Le contenu du message
+         * @param {string} messageType - Le type de message (USER_INPUT, AI_RESPONSE, etc.)
+         * @param {string} source - La source du message (hotword, kitt_voice, etc.) - optionnel
          */
-        handleKittMessage(message, messageType) {
-            console.log("Message reçu de KITT:", message, messageType);
+        handleKittMessage(message, messageType, source = null) {
+            console.log("Message reçu de KITT:", message, messageType, source);
             
             if (!message || !messageType) return;
             
             switch(messageType) {
                 case "USER_INPUT":
                     // KITT a détecté une commande vocale → afficher dans Chat
-                    this.chatUI.showSecureMessage('user', `[KITT] ${message}`);
+                    // ⭐ NOUVEAU : Passer source pour badge STT (hotword)
+                    // Si source='hotword', le badge 🔊 sera affiché sur l'avatar
+                    this.chatUI.showSecureMessage('user', message, true, source);
                     break;
                 case "AI_RESPONSE":
                     // KITT a reçu une réponse → afficher dans Chat
-                    this.chatUI.showSecureMessage('ai', message);
+                    this.chatUI.showSecureMessage('ai', message, true, null);
                     break;
                 case "SYSTEM_STATUS":
                     // Statut système (ex: "KITT activé", "Écoute en cours")

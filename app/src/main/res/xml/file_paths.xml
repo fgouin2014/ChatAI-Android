@@ -9,5 +9,10 @@
     <external-path 
         name="chatai_files" 
         path="ChatAI-Files/" />
+    
+    <!-- ⭐ NOUVEAU Phase 4: Accès aux fichiers dans getExternalFilesDir() pour partage HTML -->
+    <external-files-path
+        name="external_files"
+        path="." />
 </paths>
 

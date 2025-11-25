@@ -214,7 +214,7 @@
                 <h2>🎮 GameLibrary</h2>
                 <div class="grid">
                     <div class="card" onclick="window.open('http://localhost:8888/gamelibrary/', '_blank')">
-                        <h3>🕹️ GameLibrary Interface</h3>
+                        <h3>🕹️ GameLibrary (via ChatAI)</h3>
                         <p>Émulateurs rétro (NES, SNES, PSX, etc.)</p>
                         <div class="url">http://localhost:8888/gamelibrary/</div>
                     </div>
@@ -239,7 +239,7 @@
                 <div style="text-align: center;">
                     <a href="/index.html" class="btn primary">💬 Ouvrir Chat</a>
                     <a href="http://localhost:8080/api/status" class="btn">📊 Statut API</a>
-                    <a href="http://localhost:8888/gamelibrary/" class="btn">🎮 GameLibrary</a>
+                    <a href="http://localhost:8888/gamelibrary/" class="btn">🎮 GameLibrary (ChatAI)</a>
                     <button onclick="testAllServices()" class="btn">🧪 Tester Services</button>
                 </div>
             </div>
@@ -269,7 +269,7 @@
         async function testAllServices() {
             const services = [
                 { name: 'ChatAI HttpServer', url: 'http://localhost:8080/api/status' },
-                { name: 'GameLibrary WebServer', url: 'http://localhost:8888/gamelibrary/' }
+                { name: 'GameLibrary via ChatAI WebServer', url: 'http://localhost:8888/gamelibrary/' }
             ];
             
             let results = [];

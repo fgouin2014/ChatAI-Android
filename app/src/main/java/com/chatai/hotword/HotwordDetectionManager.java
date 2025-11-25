@@ -156,18 +156,8 @@ public class HotwordDetectionManager {
      */
     private void onHotwordDetected(String keyword) {
         Log.i(TAG, "🔥 HOTWORD DETECTED - " + keyword);
-        // Bref beep pour indiquer que l'app écoute la question
-        try {
-            android.media.ToneGenerator tg = new android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 60);
-            tg.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 120);
-            // Libérer la ressource après un court délai pour éviter les timeouts
-            android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
-            handler.postDelayed(() -> {
-                try {
-                    tg.release();
-                } catch (Throwable ignored) {}
-            }, 150); // Libérer après 150ms (le beep dure 120ms)
-        } catch (Throwable ignored) {}
+        // ⭐ FIX : Pas de bip ici - le bip sera géré dans BackgroundService.respondAI()
+        // selon le moteur STT utilisé (Whisper = bip, Google Speech Activity = pas de bip car Google fait déjà son propre bip)
 
         // ICI: Tu peux ajouter l'action à effectuer
         // Par exemple: ouvrir KITT, activer l'écoute vocale, etc.
