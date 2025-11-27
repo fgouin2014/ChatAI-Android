@@ -482,18 +482,28 @@
                     cfg.cloud.provider = this.getSelectValue(core.configCloudProvider, core.configCloudProviderCustom);
                     const cloudApiKeyValue = core.configCloudApiKey?.value?.trim() || '';
                     
-                    // Sauvegarder la clé si elle a été saisie
+                    // ⭐ FIX CRITIQUE: Toujours inclure apiKey dans le JSON si elle existe
+                    // Ne JAMAIS supprimer apiKey du JSON, même si le champ est vide
+                    // Android vérifiera si la clé a changé avant de sauvegarder
                     if (cloudApiKeyValue) {
+                        // Nouvelle clé saisie par l'utilisateur
                         cfg.cloud.apiKey = cloudApiKeyValue;
+                        console.log('💾 Sauvegarde nouvelle clé API:', cloudApiKeyValue.length, 'chars');
                     } else {
-                        // Champ vide = ne pas inclure apiKey dans le JSON (Android gardera la clé existante)
-                        delete cfg.cloud.apiKey;
+                        // Champ vide: NE PAS supprimer apiKey du JSON
+                        // Si apiKey existe déjà dans cfg.cloud, la garder
+                        // Si elle n'existe pas, ne pas l'ajouter (Android gardera la clé existante)
+                        if (!cfg.cloud.apiKey) {
+                            // Pas de clé dans le JSON actuel, ne rien faire
+                            console.log('⚠️ Champ vide, conservation clé existante dans Android');
+                        } else {
+                            // Clé existe dans JSON mais champ vide = utilisateur veut la supprimer
+                            cfg.cloud.apiKey = '';
+                            console.log('🗑️ Suppression clé API demandée (champ vide)');
+                        }
                     }
                     
                     cfg.cloud.selectedModel = this.getSelectValue(core.configCloudModel, core.configCloudModelCustom);
-                    
-                    // ⭐ FIX: Ne pas vider le champ - garder la clé visible pour permettre le test
-                    // La clé est stockée dans Android, mais on la garde dans le champ pour UX
                     break;
                 case 'local':
                     // Tab Local : Configuration du serveur Ollama local + modèle gemma + RAG

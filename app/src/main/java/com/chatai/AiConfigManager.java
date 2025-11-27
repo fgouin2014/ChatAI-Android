@@ -216,20 +216,18 @@ public final class AiConfigManager {
             // IMPORTANT: Ne mettre apiKey dans le JSON que si elle existe
             // Si elle est vide/null, ne pas l'inclure pour éviter qu'elle soit supprimée
             String apiKey = null;
-            // ⭐ NOUVEAU: Utiliser KeyringManager (système unifié)
+            // ⭐ FIX CRITIQUE: Toujours lire depuis KeyringManager et inclure dans JSON
             KeyringManager keyring = KeyringManager.getInstance(context);
             apiKey = keyring.getApiKey(provider);
             if (apiKey != null) {
                 apiKey = apiKey.trim();
-                Log.d(TAG, "Clé " + provider + " récupérée depuis Keyring: " + (apiKey.isEmpty() ? "vide" : apiKey.length() + " chars"));
-            } else {
-                Log.d(TAG, "Aucune clé " + provider + " trouvée dans Keyring");
-            }
-            if (apiKey != null && !apiKey.isEmpty()) {
+                Log.i(TAG, "📖 LECTURE clé " + provider + " depuis Keyring: " + apiKey.length() + " chars");
+                // ⭐ TOUJOURS inclure dans le JSON pour que la webapp puisse l'afficher
                 cloud.put("apiKey", apiKey);
-                Log.d(TAG, "Clé API ajoutée au JSON pour provider " + provider);
+                Log.i(TAG, "✅ Clé API ajoutée au JSON pour provider " + provider);
             } else {
-                Log.d(TAG, "Aucune clé API à ajouter au JSON pour provider " + provider);
+                Log.d(TAG, "⚠️ Aucune clé " + provider + " trouvée dans Keyring, pas d'apiKey dans JSON");
+                // Ne pas mettre apiKey vide dans JSON pour éviter confusion
             }
             // Si apiKey est vide, ne pas l'inclure dans le JSON (pas de cloud.put("apiKey", ""))
             cloud.put("selectedModel", prefs.getString("cloud_selected_model", selectedModel));
