@@ -1364,19 +1364,16 @@
               const previousProvider = cfg?.cloud?.provider || 'ollama';
               
               // ⭐ ÉTAPE 1: Si une clé est saisie dans le champ, la sauvegarder AVANT de changer de provider
-              if (previousProvider && previousProvider !== provider && chatConfig) {
+              if (previousProvider && previousProvider !== provider && chatConfig && cfg) {
                   const currentApiKey = apiKeyInput.value?.trim() || '';
                   
                   if (currentApiKey && currentApiKey.length > 0) {
                       console.log(`💾 Sauvegarde clé ${previousProvider} avant changement...`);
                       // Sauvegarder avec le provider actuel
                       if (!cfg.cloud) cfg.cloud = {};
-                      const tempProvider = cfg.cloud.provider;
                       cfg.cloud.provider = previousProvider;
-                      cfg.cloud.apiKey = currentApiKey;
+                      cfg.cloud.apiKey = currentApiKey; // ⭐ TOUJOURS inclure apiKey
                       await chatConfig.persistAiConfig(`Clé ${previousProvider} préservée`);
-                      cfg.cloud.provider = tempProvider;
-                      // ⭐ FIX: Ne pas vider le champ - garder la clé visible
                       console.log(`✅ Clé ${previousProvider} sauvegardée`);
                   }
               }
@@ -1421,12 +1418,37 @@
                       break;
               }
               
-              // ⭐ ÉTAPE 3: Changer le provider (sans la clé dans le JSON)
+              // ⭐ ÉTAPE 3: Changer le provider SEULEMENT (sans modifier apiKey)
+              // On sauvegarde directement le provider sans passer par saveConfigSection
+              // pour éviter d'envoyer apiKey = "" qui supprimerait la clé
               if (chatConfig && cfg) {
                   if (!cfg.cloud) cfg.cloud = {};
+                  const oldProvider = cfg.cloud.provider;
                   cfg.cloud.provider = provider;
-                  delete cfg.cloud.apiKey; // Ne pas inclure la clé pour ne pas écraser celle stockée
-                  await chatConfig.persistAiConfig('Provider mis à jour');
+                  
+                  // ⭐ FIX CRITIQUE: Sauvegarder SEULEMENT le provider, sans apiKey
+                  // On construit un JSON minimal avec seulement le provider
+                  // Android va voir que apiKey est absent, et va conserver la clé existante
+                  // du nouveau provider (si elle existe) ou ne rien faire (si elle n'existe pas)
+                  const minimalConfig = JSON.parse(JSON.stringify(cfg));
+                  // Ne pas inclure apiKey dans le JSON pour dire "ne pas modifier"
+                  if (minimalConfig.cloud) {
+                      delete minimalConfig.cloud.apiKey;
+                  }
+                  
+                  // Sauvegarder directement via writeAiConfigJson
+                  if (chatConfig.androidInterface?.writeAiConfigJson) {
+                      const jsonStr = JSON.stringify(minimalConfig, null, 2);
+                      const result = chatConfig.androidInterface.writeAiConfigJson(jsonStr);
+                      if (result === 'OK' || result === true) {
+                          console.log(`✅ Provider changé: ${oldProvider} → ${provider}`);
+                      } else {
+                          console.error('❌ Erreur sauvegarde provider:', result);
+                      }
+                  } else {
+                      // Fallback: utiliser persistAiConfig (mais ça va inclure apiKey)
+                      await chatConfig.persistAiConfig('Provider mis à jour');
+                  }
               }
               
               // ⭐ ÉTAPE 4: Recharger la config depuis Android
