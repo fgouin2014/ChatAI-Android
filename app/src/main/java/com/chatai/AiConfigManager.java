@@ -219,13 +219,28 @@ public final class AiConfigManager {
             if ("huggingface".equalsIgnoreCase(provider)) {
                 // Clé Hugging Face depuis SharedPreferences
                 apiKey = prefs.getString("huggingface_api_key", null);
+                if (apiKey != null) {
+                    apiKey = apiKey.trim();
+                    Log.d(TAG, "Clé Hugging Face récupérée: " + (apiKey.isEmpty() ? "vide" : apiKey.length() + " chars"));
+                } else {
+                    Log.d(TAG, "Aucune clé Hugging Face trouvée dans SharedPreferences");
+                }
             } else {
                 // Clé Ollama (ou autres providers) depuis SecureConfig
                 SecureConfig secureConfig = new SecureConfig(context);
                 apiKey = secureConfig.getOllamaCloudApiKey();
+                if (apiKey != null) {
+                    apiKey = apiKey.trim();
+                    Log.d(TAG, "Clé " + provider + " récupérée: " + (apiKey.isEmpty() ? "vide" : apiKey.length() + " chars"));
+                } else {
+                    Log.d(TAG, "Aucune clé " + provider + " trouvée dans SecureConfig");
+                }
             }
-            if (apiKey != null && !apiKey.trim().isEmpty()) {
+            if (apiKey != null && !apiKey.isEmpty()) {
                 cloud.put("apiKey", apiKey);
+                Log.d(TAG, "Clé API ajoutée au JSON pour provider " + provider);
+            } else {
+                Log.d(TAG, "Aucune clé API à ajouter au JSON pour provider " + provider);
             }
             // Si apiKey est vide, ne pas l'inclure dans le JSON (pas de cloud.put("apiKey", ""))
             cloud.put("selectedModel", prefs.getString("cloud_selected_model", selectedModel));

@@ -1407,43 +1407,53 @@
                       const chatConfig = window.secureChatApp.chatConfig;
                       const core = window.secureChatApp;
                       
-                      // ⭐ IMPORTANT: Préserver la clé API actuelle avant de recharger
+                      // ⭐ IMPORTANT: Préserver la clé API du provider actuel AVANT de sauvegarder le nouveau provider
                       // Récupérer depuis data-original-key (si masquée) ou depuis value (si nouvelle)
-                      let currentApiKey = apiKeyInput.getAttribute('data-original-key');
-                      if (!currentApiKey && apiKeyInput.value && !apiKeyInput.value.includes('*')) {
-                          currentApiKey = apiKeyInput.value;
+                      let preservedApiKey = apiKeyInput.getAttribute('data-original-key');
+                      if (!preservedApiKey && apiKeyInput.value && !apiKeyInput.value.includes('*')) {
+                          preservedApiKey = apiKeyInput.value.trim();
                       }
+                      const previousProvider = chatConfig.aiConfigObject?.cloud?.provider || 'ollama';
                       
-                      console.log('Provider changé vers:', provider, 'Clé préservée:', currentApiKey ? `${currentApiKey.length} chars` : 'aucune');
+                      console.log('Provider changé:', previousProvider, '→', provider);
+                      console.log('Clé préservée:', preservedApiKey ? `${preservedApiKey.length} chars` : 'aucune');
                       
                       // Sauvegarder uniquement le provider (sans toucher à la clé API)
                       await chatConfig.saveCloudProviderOnly(provider, core);
                       
-                      // Recharger la config depuis Android pour avoir la bonne clé pour ce provider
+                      // ⭐ FIX: Recharger la config depuis Android pour avoir la bonne clé pour ce provider
                       await chatConfig.loadAiConfigPreview(true);
                       
-                      // ⭐ IMPORTANT: renderConfigForms() a été appelé automatiquement par loadAiConfigPreview()
-                      // Maintenant, vérifier si la clé rechargée est vide et restaurer la clé préservée si nécessaire
-                      // Attendre un peu pour que renderConfigForms() soit terminé
-                      await new Promise(resolve => setTimeout(resolve, 150));
+                      // ⭐ FIX: Attendre que renderConfigForms() soit terminé (appelé automatiquement par loadAiConfigPreview)
+                      await new Promise(resolve => setTimeout(resolve, 200));
                       
                       // Vérifier l'état actuel du champ après renderConfigForms()
-                      const currentDisplayedKey = apiKeyInput.getAttribute('data-original-key') || '';
-                      const currentDisplayedValue = apiKeyInput.value || '';
+                      const reloadedApiKey = apiKeyInput.getAttribute('data-original-key') || '';
+                      const reloadedValue = apiKeyInput.value || '';
+                      const hasReloadedKey = reloadedApiKey && reloadedApiKey.length > 0;
+                      const hasEmptyOrMasked = !reloadedValue || reloadedValue === '' || reloadedValue.includes('*');
                       
-                      // Si le champ est vide ou ne contient que des *, et qu'on avait une clé avant, la restaurer
-                      if (currentApiKey && (!currentDisplayedKey || currentDisplayedValue === '' || (currentDisplayedValue.includes('*') && currentDisplayedValue.length < currentApiKey.length))) {
-                          // Restaurer la clé préservée dans le champ (affichage seulement, pas dans config)
-                          if (apiKeyInput) {
-                              apiKeyInput.setAttribute('data-original-key', currentApiKey);
-                              apiKeyInput.value = '*'.repeat(currentApiKey.length);
-                              console.log('✅ Clé API restaurée dans le champ après changement de provider');
-                          }
-                      } else if (currentDisplayedKey) {
+                      console.log('Après rechargement - Clé chargée:', hasReloadedKey ? `${reloadedApiKey.length} chars` : 'vide');
+                      console.log('Valeur affichée:', hasEmptyOrMasked ? 'vide/masquée' : 'nouvelle valeur');
+                      
+                      // ⭐ FIX: Si aucune clé n'a été chargée pour le nouveau provider ET qu'on avait une clé avant,
+                      // c'est que le nouveau provider n'a pas de clé configurée, donc on garde le champ vide
+                      // (ne pas restaurer la clé du provider précédent)
+                      if (hasReloadedKey) {
+                          // Une clé existe pour le nouveau provider → parfait
                           console.log('✅ Clé API chargée depuis Android pour le nouveau provider');
+                      } else {
+                          // Aucune clé pour le nouveau provider → champ reste vide (comportement normal)
+                          console.log('ℹ️ Aucune clé API configurée pour le nouveau provider (champ vide)');
+                          // S'assurer que le champ est bien vide
+                          if (apiKeyInput) {
+                              apiKeyInput.removeAttribute('data-original-key');
+                              apiKeyInput.value = '';
+                          }
                       }
                   } catch (error) {
-                      console.warn('Erreur sauvegarde/rechargement config lors changement provider:', error);
+                      console.error('Erreur sauvegarde/rechargement config lors changement provider:', error);
+                      chatConfig.showConfigFeedback('Erreur lors du changement de provider: ' + error.message, true);
                   }
               }
           }
@@ -1820,6 +1830,16 @@
                     }
                 }
                 
+                // ⭐ NOUVEAU: Peupler le dropdown avec les modèles vérifiés ou disponibles
+                const modelsToUse = verifiedModels.length > 0 ? verifiedModels : availableModels;
+                if (modelsToUse.length > 0) {
+                    // Sauvegarder dans localStorage
+                    saveCloudModelsToStorage(modelsToUse);
+                    // Peupler le dropdown
+                    populateCloudModelDropdown(modelsToUse);
+                    console.log(`✅ ${modelsToUse.length} modèle(s) Hugging Face ajouté(s) au dropdown`);
+                }
+                
                 // Afficher le résultat final
                 resultDiv.style.background = 'rgba(16, 185, 129, 0.1)';
                 resultDiv.style.borderColor = 'rgba(16, 185, 129, 0.3)';
@@ -1831,12 +1851,14 @@
                     modelsListHtml = `<br><strong style="color: #059669; margin-top: 8px; display: block;">Modèles disponibles (${verifiedModels.length}):</strong>` +
                         `<div style="max-height: 200px; overflow-y: auto; margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.05); border-radius: 4px;">` +
                         verifiedModels.map(m => `<div style="padding: 4px 0; font-family: monospace; font-size: 0.9em;">• ${m}</div>`).join('') +
-                        `</div>`;
+                        `</div>` +
+                        `<small style="color: #059669; margin-top: 8px; display: block;">✨ ${verifiedModels.length} modèle(s) ajouté(s) au dropdown</small>`;
                 } else if (availableModels.length > 0) {
                     modelsListHtml = `<br><strong style="color: #64748b; margin-top: 8px; display: block;">Modèles populaires (${availableModels.length}):</strong>` +
                         `<div style="max-height: 200px; overflow-y: auto; margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.05); border-radius: 4px;">` +
                         availableModels.slice(0, 10).map(m => `<div style="padding: 4px 0; font-family: monospace; font-size: 0.9em;">• ${m}</div>`).join('') +
-                        `</div>`;
+                        `</div>` +
+                        `<small style="color: #64748b; margin-top: 8px; display: block;">✨ ${availableModels.length} modèle(s) ajouté(s) au dropdown</small>`;
                 }
                 
                 detailsDiv.innerHTML = `Modèle testé: <strong>${modelName}</strong><br>` +
