@@ -156,15 +156,18 @@ public class KeyringManager {
      * Sauvegarde une clé API pour un provider
      */
     public void setApiKey(String provider, String apiKey) {
+        Log.i(TAG, "🔑 setApiKey: provider=" + provider + ", apiKey=" + (apiKey == null ? "null" : (apiKey.trim().isEmpty() ? "VIDE" : apiKey.length() + " chars")));
         if (apiKey == null || apiKey.trim().isEmpty()) {
+            Log.i(TAG, "🔑 setApiKey: Clé vide, appel clearApiKey");
             clearApiKey(provider);
             return;
         }
         
         try {
             String keyName = getKeyName(provider);
+            Log.i(TAG, "🔑 setApiKey: keyName=" + keyName);
             if (keyName == null) {
-                Log.w(TAG, "Provider inconnu: " + provider);
+                Log.e(TAG, "❌ setApiKey: Provider inconnu: " + provider);
                 return;
             }
             
@@ -172,6 +175,7 @@ public class KeyringManager {
             
             // Vérifier si identique
             String existing = getApiKey(provider);
+            Log.i(TAG, "🔑 setApiKey: Clé existante=" + (existing == null ? "null" : existing.length() + " chars"));
             if (existing != null && existing.equals(trimmedKey)) {
                 Log.v(TAG, "Clé " + provider + " identique, pas de sauvegarde");
                 return;
@@ -179,7 +183,7 @@ public class KeyringManager {
             
             String encrypted = encrypt(trimmedKey);
             prefs.edit().putString(keyName, encrypted).apply();
-            Log.d(TAG, "✅ Clé " + provider + " sauvegardée (" + trimmedKey.length() + " chars)");
+            Log.i(TAG, "✅ Clé " + provider + " sauvegardée dans SharedPreferences (" + trimmedKey.length() + " chars, encrypted=" + encrypted.length() + " chars)");
         } catch (Exception e) {
             Log.e(TAG, "❌ Erreur sauvegarde clé " + provider, e);
             throw new RuntimeException("Erreur sauvegarde clé " + provider, e);
@@ -198,11 +202,14 @@ public class KeyringManager {
             }
             
             String encrypted = prefs.getString(keyName, null);
+            Log.d(TAG, "🔑 getApiKey: provider=" + provider + ", keyName=" + keyName + ", encrypted=" + (encrypted == null ? "null" : encrypted.length() + " chars"));
             if (encrypted == null) {
                 return null;
             }
             
-            return decrypt(encrypted);
+            String decrypted = decrypt(encrypted);
+            Log.d(TAG, "🔑 getApiKey: Décrypté=" + (decrypted == null ? "null" : decrypted.length() + " chars"));
+            return decrypted;
         } catch (Exception e) {
             Log.e(TAG, "❌ Erreur récupération clé " + provider, e);
             return null;
