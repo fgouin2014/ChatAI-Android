@@ -492,11 +492,8 @@
                     
                     cfg.cloud.selectedModel = this.getSelectValue(core.configCloudModel, core.configCloudModelCustom);
                     
-                    // ⭐ NOUVEAU: Vider le champ après sauvegarde (la clé est stockée dans Android)
-                    // Elle sera rechargée automatiquement depuis Android au prochain chargement
-                    if (core.configCloudApiKey && cloudApiKeyValue) {
-                        core.configCloudApiKey.value = '';
-                    }
+                    // ⭐ FIX: Ne pas vider le champ - garder la clé visible pour permettre le test
+                    // La clé est stockée dans Android, mais on la garde dans le champ pour UX
                     break;
                 case 'local':
                     // Tab Local : Configuration du serveur Ollama local + modèle gemma + RAG

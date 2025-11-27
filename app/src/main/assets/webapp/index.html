@@ -1599,7 +1599,21 @@
         // Fonction de test de connexion Hugging Face
         async function testHuggingFaceConnection() {
             const apiKeyField = document.getElementById('configCloudApiKey');
-            const apiKey = apiKeyField.value.trim();
+            let apiKey = apiKeyField.value.trim();
+            
+            // ⭐ FIX: Si le champ est vide, essayer de récupérer depuis la config Android
+            if (!apiKey && window.secureChatApp?.chatConfig) {
+                try {
+                    const config = JSON.parse(window.secureChatApp.chatConfig.androidInterface.readAiConfigJson());
+                    apiKey = config?.cloud?.apiKey?.trim() || '';
+                    // Si trouvée, mettre à jour le champ
+                    if (apiKey) {
+                        apiKeyField.value = apiKey;
+                    }
+                } catch (e) {
+                    console.warn('Impossible de charger la clé depuis Android:', e);
+                }
+            }
             
             const resultDiv = document.getElementById('cloudTestResult');
             const statusDiv = document.getElementById('cloudTestStatus');
@@ -1879,6 +1893,19 @@
             const apiKeyField = document.getElementById('configCloudApiKey');
             let apiKey = apiKeyField.value.trim();
             
+            // ⭐ FIX: Si le champ est vide, essayer de récupérer depuis la config Android
+            if (!apiKey && window.secureChatApp?.chatConfig) {
+                try {
+                    const config = JSON.parse(window.secureChatApp.chatConfig.androidInterface.readAiConfigJson());
+                    apiKey = config?.cloud?.apiKey?.trim() || '';
+                    // Si trouvée, mettre à jour le champ
+                    if (apiKey) {
+                        apiKeyField.value = apiKey;
+                    }
+                } catch (e) {
+                    console.warn('Impossible de charger la clé depuis Android:', e);
+                }
+            }
             
             const modelSelect = document.getElementById('configCloudModel');
             const modelCustom = document.getElementById('configCloudModelCustom');
