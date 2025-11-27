@@ -1368,13 +1368,15 @@
                   const currentApiKey = apiKeyInput.value?.trim() || '';
                   
                   if (currentApiKey && currentApiKey.length > 0) {
-                      console.log(`💾 Sauvegarde clé ${previousProvider} avant changement...`);
+                      console.log(`💾 [updateCloudProviderUI] Sauvegarde clé ${previousProvider} avant changement (${currentApiKey.length} chars)...`);
                       // Sauvegarder avec le provider actuel
                       if (!cfg.cloud) cfg.cloud = {};
                       cfg.cloud.provider = previousProvider;
                       cfg.cloud.apiKey = currentApiKey; // ⭐ TOUJOURS inclure apiKey
                       await chatConfig.persistAiConfig(`Clé ${previousProvider} préservée`);
-                      console.log(`✅ Clé ${previousProvider} sauvegardée`);
+                      console.log(`✅ [updateCloudProviderUI] Clé ${previousProvider} sauvegardée`);
+                  } else {
+                      console.log(`ℹ️ [updateCloudProviderUI] Pas de clé à sauvegarder pour ${previousProvider}`);
                   }
               }
               
@@ -1439,13 +1441,15 @@
                   // Sauvegarder directement via writeAiConfigJson
                   if (chatConfig.androidInterface?.writeAiConfigJson) {
                       const jsonStr = JSON.stringify(minimalConfig, null, 2);
+                      console.log(`💾 [updateCloudProviderUI] Sauvegarde provider: ${oldProvider} → ${provider} (sans apiKey)`);
                       const result = chatConfig.androidInterface.writeAiConfigJson(jsonStr);
                       if (result === 'OK' || result === true) {
-                          console.log(`✅ Provider changé: ${oldProvider} → ${provider}`);
+                          console.log(`✅ [updateCloudProviderUI] Provider changé: ${oldProvider} → ${provider}`);
                       } else {
-                          console.error('❌ Erreur sauvegarde provider:', result);
+                          console.error('❌ [updateCloudProviderUI] Erreur sauvegarde provider:', result);
                       }
                   } else {
+                      console.warn('⚠️ [updateCloudProviderUI] writeAiConfigJson non disponible, fallback persistAiConfig');
                       // Fallback: utiliser persistAiConfig (mais ça va inclure apiKey)
                       await chatConfig.persistAiConfig('Provider mis à jour');
                   }
@@ -1454,9 +1458,21 @@
               // ⭐ ÉTAPE 4: Recharger la config depuis Android
               // buildJsonFromPreferences() récupère automatiquement la bonne clé selon le provider
               if (chatConfig) {
+                  console.log(`🔄 [updateCloudProviderUI] Rechargement config pour provider ${provider}...`);
                   await chatConfig.loadAiConfigPreview(true);
                   await new Promise(resolve => setTimeout(resolve, 200));
-                  // renderConfigForms() a été appelé automatiquement et a chargé la clé dans le champ
+                  // ⭐ FIX: Forcer la mise à jour du champ API key après rechargement
+                  const updatedCfg = chatConfig.aiConfigObject;
+                  if (updatedCfg?.cloud?.apiKey !== undefined && apiKeyInput) {
+                      const loadedKey = updatedCfg.cloud.apiKey || '';
+                      apiKeyInput.value = loadedKey;
+                      console.log(`✅ [updateCloudProviderUI] Clé ${provider} chargée dans le champ:`, loadedKey ? loadedKey.length + ' chars' : 'vide');
+                  } else {
+                      console.warn(`⚠️ [updateCloudProviderUI] Clé non trouvée dans config après rechargement pour ${provider}`);
+                      if (apiKeyInput) {
+                          apiKeyInput.value = '';
+                      }
+                  }
               }
           }
           
