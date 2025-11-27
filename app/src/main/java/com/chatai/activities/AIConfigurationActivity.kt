@@ -17,6 +17,7 @@ import com.google.android.material.textfield.TextInputLayout
 import com.chatai.R
 import com.chatai.AiConfigManager
 import com.chatai.SecureConfig
+import com.chatai.KeyringManager
 import com.chatai.services.KittAIService
 import kotlinx.coroutines.launch
 import androidx.appcompat.app.AlertDialog

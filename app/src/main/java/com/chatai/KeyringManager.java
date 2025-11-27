@@ -326,5 +326,138 @@ public class KeyringManager {
         
         return providers.toArray(new String[0]);
     }
+    
+    /**
+     * Obtient un résumé de toutes les clés configurées (pour diagnostics)
+     */
+    public String getKeyringSummary() {
+        StringBuilder summary = new StringBuilder();
+        summary.append("🔐 KEYRING STATUS\n");
+        summary.append("═══════════════════════════════\n\n");
+        
+        String[] allProviders = {"huggingface", "ollama", "openai", "anthropic", "groq", "perplexity"};
+        String[] providerNames = {"Hugging Face", "Ollama Cloud", "OpenAI", "Anthropic", "Groq", "Perplexity"};
+        
+        int configuredCount = 0;
+        for (int i = 0; i < allProviders.length; i++) {
+            String provider = allProviders[i];
+            String name = providerNames[i];
+            boolean hasKey = hasApiKey(provider);
+            
+            if (hasKey) {
+                String key = getApiKey(provider);
+                summary.append("✅ ").append(name).append(": ");
+                summary.append(key != null ? key.length() + " chars" : "null");
+                summary.append("\n");
+                configuredCount++;
+            } else {
+                summary.append("❌ ").append(name).append(": Non configuré\n");
+            }
+        }
+        
+        summary.append("\n═══════════════════════════════\n");
+        summary.append("Total: ").append(configuredCount).append("/").append(allProviders.length).append(" configurés\n");
+        summary.append("Keystore: ").append(useKeystore ? "✅ Actif" : "❌ Fallback");
+        
+        return summary.toString();
+    }
+    
+    /**
+     * Exporte toutes les clés (pour backup - ⚠️ SÉCURITÉ: à utiliser avec précaution)
+     * Retourne un JSON avec les clés (chiffrées ou en clair selon le paramètre)
+     */
+    public String exportKeys(boolean encrypted) {
+        try {
+            org.json.JSONObject export = new org.json.JSONObject();
+            export.put("version", "1.0");
+            export.put("timestamp", System.currentTimeMillis());
+            export.put("encrypted", encrypted);
+            
+            org.json.JSONObject keys = new org.json.JSONObject();
+            String[] allProviders = {"huggingface", "ollama", "openai", "anthropic", "groq", "perplexity"};
+            
+            for (String provider : allProviders) {
+                String key = getApiKey(provider);
+                if (key != null) {
+                    if (encrypted) {
+                        // Exporter chiffré (utiliser encrypt())
+                        keys.put(provider, encrypt(key));
+                    } else {
+                        // ⚠️ EXPORT EN CLAIR - À UTILISER AVEC PRÉCAUTION
+                        keys.put(provider, key);
+                    }
+                }
+            }
+            
+            export.put("keys", keys);
+            return export.toString(2); // Pretty print
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur export keys", e);
+            return null;
+        }
+    }
+    
+    /**
+     * Importe des clés depuis un JSON exporté
+     */
+    public boolean importKeys(String jsonExport) {
+        try {
+            org.json.JSONObject export = new org.json.JSONObject(jsonExport);
+            boolean encrypted = export.optBoolean("encrypted", false);
+            org.json.JSONObject keys = export.getJSONObject("keys");
+            
+            java.util.Iterator<String> iterator = keys.keys();
+            int imported = 0;
+            
+            while (iterator.hasNext()) {
+                String provider = iterator.next();
+                String keyValue = keys.getString(provider);
+                
+                if (encrypted) {
+                    // Déchiffrer avant d'importer
+                    String decrypted = decrypt(keyValue);
+                    setApiKey(provider, decrypted);
+                } else {
+                    // Importer directement
+                    setApiKey(provider, keyValue);
+                }
+                imported++;
+            }
+            
+            Log.i(TAG, "✅ " + imported + " clés importées");
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Erreur import keys", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Vérifie l'intégrité du keyring (teste le chiffrement/déchiffrement)
+     */
+    public boolean verifyIntegrity() {
+        try {
+            String testKey = "test_integrity_" + System.currentTimeMillis();
+            String testProvider = "test_provider";
+            
+            // Sauvegarder
+            setApiKey(testProvider, testKey);
+            
+            // Récupérer
+            String retrieved = getApiKey(testProvider);
+            
+            // Vérifier
+            boolean valid = testKey.equals(retrieved);
+            
+            // Nettoyer
+            clearApiKey(testProvider);
+            
+            Log.d(TAG, "Vérification intégrité keyring: " + (valid ? "✅ OK" : "❌ ÉCHEC"));
+            return valid;
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Erreur vérification intégrité", e);
+            return false;
+        }
+    }
 }
 
