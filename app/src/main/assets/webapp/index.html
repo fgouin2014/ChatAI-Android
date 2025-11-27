@@ -1363,7 +1363,7 @@
               const cfg = chatConfig?.aiConfigObject;
               const previousProvider = cfg?.cloud?.provider || 'ollama';
               
-              // ⭐ ÉTAPE 1: Sauvegarder la clé du provider actuel AVANT de changer (si modifiée)
+              // ⭐ ÉTAPE 1: Si une clé est saisie dans le champ, la sauvegarder AVANT de changer de provider
               if (previousProvider && previousProvider !== provider && chatConfig) {
                   const currentApiKey = apiKeyInput.value?.trim() || '';
                   
@@ -1376,7 +1376,9 @@
                       cfg.cloud.apiKey = currentApiKey;
                       await chatConfig.persistAiConfig(`Clé ${previousProvider} préservée`);
                       cfg.cloud.provider = tempProvider;
-                      console.log(`✅ Clé ${previousProvider} sauvegardée`);
+                      // Vider le champ après sauvegarde
+                      apiKeyInput.value = '';
+                      console.log(`✅ Clé ${previousProvider} sauvegardée, champ vidé`);
                   }
               }
               
@@ -1420,18 +1422,20 @@
                       break;
               }
               
-              // ⭐ ÉTAPE 3: Changer le provider (sans la clé)
+              // ⭐ ÉTAPE 3: Changer le provider (sans la clé dans le JSON)
               if (chatConfig && cfg) {
                   if (!cfg.cloud) cfg.cloud = {};
                   cfg.cloud.provider = provider;
-                  delete cfg.cloud.apiKey; // Ne pas inclure la clé pour ne pas écraser
+                  delete cfg.cloud.apiKey; // Ne pas inclure la clé pour ne pas écraser celle stockée
                   await chatConfig.persistAiConfig('Provider mis à jour');
               }
               
-              // ⭐ ÉTAPE 4: Recharger la config depuis Android (buildJsonFromPreferences récupère la bonne clé)
+              // ⭐ ÉTAPE 4: Recharger la config depuis Android
+              // buildJsonFromPreferences() récupère automatiquement la bonne clé selon le provider
               if (chatConfig) {
                   await chatConfig.loadAiConfigPreview(true);
                   await new Promise(resolve => setTimeout(resolve, 200));
+                  // renderConfigForms() a été appelé automatiquement et a chargé la clé dans le champ
               }
           }
           

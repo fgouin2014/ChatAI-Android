@@ -480,10 +480,23 @@
                     // Tab Cloud : Configuration détaillée des modèles Cloud disponibles
                     cfg.cloud = cfg.cloud || {};
                     cfg.cloud.provider = this.getSelectValue(core.configCloudProvider, core.configCloudProviderCustom);
-                    const cloudApiKeyValue = core.configCloudApiKey?.value || '';
-                    // Plus de masquage - la clé est affichée en clair
-                    cfg.cloud.apiKey = cloudApiKeyValue.trim();
+                    const cloudApiKeyValue = core.configCloudApiKey?.value?.trim() || '';
+                    
+                    // Sauvegarder la clé si elle a été saisie
+                    if (cloudApiKeyValue) {
+                        cfg.cloud.apiKey = cloudApiKeyValue;
+                    } else {
+                        // Champ vide = ne pas inclure apiKey dans le JSON (Android gardera la clé existante)
+                        delete cfg.cloud.apiKey;
+                    }
+                    
                     cfg.cloud.selectedModel = this.getSelectValue(core.configCloudModel, core.configCloudModelCustom);
+                    
+                    // ⭐ NOUVEAU: Vider le champ après sauvegarde (la clé est stockée dans Android)
+                    // Elle sera rechargée automatiquement depuis Android au prochain chargement
+                    if (core.configCloudApiKey && cloudApiKeyValue) {
+                        core.configCloudApiKey.value = '';
+                    }
                     break;
                 case 'local':
                     // Tab Local : Configuration du serveur Ollama local + modèle gemma + RAG
