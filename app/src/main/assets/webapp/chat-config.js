@@ -136,19 +136,9 @@
             if (cfg.cloud) {
                 this.setSelectValue(this.core.configCloudProvider, this.core.configCloudProviderCustom, cfg.cloud.provider || '');
                 if (this.core.configCloudApiKey) {
-                    // Stocker la vraie clé API dans un attribut data pour la conserver
+                    // Afficher la clé API en clair (pas de masquage - elle est déjà en plaintext dans les requêtes)
                     const apiKey = cfg.cloud.apiKey || '';
-                    if (apiKey) {
-                        // Stocker la vraie clé dans data-original-key
-                        this.core.configCloudApiKey.setAttribute('data-original-key', apiKey);
-                        // Masquer la clé API si elle existe (afficher des *)
-                        // Utiliser la vraie longueur, pas limitée à 20
-                        this.core.configCloudApiKey.value = '*'.repeat(apiKey.length);
-                    } else {
-                        // Pas de clé, supprimer l'attribut data-original-key
-                        this.core.configCloudApiKey.removeAttribute('data-original-key');
-                        this.core.configCloudApiKey.value = '';
-                    }
+                    this.core.configCloudApiKey.value = apiKey;
                 }
                 this.setSelectValue(this.core.configCloudModel, this.core.configCloudModelCustom, cfg.cloud.selectedModel || cfg.selectedModel || '');
             }
@@ -491,35 +481,8 @@
                     cfg.cloud = cfg.cloud || {};
                     cfg.cloud.provider = this.getSelectValue(core.configCloudProvider, core.configCloudProviderCustom);
                     const cloudApiKeyValue = core.configCloudApiKey?.value || '';
-                    // Si la valeur contient des *, utiliser la vraie clé stockée dans data-original-key
-                    // Sinon, c'est une nouvelle clé saisie par l'utilisateur
-                    if (cloudApiKeyValue && !cloudApiKeyValue.includes('*')) {
-                        // Nouvelle clé saisie par l'utilisateur (pas de *)
-                        // Mettre à jour data-original-key avec la nouvelle clé
-                        if (core.configCloudApiKey) {
-                            core.configCloudApiKey.setAttribute('data-original-key', cloudApiKeyValue);
-                        }
-                        cfg.cloud.apiKey = cloudApiKeyValue;
-                    } else if (cloudApiKeyValue.includes('*')) {
-                        // Clé masquée : récupérer la vraie clé depuis data-original-key
-                        const originalKey = core.configCloudApiKey?.getAttribute('data-original-key') || '';
-                        if (originalKey) {
-                            // Utiliser la vraie clé stockée (non modifiée)
-                            cfg.cloud.apiKey = originalKey;
-                        } else {
-                            // Pas de clé originale, supprimer du JSON pour conserver celle dans SecureConfig
-                            delete cfg.cloud.apiKey;
-                        }
-                    } else if (cloudApiKeyValue === '') {
-                        // Champ vide : supprimer la clé
-                        if (core.configCloudApiKey) {
-                            core.configCloudApiKey.removeAttribute('data-original-key');
-                        }
-                        cfg.cloud.apiKey = '';
-                    } else {
-                        // Aucune valeur : supprimer du JSON pour conserver celle dans SecureConfig
-                        delete cfg.cloud.apiKey;
-                    }
+                    // Plus de masquage - la clé est affichée en clair
+                    cfg.cloud.apiKey = cloudApiKeyValue.trim();
                     cfg.cloud.selectedModel = this.getSelectValue(core.configCloudModel, core.configCloudModelCustom);
                     break;
                 case 'local':

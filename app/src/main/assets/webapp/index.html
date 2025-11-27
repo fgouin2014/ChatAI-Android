@@ -167,7 +167,7 @@
                             </label>
                             <label>
                                 <span id="configCloudApiKeyLabel" style="font-weight: 500; margin-bottom: 4px;">🔑 API Key</span>
-                                <input type="password" id="configCloudApiKey" placeholder="Entrez votre clé API">
+                                <input type="text" id="configCloudApiKey" placeholder="Entrez votre clé API">
                                 <small id="configCloudApiKeyHelp" style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Obtenez votre clé sur <a id="configCloudApiKeyLink" href="https://ollama.com/account" target="_blank" style="color: #667eea;">ollama.com/account</a></small>
                             </label>
                             <label>
@@ -1365,8 +1365,7 @@
               
               // ⭐ ÉTAPE 1: Sauvegarder la clé du provider actuel AVANT de changer (si modifiée)
               if (previousProvider && previousProvider !== provider && chatConfig) {
-                  const currentApiKey = apiKeyInput.getAttribute('data-original-key') || 
-                                       (apiKeyInput.value && !apiKeyInput.value.includes('*') ? apiKeyInput.value.trim() : '');
+                  const currentApiKey = apiKeyInput.value?.trim() || '';
                   
                   if (currentApiKey && currentApiKey.length > 0) {
                       console.log(`💾 Sauvegarde clé ${previousProvider} avant changement...`);
@@ -1476,15 +1475,7 @@
         // Fonction pour lister les modèles disponibles (sans test de connexion)
         async function listCloudModels() {
             const apiKeyField = document.getElementById('configCloudApiKey');
-            let apiKey = apiKeyField.value.trim();
-            
-            // Si la clé contient des astérisques (masquée), récupérer la vraie clé depuis data-original-key
-            if (apiKey && apiKey.includes('*')) {
-                const originalKey = apiKeyField.getAttribute('data-original-key') || '';
-                if (originalKey) {
-                    apiKey = originalKey;
-                }
-            }
+            const apiKey = apiKeyField.value.trim();
             
             const modelsResultDiv = document.getElementById('cloudModelsResult');
             const modelsStatusDiv = document.getElementById('cloudModelsStatus');
@@ -1604,15 +1595,7 @@
         // Fonction de test de connexion Hugging Face
         async function testHuggingFaceConnection() {
             const apiKeyField = document.getElementById('configCloudApiKey');
-            let apiKey = apiKeyField.value.trim();
-            
-            // Si la clé contient des astérisques (masquée), récupérer la vraie clé depuis data-original-key
-            if (apiKey && apiKey.includes('*')) {
-                const originalKey = apiKeyField.getAttribute('data-original-key') || '';
-                if (originalKey) {
-                    apiKey = originalKey;
-                }
-            }
+            const apiKey = apiKeyField.value.trim();
             
             const resultDiv = document.getElementById('cloudTestResult');
             const statusDiv = document.getElementById('cloudTestStatus');
