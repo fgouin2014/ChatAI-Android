@@ -89,10 +89,10 @@ public class KeyringManager {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     keyGenerator.init(new android.security.keystore.KeyGenParameterSpec.Builder(
                         KEYSTORE_ALIAS,
-                        android.security.keystore.KeyGenParameterSpec.PURPOSE_ENCRYPT | 
-                        android.security.keystore.KeyGenParameterSpec.PURPOSE_DECRYPT)
-                        .setBlockModes("GCM")
-                        .setEncryptionPaddings("NoPadding")
+                        android.security.keystore.KeyProperties.PURPOSE_ENCRYPT | 
+                        android.security.keystore.KeyProperties.PURPOSE_DECRYPT)
+                        .setBlockModes(android.security.keystore.KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(android.security.keystore.KeyProperties.ENCRYPTION_PADDING_NONE)
                         .setKeySize(256)
                         .build());
                 }

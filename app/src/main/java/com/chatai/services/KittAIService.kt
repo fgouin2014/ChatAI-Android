@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit
 import com.chatai.database.ChatAIDatabase
 import com.chatai.database.ConversationEntity
 import com.chatai.SecureConfig
+import com.chatai.KeyringManager
 import java.util.UUID
 
 /**
@@ -1518,8 +1519,8 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
      */
     private suspend fun tryOllamaCloud(userInput: String): String? = withContext(Dispatchers.IO) {
         try {
-            // Récupérer la clé API Ollama Cloud depuis SecureConfig
-            val ollamaCloudApiKey = secureConfig.getOllamaCloudApiKey()?.trim()
+            // Récupérer la clé API Ollama Cloud depuis KeyringManager
+            val ollamaCloudApiKey = keyring.getApiKey("ollama")?.trim()
             Log.i(TAG, "Ollama Cloud API key check: ${if (ollamaCloudApiKey.isNullOrEmpty()) "EMPTY/NULL" else "FOUND"}")
             
             if (ollamaCloudApiKey.isNullOrEmpty()) {

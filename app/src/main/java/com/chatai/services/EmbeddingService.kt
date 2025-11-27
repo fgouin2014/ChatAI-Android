@@ -119,8 +119,8 @@ class EmbeddingService(private val context: Context) {
             
             // ⭐ FUTURE-PROOF: Ajouter API key si Cloud est utilisé (quand supporté)
             if (useCloud) {
-                val apiKey = secureConfig.getOllamaCloudApiKey()
-                if (apiKey != null && apiKey.isNotBlank()) {
+                val apiKey = keyring.getApiKey("ollama")
+                if (apiKey != null && apiKey.trim().isNotEmpty()) {
                     requestBuilder.addHeader("Authorization", "Bearer $apiKey")
                     Log.d(TAG, "Using Ollama Cloud API key for embeddings")
                 } else {
@@ -310,7 +310,7 @@ class EmbeddingService(private val context: Context) {
      */
     suspend fun embedConversation(userMessage: String, aiResponse: String): FloatArray? {
         // Combiner userMessage et aiResponse pour créer un embedding représentatif
-        val combinedText = if (aiResponse.isNotBlank()) {
+        val combinedText = if (aiResponse.trim().isNotEmpty()) {
             "$userMessage\n$aiResponse"
         } else {
             userMessage
@@ -420,12 +420,12 @@ class EmbeddingService(private val context: Context) {
                     put("prompt", "test")
                 }
                 
-                val apiKey = secureConfig.getOllamaCloudApiKey()
+                val apiKey = keyring.getApiKey("ollama")
                 val requestBuilder = Request.Builder()
                     .url(testUrl)
                     .post(testRequestBody.toString().toRequestBody("application/json".toMediaType()))
                 
-                if (apiKey != null && apiKey.isNotBlank()) {
+                if (apiKey != null && apiKey.trim().isNotEmpty()) {
                     requestBuilder.addHeader("Authorization", "Bearer $apiKey")
                 }
                 
