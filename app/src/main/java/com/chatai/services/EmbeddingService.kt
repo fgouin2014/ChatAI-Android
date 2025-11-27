@@ -45,7 +45,7 @@ class EmbeddingService(private val context: Context) {
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
     
-    private val secureConfig: com.chatai.SecureConfig = com.chatai.SecureConfig(context)
+    private val keyring: com.chatai.KeyringManager = com.chatai.KeyringManager.getInstance(context)
     
     // ⭐ SELON NOS RULES: Client HTTP avec timeouts similaires à OllamaThinkingService
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
@@ -72,7 +72,7 @@ class EmbeddingService(private val context: Context) {
             // ⭐ NOUVEAU: Si Ollama Cloud est utilisé, utiliser Hugging Face pour embeddings
             // (car Ollama Cloud ne supporte pas /api/embeddings)
             val useHuggingFace = useCloud && sharedPreferences.getBoolean("rag_use_huggingface", true)
-            val huggingFaceApiKey = secureConfig.getHuggingFaceApiKey()?.trim()
+            val huggingFaceApiKey = keyring.getApiKey("huggingface")?.trim()
             
             if (useHuggingFace && !huggingFaceApiKey.isNullOrEmpty()) {
                 // Utiliser Hugging Face Inference API pour embeddings
@@ -374,7 +374,7 @@ class EmbeddingService(private val context: Context) {
         try {
             val useCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
             val useHuggingFace = useCloud && sharedPreferences.getBoolean("rag_use_huggingface", true)
-            val huggingFaceApiKey = secureConfig.getHuggingFaceApiKey()?.trim()
+            val huggingFaceApiKey = keyring.getApiKey("huggingface")?.trim()
             
             // ⭐ NOUVEAU: Si Ollama Cloud + Hugging Face configuré, vérifier Hugging Face
             if (useHuggingFace && !huggingFaceApiKey.isNullOrEmpty()) {

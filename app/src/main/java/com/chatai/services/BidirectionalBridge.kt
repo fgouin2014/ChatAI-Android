@@ -65,8 +65,8 @@ class BidirectionalBridge private constructor(private val context: Context) {
     private val sharedPreferences: SharedPreferences by lazy {
         context.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
     }
-    private val secureConfig: com.chatai.SecureConfig by lazy {
-        com.chatai.SecureConfig(context)
+    private val keyring: com.chatai.KeyringManager by lazy {
+        com.chatai.KeyringManager.getInstance(context)
     }
     
     init {
@@ -89,7 +89,7 @@ class BidirectionalBridge private constructor(private val context: Context) {
                         if (useCloud) {
                             // Vérifier si on utilise Hugging Face ou Ollama Cloud
                             val useHuggingFace = sharedPreferences.getBoolean("rag_use_huggingface", true)
-                            val hfApiKey = secureConfig.getHuggingFaceApiKey()?.trim()
+                            val hfApiKey = keyring.getApiKey("huggingface")?.trim()
                             if (useHuggingFace && !hfApiKey.isNullOrEmpty()) {
                                 Log.i(TAG, "✅ RAG activé avec Ollama Cloud + Hugging Face embeddings")
                             } else {
@@ -101,7 +101,7 @@ class BidirectionalBridge private constructor(private val context: Context) {
                     } else {
                         if (useCloud) {
                             val useHuggingFace = sharedPreferences.getBoolean("rag_use_huggingface", true)
-                            val hfApiKey = secureConfig.getHuggingFaceApiKey()?.trim()
+                            val hfApiKey = keyring.getApiKey("huggingface")?.trim()
                             if (useHuggingFace && !hfApiKey.isNullOrEmpty()) {
                                 Log.w(TAG, "⚠️ RAG activé mais Hugging Face embeddings non disponibles")
                                 Log.w(TAG, "   → Vérifiez votre clé API Hugging Face")

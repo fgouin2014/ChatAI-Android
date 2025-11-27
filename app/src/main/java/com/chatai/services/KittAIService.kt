@@ -87,7 +87,7 @@ class KittAIService(
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
     
-    private val secureConfig: SecureConfig = SecureConfig(context)
+    private val keyring: KeyringManager = KeyringManager.getInstance(context)
     
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -1890,7 +1890,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
      */
     private suspend fun tryHuggingFace(userInput: String): String? = withContext(Dispatchers.IO) {
         try {
-            val apiKey = secureConfig.getHuggingFaceApiKey()?.trim()
+            val apiKey = keyring.getApiKey("huggingface")?.trim()
             Log.i(TAG, "Hugging Face key check: ${if (apiKey.isNullOrEmpty()) "EMPTY/NULL" else "FOUND (${apiKey.length} chars)"}")
             if (apiKey.isNullOrEmpty()) {
                 Log.w(TAG, "Hugging Face API key not configured")
@@ -2257,7 +2257,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
     
     private suspend fun tryHuggingFaceSimple(userInput: String, steps: MutableList<StepResult>): String? {
         return try {
-            val apiKey = secureConfig.getHuggingFaceApiKey()?.trim()
+            val apiKey = keyring.getApiKey("huggingface")?.trim()
             if (apiKey.isNullOrEmpty()) return null
             
             val requestBody = JSONObject().apply {

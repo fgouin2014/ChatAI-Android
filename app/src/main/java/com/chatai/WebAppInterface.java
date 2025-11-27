@@ -1810,7 +1810,8 @@ public class WebAppInterface {
                 result.put("available", isAvailable);
                 
                 // Vérifier si Hugging Face est configuré
-                String hfApiKey = secureConfig.getHuggingFaceApiKey();
+                KeyringManager keyring = KeyringManager.getInstance(mContext);
+                String hfApiKey = keyring.getApiKey("huggingface");
                 boolean hasHuggingFace = hfApiKey != null && !hfApiKey.trim().isEmpty();
                 boolean useHuggingFace = useCloud && prefs.getBoolean("rag_use_huggingface", true);
                 
