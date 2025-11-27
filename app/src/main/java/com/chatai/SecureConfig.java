@@ -557,8 +557,8 @@ public class SecureConfig {
                 // ⭐ FIX: Sauvegarder directement sans appeler setHuggingFaceApiKey() (évite boucle infinie)
                 try {
                     String trimmedKey = legacyKey.trim();
-                    String encryptedKey = encrypt(trimmedKey);
-                    prefs.edit().putString(HUGGINGFACE_API_KEY, encryptedKey).apply();
+                    String encryptedLegacyKey = encrypt(trimmedKey);
+                    prefs.edit().putString(HUGGINGFACE_API_KEY, encryptedLegacyKey).apply();
                     Log.d(TAG, "Clé Hugging Face migrée directement (évite récursion)");
                 } catch (Exception e) {
                     Log.e(TAG, "Erreur lors de la migration directe de la clé Hugging Face", e);
