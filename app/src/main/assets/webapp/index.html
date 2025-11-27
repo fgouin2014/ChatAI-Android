@@ -1376,9 +1376,8 @@
                       cfg.cloud.apiKey = currentApiKey;
                       await chatConfig.persistAiConfig(`Clé ${previousProvider} préservée`);
                       cfg.cloud.provider = tempProvider;
-                      // Vider le champ après sauvegarde
-                      apiKeyInput.value = '';
-                      console.log(`✅ Clé ${previousProvider} sauvegardée, champ vidé`);
+                      // ⭐ FIX: Ne pas vider le champ - garder la clé visible
+                      console.log(`✅ Clé ${previousProvider} sauvegardée`);
                   }
               }
               
