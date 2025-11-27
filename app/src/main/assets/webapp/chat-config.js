@@ -398,7 +398,7 @@
         /**
          * Sauvegarde la clé API du provider actuel AVANT de changer de provider
          * @param {string} currentProvider - Le provider actuel
-         * @param {string} currentApiKey - La clé API actuelle (depuis le champ ou data-original-key)
+         * @param {string} currentApiKey - La clé API actuelle (depuis le champ)
          */
         async saveCurrentProviderApiKey(currentProvider, currentApiKey) {
             if (!currentApiKey || !currentApiKey.trim() || !currentProvider) {
