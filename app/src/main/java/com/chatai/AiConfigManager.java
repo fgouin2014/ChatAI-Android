@@ -42,15 +42,8 @@ public final class AiConfigManager {
             String content = readConfigJson(context);
             if (content != null && !content.trim().isEmpty()) {
                 JSONObject json = new JSONObject(content);
-                // Nettoyer le JSON : supprimer apiKey si elle est vide
-                JSONObject cloud = json.optJSONObject("cloud");
-                if (cloud != null && cloud.has("apiKey")) {
-                    String apiKey = cloud.optString("apiKey", null);
-                    if (apiKey == null || apiKey.trim().isEmpty()) {
-                        cloud.remove("apiKey");
-                        Log.d(TAG, "loadConfig: apiKey vide supprimée du JSON");
-                    }
-                }
+                // ⭐ FIX AUDIT: Ne pas supprimer apiKey vide - elle doit toujours être présente
+                // pour rendre l'intention explicite (vide = suppression, absent = non modifié)
                 applyJsonToPreferences(context, json);
                 return json;
             }
@@ -93,16 +86,8 @@ public final class AiConfigManager {
             String json = builder.toString().trim();
             if (!json.isEmpty()) {
                 JSONObject jsonObj = new JSONObject(json);
-                // Nettoyer le JSON : supprimer apiKey si elle est vide pour éviter la suppression de la clé
-                JSONObject cloud = jsonObj.optJSONObject("cloud");
-                if (cloud != null && cloud.has("apiKey")) {
-                    String apiKey = cloud.optString("apiKey", null);
-                    if (apiKey == null || apiKey.trim().isEmpty()) {
-                        // Supprimer apiKey vide du JSON pour éviter qu'elle supprime la clé existante
-                        cloud.remove("apiKey");
-                        Log.d(TAG, "Nettoyage ai_config.json: apiKey vide supprimée du JSON");
-                    }
-                }
+                // ⭐ FIX AUDIT: Ne pas supprimer apiKey vide - elle doit toujours être présente
+                // pour rendre l'intention explicite (vide = suppression, absent = non modifié)
                 // ⭐ OPTIMISATION : Ne pas appliquer les préférences si demandé (évite appels redondants)
                 if (applyPreferences) {
                     applyJsonToPreferences(context, jsonObj);
@@ -144,15 +129,10 @@ public final class AiConfigManager {
                 hotword.remove("model");
             }
         }
-        // Nettoyage: supprimer apiKey si elle est vide pour éviter qu'elle supprime la clé existante
-        JSONObject cloud = json.optJSONObject("cloud");
-        if (cloud != null && cloud.has("apiKey")) {
-            String apiKey = cloud.optString("apiKey", null);
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                cloud.remove("apiKey");
-                Log.d(TAG, "writeConfigJson: apiKey vide supprimée du JSON avant sauvegarde");
-            }
-        }
+        // ⭐ FIX AUDIT: Ne pas supprimer apiKey vide - elle doit toujours être présente
+        // pour rendre l'intention explicite (vide = suppression, absent = non modifié)
+        // Le nettoyage de apiKey vide a été supprimé pour permettre la distinction
+        // entre "apiKey absent" (non modifié) et "apiKey = ''" (suppression explicite)
         applyJsonToPreferences(context, json);
         writeJsonToFile(json);
         return toPrettyString(json);
@@ -212,24 +192,23 @@ public final class AiConfigManager {
             JSONObject cloud = new JSONObject();
             String provider = prefs.getString("cloud_provider", "ollama");
             cloud.put("provider", provider);
-            // Récupérer la clé API selon le provider
-            // IMPORTANT: Ne mettre apiKey dans le JSON que si elle existe
-            // Si elle est vide/null, ne pas l'inclure pour éviter qu'elle soit supprimée
-            String apiKey = null;
-            // ⭐ FIX CRITIQUE: Toujours lire depuis KeyringManager et inclure dans JSON
+            // ⭐ FIX CRITIQUE AUDIT: TOUJOURS inclure apiKey dans le JSON
+            // Même si la clé n'existe pas, inclure apiKey = "" pour rendre l'état explicite
+            // La webapp pourra distinguer:
+            // - apiKey = "xxx" → clé configurée
+            // - apiKey = "" → aucune clé configurée
             KeyringManager keyring = KeyringManager.getInstance(context);
-            apiKey = keyring.getApiKey(provider);
-            if (apiKey != null) {
+            String apiKey = keyring.getApiKey(provider);
+            if (apiKey != null && !apiKey.trim().isEmpty()) {
                 apiKey = apiKey.trim();
                 Log.i(TAG, "📖 LECTURE clé " + provider + " depuis Keyring: " + apiKey.length() + " chars");
-                // ⭐ TOUJOURS inclure dans le JSON pour que la webapp puisse l'afficher
                 cloud.put("apiKey", apiKey);
                 Log.i(TAG, "✅ Clé API ajoutée au JSON pour provider " + provider);
             } else {
-                Log.d(TAG, "⚠️ Aucune clé " + provider + " trouvée dans Keyring, pas d'apiKey dans JSON");
-                // Ne pas mettre apiKey vide dans JSON pour éviter confusion
+                // ⭐ TOUJOURS inclure apiKey, même si vide, pour que la webapp connaisse l'état
+                cloud.put("apiKey", "");
+                Log.d(TAG, "⚠️ Aucune clé " + provider + " trouvée dans Keyring, apiKey = \"\" dans JSON");
             }
-            // Si apiKey est vide, ne pas l'inclure dans le JSON (pas de cloud.put("apiKey", ""))
             cloud.put("selectedModel", prefs.getString("cloud_selected_model", selectedModel));
 
             JSONObject webSearch = new JSONObject();

@@ -482,25 +482,17 @@
                     cfg.cloud.provider = this.getSelectValue(core.configCloudProvider, core.configCloudProviderCustom);
                     const cloudApiKeyValue = core.configCloudApiKey?.value?.trim() || '';
                     
-                    // ⭐ FIX CRITIQUE: Toujours inclure apiKey dans le JSON si elle existe
-                    // Ne JAMAIS supprimer apiKey du JSON, même si le champ est vide
-                    // Android vérifiera si la clé a changé avant de sauvegarder
+                    // ⭐ FIX CRITIQUE AUDIT: TOUJOURS inclure apiKey dans le JSON
+                    // Même si le champ est vide, inclure apiKey = "" pour rendre l'intention explicite
+                    // Android distinguera:
+                    // - apiKey présent avec valeur → sauvegarder la nouvelle clé
+                    // - apiKey présent avec "" → supprimer la clé existante
+                    // - apiKey absent → conserver la clé existante (changement d'onglet)
+                    cfg.cloud.apiKey = cloudApiKeyValue;
                     if (cloudApiKeyValue) {
-                        // Nouvelle clé saisie par l'utilisateur
-                        cfg.cloud.apiKey = cloudApiKeyValue;
                         console.log('💾 Sauvegarde nouvelle clé API:', cloudApiKeyValue.length, 'chars');
                     } else {
-                        // Champ vide: NE PAS supprimer apiKey du JSON
-                        // Si apiKey existe déjà dans cfg.cloud, la garder
-                        // Si elle n'existe pas, ne pas l'ajouter (Android gardera la clé existante)
-                        if (!cfg.cloud.apiKey) {
-                            // Pas de clé dans le JSON actuel, ne rien faire
-                            console.log('⚠️ Champ vide, conservation clé existante dans Android');
-                        } else {
-                            // Clé existe dans JSON mais champ vide = utilisateur veut la supprimer
-                            cfg.cloud.apiKey = '';
-                            console.log('🗑️ Suppression clé API demandée (champ vide)');
-                        }
+                        console.log('🗑️ Champ vide → apiKey = "" (suppression explicite si clé existante)');
                     }
                     
                     cfg.cloud.selectedModel = this.getSelectValue(core.configCloudModel, core.configCloudModelCustom);
