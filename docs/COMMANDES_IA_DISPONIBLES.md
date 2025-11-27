@@ -263,3 +263,4 @@ Les réponses varient selon la personnalité active (KITT, GLaDOS, KARR):
 - `ChatAI-Android/app/src/main/java/com/chatai/fragments/KittFragment.kt` - Commandes spéciales UI
 
 
+

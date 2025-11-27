@@ -13,6 +13,7 @@ import com.chatai.FileServer
 import com.chatai.HttpServer
 import com.chatai.WebSocketServer
 import com.chatai.RealtimeAIService
+import com.chatai.SecureConfig
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
@@ -29,6 +30,7 @@ import android.widget.ScrollView
 class ConfigurationActivity : AppCompatActivity() {
     
     private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var secureConfig: SecureConfig
     private var httpServer: HttpServer? = null
     private var webSocketServer: WebSocketServer? = null
     private var aiService: RealtimeAIService? = null
@@ -106,11 +108,12 @@ class ConfigurationActivity : AppCompatActivity() {
         filePortInput.setText(sharedPreferences.getString("file_port", "8082"))
         
         // Charger les clés API (partiellement masquées)
+        secureConfig = SecureConfig(this)
         val openaiKey = sharedPreferences.getString("openai_api_key", "")
         openaiApiKeyInput.setText(if (openaiKey.isNullOrEmpty()) "" else maskApiKey(openaiKey))
         
-        val huggingfaceKey = sharedPreferences.getString("huggingface_api_key", "")
-        huggingfaceApiKeyInput.setText(if (huggingfaceKey.isNullOrEmpty()) "" else maskApiKey(huggingfaceKey))
+        val huggingfaceKey = secureConfig.getHuggingFaceApiKey() ?: ""
+        huggingfaceApiKeyInput.setText(if (huggingfaceKey.isEmpty()) "" else maskApiKey(huggingfaceKey))
         
         // Charger le chemin de stockage
         val storagePath = sharedPreferences.getString("storage_path", "/storage/emulated/0/ChatAI-Files")
@@ -188,7 +191,7 @@ class ConfigurationActivity : AppCompatActivity() {
             
             val huggingfaceKey = huggingfaceApiKeyInput.text.toString()
             if (huggingfaceKey.isNotEmpty() && !huggingfaceKey.contains("*")) {
-                editor.putString("huggingface_api_key", huggingfaceKey)
+                secureConfig.setHuggingFaceApiKey(huggingfaceKey)
             }
             
             // Sauvegarder les préférences de fonctionnalités

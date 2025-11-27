@@ -63,7 +63,7 @@ class KittAIService(
         // APIs URLs
         private const val OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
         private const val ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-        private const val HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/"
+        private const val HUGGINGFACE_API_URL = "https://router.huggingface.co/hf-inference/models/"
         private const val OLLAMA_CLOUD_API_URL = "https://ollama.com/api/chat" // API native Ollama Cloud (format natif)
         
         // Serveur local (Ollama, LM Studio, etc.) - OpenAI-compatible
@@ -1890,7 +1890,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
      */
     private suspend fun tryHuggingFace(userInput: String): String? = withContext(Dispatchers.IO) {
         try {
-            val apiKey = sharedPreferences.getString("huggingface_api_key", null)?.trim()
+            val apiKey = secureConfig.getHuggingFaceApiKey()?.trim()
             Log.i(TAG, "Hugging Face key check: ${if (apiKey.isNullOrEmpty()) "EMPTY/NULL" else "FOUND (${apiKey.length} chars)"}")
             if (apiKey.isNullOrEmpty()) {
                 Log.w(TAG, "Hugging Face API key not configured")
@@ -2257,7 +2257,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
     
     private suspend fun tryHuggingFaceSimple(userInput: String, steps: MutableList<StepResult>): String? {
         return try {
-            val apiKey = sharedPreferences.getString("huggingface_api_key", null)?.trim()
+            val apiKey = secureConfig.getHuggingFaceApiKey()?.trim()
             if (apiKey.isNullOrEmpty()) return null
             
             val requestBody = JSONObject().apply {

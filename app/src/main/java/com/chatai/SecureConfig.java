@@ -363,6 +363,8 @@ public class SecureConfig {
     
     private static final String OLLAMA_CLOUD_KEY = "ollama_cloud_api_key";
     private static final String OLLAMA_CLOUD_MIGRATED = "ollama_cloud_migrated";
+    private static final String HUGGINGFACE_API_KEY = "huggingface_api_key";
+    private static final String HUGGINGFACE_MIGRATED = "huggingface_migrated";
     
     /**
      * Sauvegarde la clé API Ollama Cloud de manière sécurisée
@@ -489,5 +491,136 @@ public class SecureConfig {
      */
     public void clearOllamaCloudApiKey() {
         prefs.edit().remove(OLLAMA_CLOUD_KEY).apply();
+    }
+    
+    // ════════════════════════════════════════════════════════════════════════
+    // Hugging Face API Key Management
+    // ════════════════════════════════════════════════════════════════════════
+    
+    /**
+     * Sauvegarde la clé API Hugging Face de manière sécurisée
+     */
+    public void setHuggingFaceApiKey(String apiKey) {
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            Log.d(TAG, "setHuggingFaceApiKey: clé vide, suppression");
+            clearHuggingFaceApiKey();
+            return;
+        }
+        
+        try {
+            String trimmedKey = apiKey.trim();
+            
+            // ⭐ OPTIMISATION: Vérifier si la clé est identique avant de sauvegarder
+            String existingKey = getHuggingFaceApiKey();
+            if (existingKey != null && existingKey.equals(trimmedKey)) {
+                Log.v(TAG, "setHuggingFaceApiKey: clé identique, pas de sauvegarde nécessaire");
+                return;
+            }
+            
+            Log.d(TAG, "setHuggingFaceApiKey: sauvegarde de la clé (" + trimmedKey.length() + " chars)");
+            String encryptedKey = encrypt(trimmedKey);
+            prefs.edit().putString(HUGGINGFACE_API_KEY, encryptedKey).apply();
+            
+            // Vérifier que la sauvegarde a fonctionné
+            String verifyKey = prefs.getString(HUGGINGFACE_API_KEY, null);
+            if (verifyKey != null) {
+                Log.d(TAG, "Clé API Hugging Face sauvegardée avec succès dans SecureConfig");
+            } else {
+                Log.e(TAG, "ERREUR: Clé non trouvée après sauvegarde!");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de la sauvegarde de la clé Hugging Face", e);
+            throw new RuntimeException("Erreur sauvegarde clé Hugging Face", e);
+        }
+    }
+    
+    /**
+     * Récupère la clé API Hugging Face de manière sécurisée
+     * Migre automatiquement depuis SharedPreferences si nécessaire
+     */
+    public String getHuggingFaceApiKey() {
+        // Vérifier si déjà migré
+        if (!prefs.getBoolean(HUGGINGFACE_MIGRATED, false)) {
+            Log.d(TAG, "Migration Hugging Face API key non effectuée, démarrage de la migration...");
+            migrateHuggingFaceKey();
+        }
+        
+        String encryptedKey = prefs.getString(HUGGINGFACE_API_KEY, null);
+        if (encryptedKey == null) {
+            Log.d(TAG, "Aucune clé Hugging Face trouvée dans SecureConfig (SharedPreferences 'secure_config')");
+            // Vérifier une dernière fois dans SharedPreferences (au cas où configurée après migration)
+            SharedPreferences legacyPrefs = context.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE);
+            String legacyKey = legacyPrefs.getString("huggingface_api_key", null);
+            Log.d(TAG, "Vérification SharedPreferences 'chatai_ai_config' dans SecureConfig: clé trouvée = " + (legacyKey != null && !legacyKey.trim().isEmpty()));
+            if (legacyKey != null && !legacyKey.trim().isEmpty()) {
+                Log.i(TAG, "Clé Hugging Face trouvée dans SharedPreferences (post-migration), migration...");
+                setHuggingFaceApiKey(legacyKey);
+                return legacyKey.trim();
+            }
+            Log.d(TAG, "Aucune clé Hugging Face trouvée ni dans SecureConfig ni dans SharedPreferences");
+            return null;
+        }
+        
+        // Clé chiffrée trouvée, essayer de la déchiffrer
+        Log.d(TAG, "Clé Hugging Face chiffrée trouvée dans SecureConfig (" + encryptedKey.length() + " chars chiffrés)");
+        try {
+            String decrypted = decrypt(encryptedKey);
+            Log.d(TAG, "Clé Hugging Face déchiffrée avec succès (" + decrypted.length() + " chars)");
+            return decrypted;
+        } catch (Exception e) {
+            Log.e(TAG, "ERREUR: Clé Hugging Face trouvée mais déchiffrement échoué!", e);
+            Log.e(TAG, "Exception type: " + e.getClass().getName() + ", message: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Migre la clé Hugging Face depuis SharedPreferences standard vers SecureConfig
+     */
+    private void migrateHuggingFaceKey() {
+        try {
+            SharedPreferences legacyPrefs = context.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE);
+            String legacyKey = legacyPrefs.getString("huggingface_api_key", null);
+            
+            Log.d(TAG, "Migration Hugging Face: clé trouvée dans SharedPreferences = " + (legacyKey != null && !legacyKey.trim().isEmpty()));
+            
+            if (legacyKey != null && !legacyKey.trim().isEmpty()) {
+                // Migrer vers SecureConfig
+                setHuggingFaceApiKey(legacyKey);
+                Log.i(TAG, "Clé Hugging Face migrée depuis SharedPreferences vers SecureConfig (" + legacyKey.length() + " chars)");
+                
+                // Vérifier que la migration a fonctionné
+                String verifyKey = prefs.getString(HUGGINGFACE_API_KEY, null);
+                if (verifyKey != null) {
+                    Log.d(TAG, "Migration vérifiée: clé sauvegardée dans SecureConfig");
+                } else {
+                    Log.e(TAG, "ERREUR: Migration échouée - clé non trouvée après sauvegarde");
+                }
+            } else {
+                Log.d(TAG, "Aucune clé Hugging Face à migrer (SharedPreferences vide)");
+            }
+            
+            // Marquer la migration comme terminée
+            prefs.edit().putBoolean(HUGGINGFACE_MIGRATED, true).apply();
+            Log.d(TAG, "Migration Hugging Face terminée (flag mis à jour)");
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de la migration de la clé Hugging Face", e);
+            // Marquer quand même comme migré pour éviter les boucles
+            prefs.edit().putBoolean(HUGGINGFACE_MIGRATED, true).apply();
+        }
+    }
+    
+    /**
+     * Vérifie si la clé API Hugging Face est configurée
+     */
+    public boolean hasHuggingFaceApiKey() {
+        return getHuggingFaceApiKey() != null;
+    }
+    
+    /**
+     * Supprime la clé API Hugging Face
+     */
+    public void clearHuggingFaceApiKey() {
+        prefs.edit().remove(HUGGINGFACE_API_KEY).apply();
     }
 }

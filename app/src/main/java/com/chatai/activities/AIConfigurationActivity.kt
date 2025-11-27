@@ -197,8 +197,8 @@ class AIConfigurationActivity : AppCompatActivity() {
         val openaiKey = sharedPreferences.getString("openai_api_key", "")
         openaiApiKeyInput.setText(if (openaiKey.isNullOrEmpty()) "" else maskApiKey(openaiKey))
         
-        val huggingfaceKey = sharedPreferences.getString("huggingface_api_key", "")
-        huggingfaceApiKeyInput.setText(if (huggingfaceKey.isNullOrEmpty()) "" else maskApiKey(huggingfaceKey))
+        val huggingfaceKey = secureConfig.getHuggingFaceApiKey() ?: ""
+        huggingfaceApiKeyInput.setText(if (huggingfaceKey.isEmpty()) "" else maskApiKey(huggingfaceKey))
         
         val anthropicKey = sharedPreferences.getString("anthropic_api_key", "")
         anthropicApiKeyInput.setText(if (anthropicKey.isNullOrEmpty()) "" else maskApiKey(anthropicKey))
@@ -380,7 +380,7 @@ class AIConfigurationActivity : AppCompatActivity() {
             
             val huggingfaceKey = huggingfaceApiKeyInput.text.toString().trim().replace(Regex("\\s+"), "")
             if (huggingfaceKey.isNotEmpty() && !huggingfaceKey.contains("*")) {
-                editor.putString("huggingface_api_key", huggingfaceKey)
+                secureConfig.setHuggingFaceApiKey(huggingfaceKey)
             }
             
             val anthropicKey = anthropicApiKeyInput.text.toString().trim().replace(Regex("\\s+"), "")
@@ -562,8 +562,8 @@ class AIConfigurationActivity : AppCompatActivity() {
                 
                 val openaiKey = sharedPreferences.getString("openai_api_key", null)
                 val anthropicKey = sharedPreferences.getString("anthropic_api_key", null)
-                val huggingfaceKey = sharedPreferences.getString("huggingface_api_key", null)
-                val ollamaCloudKey = sharedPreferences.getString("ollama_cloud_api_key", null)
+                val huggingfaceKey = secureConfig.getHuggingFaceApiKey()
+                val ollamaCloudKey = secureConfig.getOllamaCloudApiKey()
                 
                 diagnosticResult.appendLine("   OpenAI: ${if (!openaiKey.isNullOrEmpty()) "✓ Configurée (${openaiKey.length} chars)" else "✗ Non configurée"}")
                 android.util.Log.i("API_TEST_EXPORT", "│ OpenAI: ${if (!openaiKey.isNullOrEmpty()) "✅ Configurée (${openaiKey.length} chars)" else "❌ Non configurée"}")

@@ -7,8 +7,6 @@ import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
-import com.chatai.audio.CoquiTTSClient
-import com.chatai.audio.TTSConfig
 import java.util.*
 
 /**
@@ -59,9 +57,6 @@ class KittTTSManager(
     private val mainHandler = Handler(Looper.getMainLooper())
     
     private var textToSpeech: TextToSpeech? = null
-    private var coquiClient: CoquiTTSClient? = null
-    private var useCoqui = false
-    
     var isTTSReady = false
         private set
     var isTTSSpeaking = false
@@ -78,65 +73,12 @@ class KittTTSManager(
     
     /**
      * Initialiser TextToSpeech
-     * ⭐ MODIFIÉ: Support Coqui TTS avec fallback Android TTS
+     * ⚠️ COPIÉ À 100% DE V1 - NE PAS MODIFIER
      */
     fun initialize() {
-        // Charger configuration TTS
-        val ttsConfig = TTSConfig.fromContext(context)
-        
-        android.util.Log.d(TAG, "Initialisation TTS - Engine: ${ttsConfig.engine}")
-        
-        if (ttsConfig.engine == "coqui_server") {
-            // Utiliser Coqui TTS
-            useCoqui = true
-            coquiClient = CoquiTTSClient(
-                context,
-                ttsConfig,
-                object : CoquiTTSClient.CoquiTTSListener {
-                    override fun onTTSReady() {
-                        isTTSReady = true
-                        listener.onTTSReady()
-                        android.util.Log.i(TAG, "✅ Coqui TTS prêt")
-                    }
-                    
-                    override fun onTTSStart(utteranceId: String?) {
-                        isTTSSpeaking = true
-                        listener.onTTSStart(utteranceId)
-                    }
-                    
-                    override fun onTTSDone(utteranceId: String?) {
-                        isTTSSpeaking = false
-                        listener.onTTSDone(utteranceId)
-                    }
-                    
-                    override fun onTTSError(utteranceId: String?) {
-                        isTTSSpeaking = false
-                        android.util.Log.w(TAG, "⚠️ Coqui TTS erreur, fallback Android TTS")
-                        // Fallback vers Android TTS si erreur
-                        fallbackToAndroidTTS()
-                        listener.onTTSError(utteranceId)
-                    }
-                }
-            )
-            coquiClient?.initialize()
-        } else {
-            // Utiliser Android TTS natif (par défaut)
-            useCoqui = false
-            if (textToSpeech == null) {
-                textToSpeech = TextToSpeech(context, this)
-                android.util.Log.d(TAG, "Android TTS initialisé")
-            }
-        }
-    }
-    
-    /**
-     * Fallback vers Android TTS si Coqui échoue
-     */
-    private fun fallbackToAndroidTTS() {
-        android.util.Log.i(TAG, "Fallback vers Android TTS")
-        useCoqui = false
         if (textToSpeech == null) {
             textToSpeech = TextToSpeech(context, this)
+            android.util.Log.d(TAG, "TTS initialisé au chargement")
         }
     }
     
@@ -353,35 +295,23 @@ class KittTTSManager(
     
     /**
      * Parler un texte avec TTS
-     * ⭐ MODIFIÉ: Support Coqui TTS avec fallback Android TTS
+     * ⚠️ MODIFIÉ V4.6.1 - Nettoyage Markdown ajouté
      */
     fun speak(text: String, utteranceId: String = "kitt_speech") {
-        if (isTTSSpeaking) {
-            android.util.Log.w(TAG, "⚠️ TTS already speaking")
+        if (textToSpeech == null || isTTSSpeaking) {
+            android.util.Log.w(TAG, "⚠️ TTS not ready or already speaking")
             return
         }
         
         try {
-            if (useCoqui && coquiClient?.isReady() == true) {
-                // Utiliser Coqui TTS
-                android.util.Log.d(TAG, "🔊 Coqui TTS: '$text' (utteranceId: $utteranceId)")
-                coquiClient?.speak(text, utteranceId)
-            } else {
-                // Utiliser Android TTS (fallback ou par défaut)
-                if (textToSpeech == null || !isTTSReady) {
-                    android.util.Log.w(TAG, "⚠️ Android TTS not ready")
-                    return
-                }
-                
-                // Nettoyer le formatage Markdown avant TTS
-                val cleanText = cleanMarkdownForTTS(text)
-                
-                val params = Bundle()
-                params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
-                
-                textToSpeech?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
-                android.util.Log.d(TAG, "🔊 Android TTS: '$cleanText' (utteranceId: $utteranceId)")
-            }
+            // Nettoyer le formatage Markdown avant TTS
+            val cleanText = cleanMarkdownForTTS(text)
+            
+            val params = Bundle()
+            params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
+            
+            textToSpeech?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+            android.util.Log.d(TAG, "🔊 Speaking: '$cleanText' (utteranceId: $utteranceId)")
         } catch (e: Exception) {
             android.util.Log.e(TAG, "❌ TTS Error: ${e.message}")
             listener.onTTSError(utteranceId)
@@ -461,14 +391,10 @@ class KittTTSManager(
     
     /**
      * Arrêter la parole en cours
-     * ⭐ MODIFIÉ: Support Coqui TTS
+     * ⚠️ COPIÉ À 100% DE V1 - NE PAS MODIFIER
      */
     fun stop() {
-        if (useCoqui) {
-            coquiClient?.stop()
-        } else {
-            textToSpeech?.stop()
-        }
+        textToSpeech?.stop()
         isTTSSpeaking = false
         android.util.Log.i(TAG, "🛑 TTS stopped")
     }
@@ -515,17 +441,12 @@ class KittTTSManager(
     
     /**
      * Détruire le TTS (libérer ressources)
-     * ⭐ MODIFIÉ: Support Coqui TTS
+     * ⚠️ COPIÉ À 100% DE V1 - NE PAS MODIFIER
      */
     fun destroy() {
-        if (useCoqui) {
-            coquiClient?.destroy()
-            coquiClient = null
-        } else {
-            textToSpeech?.stop()
-            textToSpeech?.shutdown()
-            textToSpeech = null
-        }
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
+        textToSpeech = null
         isTTSReady = false
         isTTSSpeaking = false
         android.util.Log.i(TAG, "🛑 KittTTSManager destroyed")

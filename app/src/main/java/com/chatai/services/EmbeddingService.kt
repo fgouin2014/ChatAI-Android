@@ -72,7 +72,7 @@ class EmbeddingService(private val context: Context) {
             // ⭐ NOUVEAU: Si Ollama Cloud est utilisé, utiliser Hugging Face pour embeddings
             // (car Ollama Cloud ne supporte pas /api/embeddings)
             val useHuggingFace = useCloud && sharedPreferences.getBoolean("rag_use_huggingface", true)
-            val huggingFaceApiKey = sharedPreferences.getString("huggingface_api_key", null)?.trim()
+            val huggingFaceApiKey = secureConfig.getHuggingFaceApiKey()?.trim()
             
             if (useHuggingFace && !huggingFaceApiKey.isNullOrEmpty()) {
                 // Utiliser Hugging Face Inference API pour embeddings
@@ -374,7 +374,7 @@ class EmbeddingService(private val context: Context) {
         try {
             val useCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
             val useHuggingFace = useCloud && sharedPreferences.getBoolean("rag_use_huggingface", true)
-            val huggingFaceApiKey = sharedPreferences.getString("huggingface_api_key", null)?.trim()
+            val huggingFaceApiKey = secureConfig.getHuggingFaceApiKey()?.trim()
             
             // ⭐ NOUVEAU: Si Ollama Cloud + Hugging Face configuré, vérifier Hugging Face
             if (useHuggingFace && !huggingFaceApiKey.isNullOrEmpty()) {
