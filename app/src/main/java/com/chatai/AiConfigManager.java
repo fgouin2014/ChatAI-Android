@@ -398,7 +398,6 @@ public final class AiConfigManager {
                         }
                     } else {
                         // Vérifier si une clé Ollama existe déjà dans SecureConfig
-                        SecureConfig secureConfig = new SecureConfig(context);
                         String existingKey = secureConfig.getOllamaCloudApiKey();
                         if (existingKey != null && !existingKey.trim().isEmpty()) {
                             // Une clé existe déjà, ne pas la supprimer (probablement un JSON mal formé ou vide)
