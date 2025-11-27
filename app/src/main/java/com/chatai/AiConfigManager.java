@@ -210,12 +210,20 @@ public final class AiConfigManager {
             root.put("mode", prefs.getString("ai_mode", "cloud"));
 
             JSONObject cloud = new JSONObject();
-            cloud.put("provider", prefs.getString("cloud_provider", "ollama"));
-            // Récupérer la clé API depuis SecureConfig
+            String provider = prefs.getString("cloud_provider", "ollama");
+            cloud.put("provider", provider);
+            // Récupérer la clé API selon le provider
             // IMPORTANT: Ne mettre apiKey dans le JSON que si elle existe
             // Si elle est vide/null, ne pas l'inclure pour éviter qu'elle soit supprimée
-            SecureConfig secureConfig = new SecureConfig(context);
-            String apiKey = secureConfig.getOllamaCloudApiKey();
+            String apiKey = null;
+            if ("huggingface".equalsIgnoreCase(provider)) {
+                // Clé Hugging Face depuis SharedPreferences
+                apiKey = prefs.getString("huggingface_api_key", null);
+            } else {
+                // Clé Ollama (ou autres providers) depuis SecureConfig
+                SecureConfig secureConfig = new SecureConfig(context);
+                apiKey = secureConfig.getOllamaCloudApiKey();
+            }
             if (apiKey != null && !apiKey.trim().isEmpty()) {
                 cloud.put("apiKey", apiKey);
             }
@@ -330,38 +338,66 @@ public final class AiConfigManager {
         JSONObject cloud = json.optJSONObject("cloud");
         if (cloud != null) {
             putStringIfPresent(editor, "cloud_provider", cloud, "provider");
-            // Sauvegarder la clé API dans SecureConfig
+            String provider = cloud.optString("provider", "ollama");
+            // Sauvegarder la clé API selon le provider
             // IMPORTANT: Ne modifier la clé que si elle est explicitement présente dans le JSON
             // Si elle n'est pas présente, c'est que la webapp ne l'a pas modifiée (masquée avec *)
-            SecureConfig secureConfig = new SecureConfig(context);
             if (cloud.has("apiKey")) {
                 // La clé est présente dans le JSON (modifiée ou explicitement supprimée)
                 String apiKey = cloud.optString("apiKey", null);
                 if (apiKey != null && !apiKey.trim().isEmpty()) {
-                    // ⭐ OPTIMISATION: Vérifier si la clé est différente avant de sauvegarder
-                    String existingKey = secureConfig.getOllamaCloudApiKey();
-                    if (existingKey == null || !existingKey.equals(apiKey)) {
-                        Log.d(TAG, "Sauvegarde clé Ollama Cloud depuis ai_config.json (" + apiKey.length() + " chars)");
-                        secureConfig.setOllamaCloudApiKey(apiKey);
+                    // Sauvegarder dans le bon endroit selon le provider
+                    if ("huggingface".equalsIgnoreCase(provider)) {
+                        // ⭐ NOUVEAU: Sauvegarder clé Hugging Face dans SharedPreferences
+                        String existingKey = prefs.getString("huggingface_api_key", null);
+                        if (existingKey == null || !existingKey.equals(apiKey)) {
+                            Log.d(TAG, "Sauvegarde clé Hugging Face depuis ai_config.json (" + apiKey.length() + " chars)");
+                            editor.putString("huggingface_api_key", apiKey);
+                        } else {
+                            Log.v(TAG, "Clé Hugging Face identique, pas de sauvegarde nécessaire");
+                        }
                     } else {
-                        Log.v(TAG, "Clé Ollama Cloud identique, pas de sauvegarde nécessaire");
+                        // Clé Ollama (ou autres providers) dans SecureConfig
+                        SecureConfig secureConfig = new SecureConfig(context);
+                        // ⭐ OPTIMISATION: Vérifier si la clé est différente avant de sauvegarder
+                        String existingKey = secureConfig.getOllamaCloudApiKey();
+                        if (existingKey == null || !existingKey.equals(apiKey)) {
+                            Log.d(TAG, "Sauvegarde clé Ollama Cloud depuis ai_config.json (" + apiKey.length() + " chars)");
+                            secureConfig.setOllamaCloudApiKey(apiKey);
+                        } else {
+                            Log.v(TAG, "Clé Ollama Cloud identique, pas de sauvegarde nécessaire");
+                        }
                     }
                 } else {
                     // Champ vide dans le JSON
-                    // Vérifier si une clé existe déjà dans SecureConfig
-                    String existingKey = secureConfig.getOllamaCloudApiKey();
-                    if (existingKey != null && !existingKey.trim().isEmpty()) {
-                        // Une clé existe déjà, ne pas la supprimer (probablement un JSON mal formé ou vide)
-                        Log.d(TAG, "Champ apiKey vide dans ai_config.json mais clé existante trouvée dans SecureConfig, conservation");
+                    if ("huggingface".equalsIgnoreCase(provider)) {
+                        // Vérifier si une clé Hugging Face existe déjà
+                        String existingKey = prefs.getString("huggingface_api_key", null);
+                        if (existingKey != null && !existingKey.trim().isEmpty()) {
+                            // Une clé existe déjà, ne pas la supprimer (probablement un JSON mal formé ou vide)
+                            Log.d(TAG, "Champ apiKey vide dans ai_config.json mais clé Hugging Face existante trouvée, conservation");
+                        } else {
+                            // Aucune clé existante, suppression OK
+                            Log.d(TAG, "Suppression clé Hugging Face (champ vide dans ai_config.json et aucune clé existante)");
+                            editor.putString("huggingface_api_key", "");
+                        }
                     } else {
-                        // Aucune clé existante, suppression OK
-                        Log.d(TAG, "Suppression clé Ollama Cloud (champ vide dans ai_config.json et aucune clé existante)");
-                        secureConfig.clearOllamaCloudApiKey();
+                        // Vérifier si une clé Ollama existe déjà dans SecureConfig
+                        SecureConfig secureConfig = new SecureConfig(context);
+                        String existingKey = secureConfig.getOllamaCloudApiKey();
+                        if (existingKey != null && !existingKey.trim().isEmpty()) {
+                            // Une clé existe déjà, ne pas la supprimer (probablement un JSON mal formé ou vide)
+                            Log.d(TAG, "Champ apiKey vide dans ai_config.json mais clé existante trouvée dans SecureConfig, conservation");
+                        } else {
+                            // Aucune clé existante, suppression OK
+                            Log.d(TAG, "Suppression clé Ollama Cloud (champ vide dans ai_config.json et aucune clé existante)");
+                            secureConfig.clearOllamaCloudApiKey();
+                        }
                     }
                 }
             } else {
                 // La clé n'est pas présente dans le JSON = pas modifiée par la webapp
-                // Ne pas toucher à SecureConfig, garder la valeur existante
+                // Ne pas toucher aux clés, garder les valeurs existantes
                 Log.d(TAG, "Clé Ollama Cloud non modifiée dans ai_config.json, conservation de la valeur existante");
             }
             putStringIfPresent(editor, "cloud_selected_model", cloud, "selectedModel");

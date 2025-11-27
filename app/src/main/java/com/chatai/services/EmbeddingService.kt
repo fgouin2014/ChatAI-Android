@@ -34,7 +34,7 @@ class EmbeddingService(private val context: Context) {
         private const val DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
         
         // ⭐ NOUVEAU: Modèles Hugging Face pour embeddings (Cloud)
-        private const val HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/"
+        private const val HUGGINGFACE_API_URL = "https://router.huggingface.co/hf-inference/models/"
         private const val DEFAULT_HF_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2" // 384 dimensions
         // Alternatives: "sentence-transformers/all-mpnet-base-v2" (768), "intfloat/multilingual-e5-base" (768)
         

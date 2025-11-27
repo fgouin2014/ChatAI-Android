@@ -64,9 +64,7 @@
                 { select: this.core.configLocalModel, custom: this.core.configLocalModelCustom },
                 { select: this.core.configVisionModel, custom: this.core.configVisionModelCustom },
                 { select: this.core.configAudioModel, custom: this.core.configAudioModelCustom },
-                { select: this.core.configTtsVoice, custom: this.core.configTtsVoiceCustom },
-                { select: this.core.configTtsModel, custom: this.core.configTtsModelCustom },
-                { select: this.core.configHuggingFaceEmbeddingModel, custom: this.core.configHuggingFaceEmbeddingModelCustom }
+                { select: this.core.configTtsVoice, custom: this.core.configTtsVoiceCustom }
             ];
 
             this.customSelects.forEach(({ select, custom }) => {
@@ -74,9 +72,6 @@
                 window.ChatUtils.addListener(select, 'change', () => this.toggleCustomInput(select, custom));
                 this.toggleCustomInput(select, custom);
             });
-            
-            // Initialiser l'affichage conditionnel TTS
-            this.initTtsView();
         }
 
         /**
@@ -155,49 +150,8 @@
                         this.core.configCloudApiKey.value = '';
                     }
                 }
-                // Configuration Hugging Face API Key (dans onglet Cloud)
-                console.log('[HF] Chargement Hugging Face API Key...');
-                console.log('[HF] cfg.cloud.huggingfaceApiKey:', cfg.cloud.huggingfaceApiKey ? (cfg.cloud.huggingfaceApiKey.substring(0, 4) + '...') : '(non défini)');
-                console.log('[HF] this.core.configHuggingFaceApiKey:', this.core.configHuggingFaceApiKey ? 'existe' : 'N\'EXISTE PAS');
-                
-                if (cfg.cloud.huggingfaceApiKey) {
-                    const hfKey = cfg.cloud.huggingfaceApiKey;
-                    if (this.core.configHuggingFaceApiKey) {
-                        // Stocker la vraie clé dans data-original-key
-                        this.core.configHuggingFaceApiKey.setAttribute('data-original-key', hfKey);
-                        // Masquer la clé (afficher des *)
-                        const maskedKey = hfKey.length > 8 ? hfKey.substring(0, 4) + '*'.repeat(hfKey.length - 8) + hfKey.substring(hfKey.length - 4) : '*'.repeat(8);
-                        this.core.configHuggingFaceApiKey.value = maskedKey;
-                        console.log('[HF] Clé chargée et masquée:', maskedKey);
-                    } else {
-                        console.error('[HF] ERREUR: configHuggingFaceApiKey n\'existe pas dans le DOM!');
-                    }
-                } else if (this.core.configHuggingFaceApiKey) {
-                    // Pas de clé configurée, champ vide
-                    this.core.configHuggingFaceApiKey.removeAttribute('data-original-key');
-                    this.core.configHuggingFaceApiKey.value = '';
-                    console.log('[HF] Pas de clé configurée, champ vidé');
-                } else {
-                    console.error('[HF] ERREUR: configHuggingFaceApiKey n\'existe pas dans le DOM!');
-                }
                 this.setSelectValue(this.core.configCloudModel, this.core.configCloudModelCustom, cfg.cloud.selectedModel || cfg.selectedModel || '');
-                } else {
-                    // Pas de config Cloud, initialiser les champs vides
-                    if (this.core.configHuggingFaceApiKey) {
-                        this.core.configHuggingFaceApiKey.removeAttribute('data-original-key');
-                        this.core.configHuggingFaceApiKey.value = '';
-                    }
-                }
-                
-                // Configuration modèle d'embedding Hugging Face (chargé depuis RAG ou Cloud)
-                if (cfg.rag?.huggingFaceEmbeddingModel) {
-                    this.setSelectValue(this.core.configHuggingFaceEmbeddingModel, this.core.configHuggingFaceEmbeddingModelCustom, cfg.rag.huggingFaceEmbeddingModel);
-                } else {
-                    this.setSelectValue(this.core.configHuggingFaceEmbeddingModel, this.core.configHuggingFaceEmbeddingModelCustom, 'sentence-transformers/all-MiniLM-L6-v2');
-                }
-                if (this.core.configHuggingFaceUseForRAG) {
-                    this.core.configHuggingFaceUseForRAG.checked = cfg.rag?.useHuggingFace === true;
-                }
+            }
 
             const local = cfg.local_server || cfg.localServer;
             if (local) {
@@ -266,11 +220,6 @@
                 }
             }
             this.updateAudioEngineView(this.core);
-            
-            // Initialiser l'affichage TTS/HF après chargement
-            if (this.core.configTtsEngine) {
-                this.updateTtsEngineView();
-            }
 
             if (this.core.configHotwordEnabled) this.core.configHotwordEnabled.checked = !!hotword.enabled;
             if (this.core.configHotwordEngine) this.core.configHotwordEngine.value = hotword.engine || 'openwakeword';
@@ -303,43 +252,18 @@
             this.renderHotwordModelsTable();
             this.updateHotwordEngineView(this.core);
 
-            // Configuration TTS/Hugging Face
+            // ⭐ FIX : Initialiser cfg.tts si non défini pour éviter les problèmes de chargement
             if (!cfg.tts) {
                 cfg.tts = {};
             }
-            // Moteur TTS
-            if (this.core.configTtsEngine) {
-                this.core.configTtsEngine.value = cfg.tts.engine || 'android_tts';
-                this.updateTtsEngineView();
-            }
-            // Configuration Coqui TTS
-            if (this.core.configTtsEndpoint) this.core.configTtsEndpoint.value = cfg.tts.endpoint || 'http://127.0.0.1:11401/process';
-            this.setSelectValue(this.core.configTtsModel, this.core.configTtsModelCustom, cfg.tts.model || 'xtts_v2');
-            if (this.core.configTtsLanguage) this.core.configTtsLanguage.value = cfg.tts.language || 'fr';
-            if (this.core.configTtsSpeed) this.core.configTtsSpeed.value = cfg.tts.speed || '1.0';
-            if (this.core.configTtsEmotion) this.core.configTtsEmotion.value = cfg.tts.emotion || '';
-            if (this.core.configTtsSpeakerWav) this.core.configTtsSpeakerWav.value = cfg.tts.speakerWavPath || '';
-            // Configuration Android TTS
+            if (this.core.configTtsMode) this.core.configTtsMode.value = cfg.tts.mode || '';
             this.setSelectValue(this.core.configTtsVoice, this.core.configTtsVoiceCustom, cfg.tts.voice || '');
-            // AutoPlay
             if (this.core.configTtsAutoPlay) {
+                // ⭐ FIX : Vérifier explicitement si autoPlay est true (peut être undefined, false, ou true)
+                // Utiliser === true pour être sûr que c'est vraiment activé
                 this.core.configTtsAutoPlay.checked = cfg.tts.autoPlay === true;
+                console.log('TTS autoPlay chargé:', cfg.tts.autoPlay, '→ checkbox checked:', this.core.configTtsAutoPlay.checked);
             }
-            
-            // Configuration RAG (Hugging Face embedding model et useForRAG)
-            if (cfg.rag) {
-                this.setSelectValue(this.core.configHuggingFaceEmbeddingModel, this.core.configHuggingFaceEmbeddingModelCustom, cfg.rag.huggingFaceEmbeddingModel || 'sentence-transformers/all-MiniLM-L6-v2');
-                if (this.core.configHuggingFaceUseForRAG) {
-                    this.core.configHuggingFaceUseForRAG.checked = cfg.rag.useHuggingFace === true;
-                }
-            } else {
-                // Valeurs par défaut si pas de config RAG
-                this.setSelectValue(this.core.configHuggingFaceEmbeddingModel, this.core.configHuggingFaceEmbeddingModelCustom, 'sentence-transformers/all-MiniLM-L6-v2');
-                if (this.core.configHuggingFaceUseForRAG) {
-                    this.core.configHuggingFaceUseForRAG.checked = false;
-                }
-            }
-            
 
             if (cfg.systemPromptOverrides) {
                 if (this.core.configPromptKitt) this.core.configPromptKitt.value = cfg.systemPromptOverrides.kitt || '';
@@ -482,6 +406,36 @@
         }
 
         /**
+         * Sauvegarde uniquement le provider Cloud sans toucher à la clé API
+         * Utilisé lors du changement de provider pour préserver la clé actuelle
+         */
+        async saveCloudProviderOnly(provider, core) {
+            if (!this.aiConfigObject) {
+                this.showConfigFeedback('Configuration non chargée', true);
+                return;
+            }
+            const cfg = this.aiConfigObject;
+            if (!cfg.cloud) cfg.cloud = {};
+            
+            // ⭐ IMPORTANT: Supprimer la clé API du JSON avant de sauvegarder
+            // pour qu'Android ne la modifie pas (elle sera préservée dans SecureConfig/SharedPreferences)
+            const currentApiKey = cfg.cloud.apiKey;
+            delete cfg.cloud.apiKey;
+            
+            // Sauvegarder uniquement le provider
+            cfg.cloud.provider = provider;
+            
+            // Persister dans Android (sans la clé API, donc Android ne la modifiera pas)
+            await this.persistAiConfig('Provider mis à jour');
+            
+            // ⭐ IMPORTANT: Restaurer la clé API dans l'objet config après sauvegarde
+            // pour que l'UI continue de fonctionner correctement
+            if (currentApiKey !== undefined) {
+                cfg.cloud.apiKey = currentApiKey;
+            }
+        }
+        
+        /**
          * Sauvegarde une section de configuration
          */
         async saveConfigSection(section, core) {
@@ -492,10 +446,12 @@
             const cfg = this.aiConfigObject;
 
             switch (section) {
-                case 'cloud':
-                    // Tab Cloud (fusionné avec General) : Mode actif + configuration Cloud
+                case 'mode':
+                    // Tab General : Sélection du mode actif (Cloud/Local) + modèle par défaut
                     cfg.mode = core.configModeSelect?.value || 'cloud';
                     cfg.selectedModel = this.getSelectValue(core.configSelectedModel, core.configSelectedModelCustom);
+                    break;
+                case 'cloud':
                     // Tab Cloud : Configuration détaillée des modèles Cloud disponibles
                     cfg.cloud = cfg.cloud || {};
                     cfg.cloud.provider = this.getSelectValue(core.configCloudProvider, core.configCloudProviderCustom);
@@ -530,47 +486,6 @@
                         delete cfg.cloud.apiKey;
                     }
                     cfg.cloud.selectedModel = this.getSelectValue(core.configCloudModel, core.configCloudModelCustom);
-                    
-                    // Configuration Hugging Face API Key (dans onglet Cloud)
-                    console.log('[HF] Sauvegarde Hugging Face API Key...');
-                    const hfApiKeyValue = core.configHuggingFaceApiKey?.value || '';
-                    console.log('[HF] Valeur du champ:', hfApiKeyValue ? (hfApiKeyValue.substring(0, 4) + '...') : '(vide)');
-                    
-                    // Même logique que pour Ollama Cloud API Key
-                    if (hfApiKeyValue && !hfApiKeyValue.includes('*')) {
-                        // Nouvelle clé saisie par l'utilisateur (pas de *)
-                        console.log('[HF] Nouvelle clé saisie, sauvegarde...');
-                        if (core.configHuggingFaceApiKey) {
-                            core.configHuggingFaceApiKey.setAttribute('data-original-key', hfApiKeyValue);
-                        }
-                        cfg.cloud.huggingfaceApiKey = hfApiKeyValue;
-                        console.log('[HF] Clé sauvegardée dans cfg.cloud.huggingfaceApiKey');
-                    } else if (hfApiKeyValue && hfApiKeyValue.includes('*')) {
-                        // Clé masquée : récupérer la vraie clé depuis data-original-key
-                        const originalKey = core.configHuggingFaceApiKey?.getAttribute('data-original-key') || '';
-                        console.log('[HF] Clé masquée détectée, clé originale:', originalKey ? (originalKey.substring(0, 4) + '...') : '(aucune)');
-                        if (originalKey) {
-                            // Utiliser la vraie clé stockée (non modifiée)
-                            cfg.cloud.huggingfaceApiKey = originalKey;
-                            console.log('[HF] Clé originale réutilisée');
-                        } else {
-                            // Pas de clé originale, supprimer du JSON pour conserver celle dans SecureConfig
-                            delete cfg.cloud.huggingfaceApiKey;
-                            console.log('[HF] Pas de clé originale, suppression');
-                        }
-                    } else if (hfApiKeyValue === '') {
-                        // Champ vide : supprimer la clé
-                        console.log('[HF] Champ vide, suppression de la clé');
-                        if (core.configHuggingFaceApiKey) {
-                            core.configHuggingFaceApiKey.removeAttribute('data-original-key');
-                        }
-                        cfg.cloud.huggingfaceApiKey = '';
-                    } else {
-                        // Aucune valeur : supprimer du JSON pour conserver celle dans SecureConfig
-                        console.log('[HF] Aucune valeur, suppression');
-                        delete cfg.cloud.huggingfaceApiKey;
-                    }
-                    console.log('[HF] Résultat final cfg.cloud.huggingfaceApiKey:', cfg.cloud.huggingfaceApiKey ? (cfg.cloud.huggingfaceApiKey.substring(0, 4) + '...') : '(non défini)');
                     break;
                 case 'local':
                     // Tab Local : Configuration du serveur Ollama local + modèle gemma + RAG
@@ -578,13 +493,10 @@
                     cfg.local_server.url = core.configLocalUrl?.value || '';
                     // Modèle local fixé à gemma3-270m.gguf
                     cfg.local_server.model = 'gemma3-270m.gguf';
-                    // Configuration RAG
+                    // ⭐ NOUVEAU: Configuration RAG
                     cfg.rag = cfg.rag || {};
                     cfg.rag.enabled = core.configRAGEnabled?.checked === true;
                     cfg.rag.embeddingModel = core.configEmbeddingModel?.value || 'nomic-embed-text';
-                    // Configuration Hugging Face pour RAG (dans onglet Local)
-                    cfg.rag.huggingFaceEmbeddingModel = this.getSelectValue(core.configHuggingFaceEmbeddingModel, core.configHuggingFaceEmbeddingModelCustom);
-                    cfg.rag.useHuggingFace = core.configHuggingFaceUseForRAG?.checked === true;
                     break;
                 case 'thinking':
                     cfg.webSearch = cfg.webSearch || {};
@@ -644,25 +556,12 @@
                     cfg.hotword.models = this.hotwordModels || [];
                     break;
                 case 'tts':
-                    // Configuration TTS
                     cfg.tts = cfg.tts || {};
-                    cfg.tts.engine = core.configTtsEngine?.value || 'android_tts';
+                    cfg.tts.mode = core.configTtsMode?.value || '';
+                    cfg.tts.voice = this.getSelectValue(core.configTtsVoice, core.configTtsVoiceCustom);
+                    // ⭐ FIX : Toujours inclure autoPlay (même si false) pour persistance entre sessions
                     cfg.tts.autoPlay = core.configTtsAutoPlay?.checked === true;
-                    
-                    if (cfg.tts.engine === 'coqui_server') {
-                        // Configuration Coqui TTS
-                        cfg.tts.endpoint = core.configTtsEndpoint?.value || 'http://127.0.0.1:11401/process';
-                        cfg.tts.model = this.getSelectValue(core.configTtsModel, core.configTtsModelCustom);
-                        cfg.tts.language = core.configTtsLanguage?.value || 'fr';
-                        cfg.tts.speed = parseFloat(core.configTtsSpeed?.value || '1.0');
-                        const emotion = core.configTtsEmotion?.value || '';
-                        cfg.tts.emotion = emotion || null;
-                        const speakerWav = core.configTtsSpeakerWav?.value || '';
-                        cfg.tts.speakerWavPath = speakerWav || null;
-                    } else {
-                        // Configuration Android TTS
-                        cfg.tts.voice = this.getSelectValue(core.configTtsVoice, core.configTtsVoiceCustom);
-                    }
+                    console.log('TTS autoPlay sauvegardé:', cfg.tts.autoPlay, '(checkbox checked:', core.configTtsAutoPlay?.checked, ')');
                     break;
                 case 'prompts':
                     cfg.systemPromptOverrides = cfg.systemPromptOverrides || {};
@@ -1030,9 +929,6 @@
         /**
          * Initialise les tabs de configuration
          */
-        /**
-         * Initialise les tabs de configuration
-         */
         initConfigTabs() {
             const tabsContainer = document.getElementById('configTabs');
             if (!tabsContainer) return;
@@ -1142,37 +1038,6 @@
                     el.classList.add('hidden');
                 }
             });
-        }
-        
-        /**
-         * Initialise l'affichage conditionnel TTS
-         */
-        initTtsView() {
-            if (!this.core) return;
-            
-            // Listener pour le moteur TTS (Coqui/Android)
-            if (this.core.configTtsEngine) {
-                window.ChatUtils.addListener(this.core.configTtsEngine, 'change', () => this.updateTtsEngineView());
-            }
-        }
-        
-        /**
-         * Met à jour l'affichage selon le moteur TTS sélectionné
-         */
-        updateTtsEngineView() {
-            if (!this.core || !this.core.configTtsEngine) return;
-            
-            const engine = this.core.configTtsEngine.value;
-            const coquiConfig = document.getElementById('coquiTtsConfig');
-            const androidConfig = document.getElementById('androidTtsConfig');
-            
-            if (engine === 'coqui_server') {
-                if (coquiConfig) coquiConfig.style.display = 'block';
-                if (androidConfig) androidConfig.style.display = 'none';
-            } else {
-                if (coquiConfig) coquiConfig.style.display = 'none';
-                if (androidConfig) androidConfig.style.display = 'block';
-            }
 
             legacyOnlyElements.forEach(el => {
                 // Les éléments "legacy" ne sont plus utilisés (Google Speech via Intent standard)

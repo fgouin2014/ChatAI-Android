@@ -32,7 +32,7 @@ public class RealtimeAIService {
     private WebSocketServer webSocketServer;
     
     // URLs des services d'IA
-    private static final String HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/";
+    private static final String HUGGINGFACE_API_URL = "https://router.huggingface.co/hf-inference/models/";
     private static final String OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
     
     // Modèles disponibles
