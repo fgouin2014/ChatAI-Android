@@ -216,25 +216,14 @@ public final class AiConfigManager {
             // IMPORTANT: Ne mettre apiKey dans le JSON que si elle existe
             // Si elle est vide/null, ne pas l'inclure pour éviter qu'elle soit supprimée
             String apiKey = null;
-            SecureConfig secureConfig = new SecureConfig(context);
-            if ("huggingface".equalsIgnoreCase(provider)) {
-                // ⭐ FIX: Clé Hugging Face depuis SecureConfig (comme Ollama)
-                apiKey = secureConfig.getHuggingFaceApiKey();
-                if (apiKey != null) {
-                    apiKey = apiKey.trim();
-                    Log.d(TAG, "Clé Hugging Face récupérée: " + (apiKey.isEmpty() ? "vide" : apiKey.length() + " chars"));
-                } else {
-                    Log.d(TAG, "Aucune clé Hugging Face trouvée dans SecureConfig");
-                }
+            // ⭐ NOUVEAU: Utiliser KeyringManager (système unifié)
+            KeyringManager keyring = KeyringManager.getInstance(context);
+            apiKey = keyring.getApiKey(provider);
+            if (apiKey != null) {
+                apiKey = apiKey.trim();
+                Log.d(TAG, "Clé " + provider + " récupérée depuis Keyring: " + (apiKey.isEmpty() ? "vide" : apiKey.length() + " chars"));
             } else {
-                // Clé Ollama (ou autres providers) depuis SecureConfig
-                apiKey = secureConfig.getOllamaCloudApiKey();
-                if (apiKey != null) {
-                    apiKey = apiKey.trim();
-                    Log.d(TAG, "Clé " + provider + " récupérée: " + (apiKey.isEmpty() ? "vide" : apiKey.length() + " chars"));
-                } else {
-                    Log.d(TAG, "Aucune clé " + provider + " trouvée dans SecureConfig");
-                }
+                Log.d(TAG, "Aucune clé " + provider + " trouvée dans Keyring");
             }
             if (apiKey != null && !apiKey.isEmpty()) {
                 cloud.put("apiKey", apiKey);
@@ -361,52 +350,26 @@ public final class AiConfigManager {
                 // La clé est présente dans le JSON (modifiée ou explicitement supprimée)
                 String apiKey = cloud.optString("apiKey", null);
                 if (apiKey != null && !apiKey.trim().isEmpty()) {
-                    // ⭐ FIX: Toutes les clés API dans SecureConfig (Hugging Face + Ollama)
-                    SecureConfig secureConfig = new SecureConfig(context);
-                    if ("huggingface".equalsIgnoreCase(provider)) {
-                        // Clé Hugging Face dans SecureConfig
-                        String existingKey = secureConfig.getHuggingFaceApiKey();
-                        if (existingKey == null || !existingKey.equals(apiKey)) {
-                            Log.d(TAG, "Sauvegarde clé Hugging Face depuis ai_config.json (" + apiKey.length() + " chars)");
-                            secureConfig.setHuggingFaceApiKey(apiKey);
-                        } else {
-                            Log.v(TAG, "Clé Hugging Face identique, pas de sauvegarde nécessaire");
-                        }
+                    // ⭐ NOUVEAU: Utiliser KeyringManager (système unifié)
+                    KeyringManager keyring = KeyringManager.getInstance(context);
+                    String existingKey = keyring.getApiKey(provider);
+                    if (existingKey == null || !existingKey.equals(apiKey)) {
+                        Log.d(TAG, "Sauvegarde clé " + provider + " depuis ai_config.json (" + apiKey.length() + " chars)");
+                        keyring.setApiKey(provider, apiKey);
                     } else {
-                        // Clé Ollama (ou autres providers) dans SecureConfig
-                        String existingKey = secureConfig.getOllamaCloudApiKey();
-                        if (existingKey == null || !existingKey.equals(apiKey)) {
-                            Log.d(TAG, "Sauvegarde clé Ollama Cloud depuis ai_config.json (" + apiKey.length() + " chars)");
-                            secureConfig.setOllamaCloudApiKey(apiKey);
-                        } else {
-                            Log.v(TAG, "Clé Ollama Cloud identique, pas de sauvegarde nécessaire");
-                        }
+                        Log.v(TAG, "Clé " + provider + " identique, pas de sauvegarde nécessaire");
                     }
                 } else {
                     // Champ vide dans le JSON
-                    SecureConfig secureConfig = new SecureConfig(context);
-                    if ("huggingface".equalsIgnoreCase(provider)) {
-                        // ⭐ FIX: Vérifier dans SecureConfig (comme Ollama)
-                        String existingKey = secureConfig.getHuggingFaceApiKey();
-                        if (existingKey != null && !existingKey.trim().isEmpty()) {
-                            // Une clé existe déjà, ne pas la supprimer (probablement un JSON mal formé ou vide)
-                            Log.d(TAG, "Champ apiKey vide dans ai_config.json mais clé Hugging Face existante trouvée, conservation");
-                        } else {
-                            // Aucune clé existante, suppression OK
-                            Log.d(TAG, "Suppression clé Hugging Face (champ vide dans ai_config.json et aucune clé existante)");
-                            secureConfig.clearHuggingFaceApiKey();
-                        }
+                    KeyringManager keyring = KeyringManager.getInstance(context);
+                    String existingKey = keyring.getApiKey(provider);
+                    if (existingKey != null && !existingKey.trim().isEmpty()) {
+                        // Une clé existe déjà, ne pas la supprimer (probablement un JSON mal formé ou vide)
+                        Log.d(TAG, "Champ apiKey vide dans ai_config.json mais clé " + provider + " existante trouvée, conservation");
                     } else {
-                        // Vérifier si une clé Ollama existe déjà dans SecureConfig
-                        String existingKey = secureConfig.getOllamaCloudApiKey();
-                        if (existingKey != null && !existingKey.trim().isEmpty()) {
-                            // Une clé existe déjà, ne pas la supprimer (probablement un JSON mal formé ou vide)
-                            Log.d(TAG, "Champ apiKey vide dans ai_config.json mais clé existante trouvée dans SecureConfig, conservation");
-                        } else {
-                            // Aucune clé existante, suppression OK
-                            Log.d(TAG, "Suppression clé Ollama Cloud (champ vide dans ai_config.json et aucune clé existante)");
-                            secureConfig.clearOllamaCloudApiKey();
-                        }
+                        // Aucune clé existante, suppression OK
+                        Log.d(TAG, "Suppression clé " + provider + " (champ vide dans ai_config.json et aucune clé existante)");
+                        keyring.clearApiKey(provider);
                     }
                 }
             } else {
