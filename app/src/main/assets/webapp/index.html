@@ -1875,13 +1875,6 @@
             const apiKeyField = document.getElementById('configCloudApiKey');
             let apiKey = apiKeyField.value.trim();
             
-            // Si la clé contient des astérisques (masquée), récupérer la vraie clé depuis data-original-key
-            if (apiKey && apiKey.includes('*')) {
-                const originalKey = apiKeyField.getAttribute('data-original-key') || '';
-                if (originalKey) {
-                    apiKey = originalKey;
-                }
-            }
             
             const modelSelect = document.getElementById('configCloudModel');
             const modelCustom = document.getElementById('configCloudModelCustom');
