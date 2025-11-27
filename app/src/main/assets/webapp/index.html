@@ -1401,65 +1401,58 @@
                       break;
               }
               
-              // ⭐ FIX: Sauvegarder la clé du provider actuel AVANT de changer de provider
+              // ⭐ FIX CRITIQUE: Sauvegarder la clé du provider actuel AVANT de changer
               if (window.secureChatApp && window.secureChatApp.chatConfig) {
                   try {
                       const chatConfig = window.secureChatApp.chatConfig;
-                      const core = window.secureChatApp;
                       const cfg = chatConfig.aiConfigObject;
                       
-                      // ⭐ CRITIQUE: Récupérer la clé API du provider ACTUEL (avant changement)
+                      if (!cfg) {
+                          console.error('Configuration non chargée');
+                          return;
+                      }
+                      
+                      // ⭐ ÉTAPE 1: Récupérer la clé API du provider ACTUEL (avant changement)
                       let currentApiKey = apiKeyInput.getAttribute('data-original-key');
                       if (!currentApiKey && apiKeyInput.value && !apiKeyInput.value.includes('*')) {
                           currentApiKey = apiKeyInput.value.trim();
                       }
                       
-                      const previousProvider = cfg?.cloud?.provider || 'ollama';
+                      const previousProvider = cfg.cloud?.provider || 'ollama';
                       
-                      console.log('Provider changé:', previousProvider, '→', provider);
-                      console.log('Clé API actuelle à préserver:', currentApiKey ? `${currentApiKey.length} chars` : 'aucune');
+                      console.log('🔄 Provider changé:', previousProvider, '→', provider);
+                      console.log('🔑 Clé API actuelle:', currentApiKey ? `${currentApiKey.length} chars` : 'aucune');
                       
-                      // ⭐ ÉTAPE 1: Si on a une clé pour le provider actuel, la sauvegarder AVANT de changer
-                      // IMPORTANT: Sauvegarder avec le provider actuel pour qu'elle soit stockée au bon endroit
+                      // ⭐ ÉTAPE 2: Sauvegarder la clé du provider actuel SI elle existe ET si on change de provider
                       if (currentApiKey && currentApiKey.length > 0 && previousProvider && previousProvider !== provider) {
-                          console.log(`💾 Sauvegarde de la clé ${previousProvider} avant changement de provider...`);
-                          // Sauvegarder la clé du provider actuel en l'incluant dans la config AVEC le bon provider
-                          if (!cfg.cloud) cfg.cloud = {};
-                          const savedProvider = cfg.cloud.provider; // Sauvegarder temporairement
-                          cfg.cloud.provider = previousProvider; // Utiliser l'ancien provider pour la sauvegarde
-                          cfg.cloud.apiKey = currentApiKey; // Inclure la clé pour la sauvegarder
-                          
-                          // Sauvegarder cette clé dans Android (avec le provider actuel)
-                          await chatConfig.persistAiConfig('Clé API préservée');
-                          console.log(`✅ Clé ${previousProvider} sauvegardée (${currentApiKey.length} chars)`);
-                          
-                          // Restaurer le provider pour continuer
-                          cfg.cloud.provider = savedProvider || previousProvider;
+                          console.log(`💾 ÉTAPE 1: Sauvegarde de la clé ${previousProvider} avant changement...`);
+                          // Utiliser la nouvelle méthode dédiée pour sauvegarder la clé du provider actuel
+                          await chatConfig.saveCurrentProviderApiKey(previousProvider, currentApiKey);
                       }
                       
-                      // ⭐ ÉTAPE 2: Maintenant changer le provider (sans toucher aux clés dans Android)
+                      // ⭐ ÉTAPE 3: Maintenant changer le provider (sans toucher aux clés)
                       if (!cfg.cloud) cfg.cloud = {};
+                      cfg.cloud.provider = provider;
                       // Supprimer apiKey du JSON pour ne pas écraser la clé du nouveau provider
                       delete cfg.cloud.apiKey;
-                      cfg.cloud.provider = provider;
                       
                       // Sauvegarder uniquement le provider (sans la clé)
                       await chatConfig.persistAiConfig('Provider mis à jour');
+                      console.log(`✅ Provider changé vers: ${provider}`);
                       
-                      // ⭐ ÉTAPE 3: Recharger la config depuis Android pour avoir la bonne clé pour le nouveau provider
+                      // ⭐ ÉTAPE 4: Recharger la config depuis Android pour avoir la bonne clé pour le nouveau provider
                       await chatConfig.loadAiConfigPreview(true);
                       
-                      // ⭐ ÉTAPE 4: Attendre que renderConfigForms() soit terminé
-                      await new Promise(resolve => setTimeout(resolve, 200));
+                      // ⭐ ÉTAPE 5: Attendre que renderConfigForms() soit terminé
+                      await new Promise(resolve => setTimeout(resolve, 300));
                       
                       // Vérifier l'état du champ après rechargement
                       const reloadedApiKey = apiKeyInput.getAttribute('data-original-key') || '';
-                      const reloadedValue = apiKeyInput.value || '';
                       
                       if (reloadedApiKey && reloadedApiKey.length > 0) {
-                          console.log(`✅ Clé API chargée depuis Android pour ${provider} (${reloadedApiKey.length} chars)`);
+                          console.log(`✅ Clé API chargée pour ${provider}: ${reloadedApiKey.length} chars`);
                       } else {
-                          console.log(`ℹ️ Aucune clé API configurée pour ${provider} (champ vide - normal si première utilisation)`);
+                          console.log(`ℹ️ Aucune clé configurée pour ${provider} (normal si première utilisation)`);
                           // S'assurer que le champ est vide
                           if (apiKeyInput) {
                               apiKeyInput.removeAttribute('data-original-key');
@@ -1467,9 +1460,9 @@
                           }
                       }
                   } catch (error) {
-                      console.error('Erreur sauvegarde/rechargement config lors changement provider:', error);
+                      console.error('❌ Erreur lors du changement de provider:', error);
                       if (window.secureChatApp?.chatConfig) {
-                          window.secureChatApp.chatConfig.showConfigFeedback('Erreur lors du changement de provider: ' + error.message, true);
+                          window.secureChatApp.chatConfig.showConfigFeedback('Erreur: ' + error.message, true);
                       }
                   }
               }

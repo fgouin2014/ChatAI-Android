@@ -406,6 +406,41 @@
         }
 
         /**
+         * Sauvegarde la clé API du provider actuel AVANT de changer de provider
+         * @param {string} currentProvider - Le provider actuel
+         * @param {string} currentApiKey - La clé API actuelle (depuis le champ ou data-original-key)
+         */
+        async saveCurrentProviderApiKey(currentProvider, currentApiKey) {
+            if (!currentApiKey || !currentApiKey.trim() || !currentProvider) {
+                console.log('Aucune clé à sauvegarder pour le provider actuel');
+                return;
+            }
+            
+            if (!this.aiConfigObject) {
+                this.showConfigFeedback('Configuration non chargée', true);
+                return;
+            }
+            
+            const cfg = this.aiConfigObject;
+            if (!cfg.cloud) cfg.cloud = {};
+            
+            // Sauvegarder temporairement le provider actuel
+            const tempProvider = cfg.cloud.provider;
+            
+            // Mettre le provider actuel + la clé pour sauvegarder
+            cfg.cloud.provider = currentProvider;
+            cfg.cloud.apiKey = currentApiKey.trim();
+            
+            // Sauvegarder dans Android (cela sauvegardera la clé dans le bon endroit selon le provider)
+            await this.persistAiConfig(`Clé ${currentProvider} préservée`);
+            
+            // Restaurer le provider
+            cfg.cloud.provider = tempProvider;
+            
+            console.log(`✅ Clé ${currentProvider} sauvegardée (${currentApiKey.trim().length} chars)`);
+        }
+        
+        /**
          * Sauvegarde uniquement le provider Cloud sans toucher à la clé API
          * Utilisé lors du changement de provider pour préserver la clé actuelle
          */
