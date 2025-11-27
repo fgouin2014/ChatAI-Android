@@ -138,7 +138,17 @@
                 if (this.core.configCloudApiKey) {
                     // Afficher la clé API en clair (pas de masquage - elle est déjà en plaintext dans les requêtes)
                     const apiKey = cfg.cloud.apiKey || '';
+                    console.log(`🔍 [renderConfigForms] Mise à jour champ API key:`, {
+                        provider: cfg.cloud.provider,
+                        apiKeyLength: apiKey.length,
+                        apiKeyPreview: apiKey ? apiKey.substring(0, 10) + '...' : 'vide',
+                        champAvant: this.core.configCloudApiKey.value ? this.core.configCloudApiKey.value.substring(0, 10) + '...' : 'vide'
+                    });
                     this.core.configCloudApiKey.value = apiKey;
+                    console.log(`✅ [renderConfigForms] Champ API key mis à jour:`, {
+                        champApres: this.core.configCloudApiKey.value ? this.core.configCloudApiKey.value.substring(0, 10) + '...' : 'vide',
+                        champLength: this.core.configCloudApiKey.value?.length || 0
+                    });
                 }
                 this.setSelectValue(this.core.configCloudModel, this.core.configCloudModelCustom, cfg.cloud.selectedModel || cfg.selectedModel || '');
             }

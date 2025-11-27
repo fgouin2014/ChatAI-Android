@@ -1460,15 +1460,33 @@
               if (chatConfig) {
                   console.log(`🔄 [updateCloudProviderUI] Rechargement config pour provider ${provider}...`);
                   await chatConfig.loadAiConfigPreview(true);
-                  await new Promise(resolve => setTimeout(resolve, 200));
+                  await new Promise(resolve => setTimeout(resolve, 300));
+                  
                   // ⭐ FIX: Forcer la mise à jour du champ API key après rechargement
                   const updatedCfg = chatConfig.aiConfigObject;
-                  if (updatedCfg?.cloud?.apiKey !== undefined && apiKeyInput) {
+                  console.log(`🔍 [updateCloudProviderUI] DEBUG config après rechargement:`, {
+                      hasCloud: !!updatedCfg?.cloud,
+                      provider: updatedCfg?.cloud?.provider,
+                      hasApiKey: updatedCfg?.cloud?.apiKey !== undefined,
+                      apiKeyLength: updatedCfg?.cloud?.apiKey?.length || 0,
+                      apiKeyPreview: updatedCfg?.cloud?.apiKey ? updatedCfg.cloud.apiKey.substring(0, 10) + '...' : 'vide'
+                  });
+                  
+                  if (updatedCfg?.cloud && apiKeyInput) {
                       const loadedKey = updatedCfg.cloud.apiKey || '';
                       apiKeyInput.value = loadedKey;
                       console.log(`✅ [updateCloudProviderUI] Clé ${provider} chargée dans le champ:`, loadedKey ? loadedKey.length + ' chars' : 'vide');
+                      // Vérifier que la valeur est bien dans le champ
+                      console.log(`🔍 [updateCloudProviderUI] Vérification champ après assignation:`, {
+                          champValue: apiKeyInput.value ? apiKeyInput.value.substring(0, 10) + '...' : 'vide',
+                          champLength: apiKeyInput.value?.length || 0
+                      });
                   } else {
-                      console.warn(`⚠️ [updateCloudProviderUI] Clé non trouvée dans config après rechargement pour ${provider}`);
+                      console.warn(`⚠️ [updateCloudProviderUI] Clé non trouvée dans config après rechargement pour ${provider}`, {
+                          hasCloud: !!updatedCfg?.cloud,
+                          hasApiKey: updatedCfg?.cloud?.apiKey !== undefined,
+                          hasInput: !!apiKeyInput
+                      });
                       if (apiKeyInput) {
                           apiKeyInput.value = '';
                       }
