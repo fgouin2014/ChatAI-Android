@@ -188,14 +188,30 @@ class KittTTSManager(
                 """.trimIndent())
             }
             
-            // Filtrer les voix françaises locales
-            val frenchVoices = allVoices?.filter { voice ->
-                voice.locale.language == "fr" &&
+            // ⭐ FILTRE: Seulement anglais et français (Canada de préférence)
+            val filteredVoices = allVoices?.filter { voice ->
+                val lang = voice.locale.language
+                val country = voice.locale.country
+                (lang == "fr" || lang == "en") &&
                 voice.isNetworkConnectionRequired == false
             } ?: emptyList()
             
+            // Prioriser Canada (fr_CA, en_CA)
+            val canadaVoices = filteredVoices.filter { voice ->
+                voice.locale.country == "CA"
+            }
+            
+            // Utiliser Canada si disponible, sinon autres
+            val frenchVoices = if (canadaVoices.isNotEmpty()) {
+                canadaVoices.filter { it.locale.language == "fr" }
+            } else {
+                filteredVoices.filter { it.locale.language == "fr" }
+            }
+            
             android.util.Log.i(TAG, "───────────────────────────────────────────────────")
-            android.util.Log.i(TAG, "VOIX FRANÇAISES LOCALES: ${frenchVoices.size}")
+            android.util.Log.i(TAG, "VOIX FILTRÉES (fr/en, Canada préféré): ${filteredVoices.size}")
+            android.util.Log.i(TAG, "VOIX CANADA: ${canadaVoices.size}")
+            android.util.Log.i(TAG, "VOIX FRANÇAISES: ${frenchVoices.size}")
             android.util.Log.i(TAG, "───────────────────────────────────────────────────")
             
             // Sélectionner selon personnalité

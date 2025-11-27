@@ -554,7 +554,15 @@ public class SecureConfig {
             Log.d(TAG, "Vérification SharedPreferences 'chatai_ai_config' dans SecureConfig: clé trouvée = " + (legacyKey != null && !legacyKey.trim().isEmpty()));
             if (legacyKey != null && !legacyKey.trim().isEmpty()) {
                 Log.i(TAG, "Clé Hugging Face trouvée dans SharedPreferences (post-migration), migration...");
-                setHuggingFaceApiKey(legacyKey);
+                // ⭐ FIX: Sauvegarder directement sans appeler setHuggingFaceApiKey() (évite boucle infinie)
+                try {
+                    String trimmedKey = legacyKey.trim();
+                    String encryptedKey = encrypt(trimmedKey);
+                    prefs.edit().putString(HUGGINGFACE_API_KEY, encryptedKey).apply();
+                    Log.d(TAG, "Clé Hugging Face migrée directement (évite récursion)");
+                } catch (Exception e) {
+                    Log.e(TAG, "Erreur lors de la migration directe de la clé Hugging Face", e);
+                }
                 return legacyKey.trim();
             }
             Log.d(TAG, "Aucune clé Hugging Face trouvée ni dans SecureConfig ni dans SharedPreferences");
