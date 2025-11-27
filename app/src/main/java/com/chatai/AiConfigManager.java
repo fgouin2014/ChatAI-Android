@@ -341,39 +341,44 @@ public final class AiConfigManager {
         if (cloud != null) {
             putStringIfPresent(editor, "cloud_provider", cloud, "provider");
             String provider = cloud.optString("provider", "ollama");
-            // Sauvegarder la clé API selon le provider
-            // IMPORTANT: Ne modifier la clé que si elle est explicitement présente dans le JSON
-            // Si elle n'est pas présente, c'est que la webapp ne l'a pas modifiée (masquée avec *)
+            // ⭐ FIX CRITIQUE: Sauvegarder la clé API selon le provider
+            // Toujours vérifier apiKey dans le JSON, même si vide ("" = suppression explicite)
+            KeyringManager keyring = KeyringManager.getInstance(context);
+            
             if (cloud.has("apiKey")) {
-                // La clé est présente dans le JSON (modifiée ou explicitement supprimée)
+                // La clé est présente dans le JSON (modifiée, vide, ou explicitement supprimée)
                 String apiKey = cloud.optString("apiKey", null);
+                
                 if (apiKey != null && !apiKey.trim().isEmpty()) {
-                    // ⭐ NOUVEAU: Utiliser KeyringManager (système unifié)
-                    KeyringManager keyring = KeyringManager.getInstance(context);
+                    // ⭐ NOUVELLE CLÉ: Sauvegarder dans KeyringManager
                     String existingKey = keyring.getApiKey(provider);
-                    if (existingKey == null || !existingKey.equals(apiKey)) {
-                        Log.d(TAG, "Sauvegarde clé " + provider + " depuis ai_config.json (" + apiKey.length() + " chars)");
-                        keyring.setApiKey(provider, apiKey);
+                    if (existingKey == null || !existingKey.equals(apiKey.trim())) {
+                        Log.i(TAG, "💾 SAUVEGARDE clé " + provider + " depuis ai_config.json (" + apiKey.length() + " chars)");
+                        keyring.setApiKey(provider, apiKey.trim());
+                        Log.i(TAG, "✅ Clé " + provider + " sauvegardée dans KeyringManager");
                     } else {
                         Log.v(TAG, "Clé " + provider + " identique, pas de sauvegarde nécessaire");
                     }
                 } else {
-                    // Champ vide dans le JSON
-                    KeyringManager keyring = KeyringManager.getInstance(context);
+                    // ⭐ CHAMP VIDE: apiKey = "" ou null = suppression explicite
                     String existingKey = keyring.getApiKey(provider);
                     if (existingKey != null && !existingKey.trim().isEmpty()) {
-                        // Une clé existe déjà, ne pas la supprimer (probablement un JSON mal formé ou vide)
-                        Log.d(TAG, "Champ apiKey vide dans ai_config.json mais clé " + provider + " existante trouvée, conservation");
-                    } else {
-                        // Aucune clé existante, suppression OK
-                        Log.d(TAG, "Suppression clé " + provider + " (champ vide dans ai_config.json et aucune clé existante)");
+                        Log.i(TAG, "🗑️ SUPPRESSION clé " + provider + " (champ vide dans JSON, clé existante trouvée)");
                         keyring.clearApiKey(provider);
+                        Log.i(TAG, "✅ Clé " + provider + " supprimée de KeyringManager");
+                    } else {
+                        Log.d(TAG, "Clé " + provider + " déjà vide, pas de suppression nécessaire");
                     }
                 }
             } else {
-                // La clé n'est pas présente dans le JSON = pas modifiée par la webapp
-                // Ne pas toucher aux clés, garder les valeurs existantes
-                Log.d(TAG, "Clé Ollama Cloud non modifiée dans ai_config.json, conservation de la valeur existante");
+                // ⭐ apiKey ABSENT du JSON = webapp ne l'a pas modifiée
+                // CONSERVER la clé existante dans KeyringManager
+                String existingKey = keyring.getApiKey(provider);
+                if (existingKey != null) {
+                    Log.d(TAG, "Clé " + provider + " non modifiée dans JSON, conservation clé existante (" + existingKey.length() + " chars)");
+                } else {
+                    Log.d(TAG, "Clé " + provider + " non modifiée dans JSON, aucune clé existante");
+                }
             }
             putStringIfPresent(editor, "cloud_selected_model", cloud, "selectedModel");
             putStringIfPresent(editor, "ollama_cloud_model", cloud, "selectedModel");
