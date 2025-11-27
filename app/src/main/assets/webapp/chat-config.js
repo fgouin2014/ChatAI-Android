@@ -134,22 +134,47 @@
             this.setSelectValue(this.core.configSelectedModel, this.core.configSelectedModelCustom, cfg.selectedModel || '');
 
             if (cfg.cloud) {
-                this.setSelectValue(this.core.configCloudProvider, this.core.configCloudProviderCustom, cfg.cloud.provider || '');
-                if (this.core.configCloudApiKey) {
-                    // Stocker la vraie clé API dans un attribut data pour la conserver
-                    const apiKey = cfg.cloud.apiKey || '';
-                    if (apiKey) {
-                        // Stocker la vraie clé dans data-original-key
-                        this.core.configCloudApiKey.setAttribute('data-original-key', apiKey);
-                        // Masquer la clé API si elle existe (afficher des *)
-                        // Utiliser la vraie longueur, pas limitée à 20
-                        this.core.configCloudApiKey.value = '*'.repeat(apiKey.length);
-                    } else {
-                        // Pas de clé, supprimer l'attribut data-original-key
-                        this.core.configCloudApiKey.removeAttribute('data-original-key');
-                        this.core.configCloudApiKey.value = '';
+                const provider = cfg.cloud.provider || 'ollama';
+                this.setSelectValue(this.core.configCloudProvider, this.core.configCloudProviderCustom, provider);
+                
+                const apiKey = cfg.cloud.apiKey || '';
+                
+                // Utiliser l'input approprié selon le provider
+                if (provider === 'ollama') {
+                    const ollamaInput = document.getElementById('configCloudApiKeyOllama');
+                    if (ollamaInput) {
+                        if (apiKey) {
+                            ollamaInput.setAttribute('data-original-key', apiKey);
+                            ollamaInput.value = '*'.repeat(apiKey.length);
+                        } else {
+                            ollamaInput.removeAttribute('data-original-key');
+                            ollamaInput.value = '';
+                        }
+                    }
+                } else if (provider === 'huggingface') {
+                    const hfInput = document.getElementById('configCloudApiKeyHuggingFace');
+                    if (hfInput) {
+                        if (apiKey) {
+                            hfInput.setAttribute('data-original-key', apiKey);
+                            hfInput.value = '*'.repeat(apiKey.length);
+                        } else {
+                            hfInput.removeAttribute('data-original-key');
+                            hfInput.value = '';
+                        }
+                    }
+                } else {
+                    // Provider générique (OpenAI, Groq, etc.)
+                    if (this.core.configCloudApiKey) {
+                        if (apiKey) {
+                            this.core.configCloudApiKey.setAttribute('data-original-key', apiKey);
+                            this.core.configCloudApiKey.value = '*'.repeat(apiKey.length);
+                        } else {
+                            this.core.configCloudApiKey.removeAttribute('data-original-key');
+                            this.core.configCloudApiKey.value = '';
+                        }
                     }
                 }
+                
                 this.setSelectValue(this.core.configCloudModel, this.core.configCloudModelCustom, cfg.cloud.selectedModel || cfg.selectedModel || '');
             }
 
@@ -489,37 +514,47 @@
                 case 'cloud':
                     // Tab Cloud : Configuration détaillée des modèles Cloud disponibles
                     cfg.cloud = cfg.cloud || {};
-                    cfg.cloud.provider = this.getSelectValue(core.configCloudProvider, core.configCloudProviderCustom);
-                    const cloudApiKeyValue = core.configCloudApiKey?.value || '';
-                    // Si la valeur contient des *, utiliser la vraie clé stockée dans data-original-key
-                    // Sinon, c'est une nouvelle clé saisie par l'utilisateur
-                    if (cloudApiKeyValue && !cloudApiKeyValue.includes('*')) {
-                        // Nouvelle clé saisie par l'utilisateur (pas de *)
-                        // Mettre à jour data-original-key avec la nouvelle clé
-                        if (core.configCloudApiKey) {
-                            core.configCloudApiKey.setAttribute('data-original-key', cloudApiKeyValue);
+                    const provider = this.getSelectValue(core.configCloudProvider, core.configCloudProviderCustom);
+                    cfg.cloud.provider = provider;
+                    
+                    // Récupérer la clé API depuis le bon input selon le provider
+                    let cloudApiKeyValue = '';
+                    if (provider === 'ollama') {
+                        const ollamaInput = document.getElementById('configCloudApiKeyOllama');
+                        if (ollamaInput) {
+                            cloudApiKeyValue = ollamaInput.value || '';
+                            // Si masquée, récupérer depuis data-original-key
+                            if (cloudApiKeyValue.includes('*')) {
+                                cloudApiKeyValue = ollamaInput.getAttribute('data-original-key') || '';
+                            }
                         }
-                        cfg.cloud.apiKey = cloudApiKeyValue;
-                    } else if (cloudApiKeyValue.includes('*')) {
-                        // Clé masquée : récupérer la vraie clé depuis data-original-key
-                        const originalKey = core.configCloudApiKey?.getAttribute('data-original-key') || '';
-                        if (originalKey) {
-                            // Utiliser la vraie clé stockée (non modifiée)
-                            cfg.cloud.apiKey = originalKey;
-                        } else {
-                            // Pas de clé originale, supprimer du JSON pour conserver celle dans SecureConfig
-                            delete cfg.cloud.apiKey;
+                    } else if (provider === 'huggingface') {
+                        const hfInput = document.getElementById('configCloudApiKeyHuggingFace');
+                        if (hfInput) {
+                            cloudApiKeyValue = hfInput.value || '';
+                            // Si masquée, récupérer depuis data-original-key
+                            if (cloudApiKeyValue.includes('*')) {
+                                cloudApiKeyValue = hfInput.getAttribute('data-original-key') || '';
+                            }
                         }
-                    } else if (cloudApiKeyValue === '') {
-                        // Champ vide : supprimer la clé
-                        if (core.configCloudApiKey) {
-                            core.configCloudApiKey.removeAttribute('data-original-key');
-                        }
-                        cfg.cloud.apiKey = '';
                     } else {
-                        // Aucune valeur : supprimer du JSON pour conserver celle dans SecureConfig
-                        delete cfg.cloud.apiKey;
+                        // Provider générique
+                        if (core.configCloudApiKey) {
+                            cloudApiKeyValue = core.configCloudApiKey.value || '';
+                            // Si masquée, récupérer depuis data-original-key
+                            if (cloudApiKeyValue.includes('*')) {
+                                cloudApiKeyValue = core.configCloudApiKey.getAttribute('data-original-key') || '';
+                            }
+                        }
                     }
+                    
+                    // Sauvegarder la clé dans la config
+                    if (cloudApiKeyValue && cloudApiKeyValue.trim()) {
+                        cfg.cloud.apiKey = cloudApiKeyValue.trim();
+                    } else {
+                        cfg.cloud.apiKey = '';
+                    }
+                    
                     cfg.cloud.selectedModel = this.getSelectValue(core.configCloudModel, core.configCloudModelCustom);
                     break;
                 case 'local':

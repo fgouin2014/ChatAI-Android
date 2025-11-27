@@ -165,7 +165,20 @@
                                 </select>
                                 <input type="text" id="configCloudProviderCustom" class="custom-input hidden" placeholder="Provider personnalisé">
                             </label>
-                            <label>
+                            <!-- Input pour Ollama -->
+                            <label id="configCloudApiKeyOllamaContainer" class="api-key-container" style="display: none;">
+                                <span style="font-weight: 500; margin-bottom: 4px;">🔑 API Key Ollama Cloud</span>
+                                <input type="password" id="configCloudApiKeyOllama" placeholder="Entrez votre clé API Ollama Cloud">
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Obtenez votre clé sur <a href="https://ollama.com/account" target="_blank" style="color: #667eea;">ollama.com/account</a></small>
+                            </label>
+                            <!-- Input pour Hugging Face -->
+                            <label id="configCloudApiKeyHuggingFaceContainer" class="api-key-container" style="display: none;">
+                                <span style="font-weight: 500; margin-bottom: 4px;">🔑 API Key Hugging Face</span>
+                                <input type="password" id="configCloudApiKeyHuggingFace" placeholder="Entrez votre clé API Hugging Face">
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Obtenez votre clé sur <a href="https://huggingface.co/settings/tokens" target="_blank" style="color: #667eea;">huggingface.co/settings/tokens</a></small>
+                            </label>
+                            <!-- Input générique pour autres providers (OpenAI, Groq, etc.) -->
+                            <label id="configCloudApiKeyGenericContainer" class="api-key-container">
                                 <span id="configCloudApiKeyLabel" style="font-weight: 500; margin-bottom: 4px;">🔑 API Key</span>
                                 <input type="password" id="configCloudApiKey" placeholder="Entrez votre clé API">
                                 <small id="configCloudApiKeyHelp" style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Obtenez votre clé sur <a id="configCloudApiKeyLink" href="https://ollama.com/account" target="_blank" style="color: #667eea;">ollama.com/account</a></small>
@@ -1352,118 +1365,76 @@
           // Fonction pour mettre à jour l'UI selon le provider sélectionné
           async function updateCloudProviderUI() {
               const providerSelect = document.getElementById('configCloudProvider');
-              const apiKeyLabel = document.getElementById('configCloudApiKeyLabel');
-              const apiKeyInput = document.getElementById('configCloudApiKey');
-              const apiKeyHelp = document.getElementById('configCloudApiKeyHelp');
-              const apiKeyLink = document.getElementById('configCloudApiKeyLink');
-              
-              if (!providerSelect || !apiKeyLabel || !apiKeyInput || !apiKeyHelp || !apiKeyLink) return;
+              if (!providerSelect) return;
               
               const provider = providerSelect.value;
               
-              // Mettre à jour les labels
+              // Containers pour chaque input
+              const ollamaContainer = document.getElementById('configCloudApiKeyOllamaContainer');
+              const huggingfaceContainer = document.getElementById('configCloudApiKeyHuggingFaceContainer');
+              const genericContainer = document.getElementById('configCloudApiKeyGenericContainer');
+              const apiKeyLabel = document.getElementById('configCloudApiKeyLabel');
+              const apiKeyInput = document.getElementById('configCloudApiKey');
+              const apiKeyLink = document.getElementById('configCloudApiKeyLink');
+              
+              // Masquer tous les containers
+              if (ollamaContainer) ollamaContainer.style.display = 'none';
+              if (huggingfaceContainer) huggingfaceContainer.style.display = 'none';
+              if (genericContainer) genericContainer.style.display = 'none';
+              
+              // Afficher le container approprié selon le provider
               switch(provider) {
-                  case 'huggingface':
-                      apiKeyLabel.textContent = '🔑 API Key Hugging Face';
-                      apiKeyInput.placeholder = 'Entrez votre clé API Hugging Face';
-                      apiKeyLink.textContent = 'huggingface.co/settings/tokens';
-                      apiKeyLink.href = 'https://huggingface.co/settings/tokens';
-                      break;
                   case 'ollama':
-                      apiKeyLabel.textContent = '🔑 API Key Ollama Cloud';
-                      apiKeyInput.placeholder = 'Entrez votre clé API Ollama Cloud';
-                      apiKeyLink.textContent = 'ollama.com/account';
-                      apiKeyLink.href = 'https://ollama.com/account';
+                      if (ollamaContainer) ollamaContainer.style.display = 'block';
+                      break;
+                  case 'huggingface':
+                      if (huggingfaceContainer) huggingfaceContainer.style.display = 'block';
                       break;
                   case 'openai':
-                      apiKeyLabel.textContent = '🔑 API Key OpenAI';
-                      apiKeyInput.placeholder = 'Entrez votre clé API OpenAI';
-                      apiKeyLink.textContent = 'platform.openai.com/api-keys';
-                      apiKeyLink.href = 'https://platform.openai.com/api-keys';
+                      if (genericContainer) genericContainer.style.display = 'block';
+                      if (apiKeyLabel) apiKeyLabel.textContent = '🔑 API Key OpenAI';
+                      if (apiKeyInput) apiKeyInput.placeholder = 'Entrez votre clé API OpenAI';
+                      if (apiKeyLink) {
+                          apiKeyLink.textContent = 'platform.openai.com/api-keys';
+                          apiKeyLink.href = 'https://platform.openai.com/api-keys';
+                      }
                       break;
                   case 'groq':
-                      apiKeyLabel.textContent = '🔑 API Key Groq';
-                      apiKeyInput.placeholder = 'Entrez votre clé API Groq';
-                      apiKeyLink.textContent = 'console.groq.com/keys';
-                      apiKeyLink.href = 'https://console.groq.com/keys';
+                      if (genericContainer) genericContainer.style.display = 'block';
+                      if (apiKeyLabel) apiKeyLabel.textContent = '🔑 API Key Groq';
+                      if (apiKeyInput) apiKeyInput.placeholder = 'Entrez votre clé API Groq';
+                      if (apiKeyLink) {
+                          apiKeyLink.textContent = 'console.groq.com/keys';
+                          apiKeyLink.href = 'https://console.groq.com/keys';
+                      }
                       break;
                   case 'perplexity':
-                      apiKeyLabel.textContent = '🔑 API Key Perplexity';
-                      apiKeyInput.placeholder = 'Entrez votre clé API Perplexity';
-                      apiKeyLink.textContent = 'perplexity.ai/settings/api';
-                      apiKeyLink.href = 'https://www.perplexity.ai/settings/api';
+                      if (genericContainer) genericContainer.style.display = 'block';
+                      if (apiKeyLabel) apiKeyLabel.textContent = '🔑 API Key Perplexity';
+                      if (apiKeyInput) apiKeyInput.placeholder = 'Entrez votre clé API Perplexity';
+                      if (apiKeyLink) {
+                          apiKeyLink.textContent = 'perplexity.ai/settings/api';
+                          apiKeyLink.href = 'https://www.perplexity.ai/settings/api';
+                      }
                       break;
                   default:
-                      apiKeyLabel.textContent = '🔑 API Key';
-                      apiKeyInput.placeholder = 'Entrez votre clé API';
-                      apiKeyLink.textContent = 'Consultez la documentation du provider';
-                      apiKeyLink.href = '#';
+                      if (genericContainer) genericContainer.style.display = 'block';
+                      if (apiKeyLabel) apiKeyLabel.textContent = '🔑 API Key';
+                      if (apiKeyInput) apiKeyInput.placeholder = 'Entrez votre clé API';
+                      if (apiKeyLink) {
+                          apiKeyLink.textContent = 'Consultez la documentation du provider';
+                          apiKeyLink.href = '#';
+                      }
                       break;
               }
               
-              // ⭐ FIX CRITIQUE: Sauvegarder la clé du provider actuel AVANT de changer
+              // Recharger les clés depuis Android pour le provider sélectionné
               if (window.secureChatApp && window.secureChatApp.chatConfig) {
                   try {
-                      const chatConfig = window.secureChatApp.chatConfig;
-                      const cfg = chatConfig.aiConfigObject;
-                      
-                      if (!cfg) {
-                          console.error('Configuration non chargée');
-                          return;
-                      }
-                      
-                      // ⭐ ÉTAPE 1: Récupérer la clé API du provider ACTUEL (avant changement)
-                      let currentApiKey = apiKeyInput.getAttribute('data-original-key');
-                      if (!currentApiKey && apiKeyInput.value && !apiKeyInput.value.includes('*')) {
-                          currentApiKey = apiKeyInput.value.trim();
-                      }
-                      
-                      const previousProvider = cfg.cloud?.provider || 'ollama';
-                      
-                      console.log('🔄 Provider changé:', previousProvider, '→', provider);
-                      console.log('🔑 Clé API actuelle:', currentApiKey ? `${currentApiKey.length} chars` : 'aucune');
-                      
-                      // ⭐ ÉTAPE 2: Sauvegarder la clé du provider actuel SI elle existe ET si on change de provider
-                      if (currentApiKey && currentApiKey.length > 0 && previousProvider && previousProvider !== provider) {
-                          console.log(`💾 ÉTAPE 1: Sauvegarde de la clé ${previousProvider} avant changement...`);
-                          // Utiliser la nouvelle méthode dédiée pour sauvegarder la clé du provider actuel
-                          await chatConfig.saveCurrentProviderApiKey(previousProvider, currentApiKey);
-                      }
-                      
-                      // ⭐ ÉTAPE 3: Maintenant changer le provider (sans toucher aux clés)
-                      if (!cfg.cloud) cfg.cloud = {};
-                      cfg.cloud.provider = provider;
-                      // Supprimer apiKey du JSON pour ne pas écraser la clé du nouveau provider
-                      delete cfg.cloud.apiKey;
-                      
-                      // Sauvegarder uniquement le provider (sans la clé)
-                      await chatConfig.persistAiConfig('Provider mis à jour');
-                      console.log(`✅ Provider changé vers: ${provider}`);
-                      
-                      // ⭐ ÉTAPE 4: Recharger la config depuis Android pour avoir la bonne clé pour le nouveau provider
-                      await chatConfig.loadAiConfigPreview(true);
-                      
-                      // ⭐ ÉTAPE 5: Attendre que renderConfigForms() soit terminé
-                      await new Promise(resolve => setTimeout(resolve, 300));
-                      
-                      // Vérifier l'état du champ après rechargement
-                      const reloadedApiKey = apiKeyInput.getAttribute('data-original-key') || '';
-                      
-                      if (reloadedApiKey && reloadedApiKey.length > 0) {
-                          console.log(`✅ Clé API chargée pour ${provider}: ${reloadedApiKey.length} chars`);
-                      } else {
-                          console.log(`ℹ️ Aucune clé configurée pour ${provider} (normal si première utilisation)`);
-                          // S'assurer que le champ est vide
-                          if (apiKeyInput) {
-                              apiKeyInput.removeAttribute('data-original-key');
-                              apiKeyInput.value = '';
-                          }
-                      }
+                      await window.secureChatApp.chatConfig.loadAiConfigPreview(true);
+                      await new Promise(resolve => setTimeout(resolve, 200));
                   } catch (error) {
-                      console.error('❌ Erreur lors du changement de provider:', error);
-                      if (window.secureChatApp?.chatConfig) {
-                          window.secureChatApp.chatConfig.showConfigFeedback('Erreur: ' + error.message, true);
-                      }
+                      console.error('Erreur lors du rechargement de la config:', error);
                   }
               }
           }
@@ -1507,7 +1478,28 @@
 
         // Fonction pour lister les modèles disponibles (sans test de connexion)
         async function listCloudModels() {
-            const apiKeyField = document.getElementById('configCloudApiKey');
+            // Utiliser l'input Ollama ou générique selon le provider
+            const providerSelect = document.getElementById('configCloudProvider');
+            const provider = providerSelect?.value || 'ollama';
+            let apiKeyField = null;
+            if (provider === 'ollama') {
+                apiKeyField = document.getElementById('configCloudApiKeyOllama');
+            } else {
+                apiKeyField = document.getElementById('configCloudApiKey');
+            }
+            
+            if (!apiKeyField) {
+                const modelsResultDiv = document.getElementById('cloudModelsResult');
+                const modelsStatusDiv = document.getElementById('cloudModelsStatus');
+                if (modelsResultDiv && modelsStatusDiv) {
+                    modelsResultDiv.style.display = 'block';
+                    modelsResultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                    modelsStatusDiv.innerHTML = '❌ Champ API Key introuvable';
+                    modelsStatusDiv.style.color = '#dc2626';
+                }
+                return;
+            }
+            
             let apiKey = apiKeyField.value.trim();
             
             // Si la clé contient des astérisques (masquée), récupérer la vraie clé depuis data-original-key
@@ -1635,7 +1627,18 @@
         
         // Fonction de test de connexion Hugging Face
         async function testHuggingFaceConnection() {
-            const apiKeyField = document.getElementById('configCloudApiKey');
+            const apiKeyField = document.getElementById('configCloudApiKeyHuggingFace') || document.getElementById('configCloudApiKey');
+            if (!apiKeyField) {
+                const resultDiv = document.getElementById('cloudTestResult');
+                const statusDiv = document.getElementById('cloudTestStatus');
+                if (resultDiv && statusDiv) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                    statusDiv.innerHTML = '❌ Champ API Key Hugging Face introuvable';
+                    statusDiv.style.color = '#dc2626';
+                }
+                return;
+            }
             let apiKey = apiKeyField.value.trim();
             
             // Si la clé contient des astérisques (masquée), récupérer la vraie clé depuis data-original-key
@@ -1921,7 +1924,18 @@
         
         // Fonction de test de connexion Ollama Cloud (liste + test chat)
         async function testOllamaCloudConnection() {
-            const apiKeyField = document.getElementById('configCloudApiKey');
+            const apiKeyField = document.getElementById('configCloudApiKeyOllama') || document.getElementById('configCloudApiKey');
+            if (!apiKeyField) {
+                const resultDiv = document.getElementById('cloudTestResult');
+                const statusDiv = document.getElementById('cloudTestStatus');
+                if (resultDiv && statusDiv) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                    statusDiv.innerHTML = '❌ Champ API Key introuvable';
+                    statusDiv.style.color = '#dc2626';
+                }
+                return;
+            }
             let apiKey = apiKeyField.value.trim();
             
             // Si la clé contient des astérisques (masquée), récupérer la vraie clé depuis data-original-key
