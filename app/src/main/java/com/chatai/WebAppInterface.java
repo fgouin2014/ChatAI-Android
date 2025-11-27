@@ -286,15 +286,31 @@ public class WebAppInterface {
     public String writeAiConfigJson(String content) {
         try {
             if (content == null || content.trim().isEmpty()) {
+                Log.e(TAG, "❌ writeAiConfigJson: Content is empty");
                 return "Content is empty";
             }
-            AiConfigManager.writeConfigJson(mContext, content);
+            Log.i(TAG, "📥 writeAiConfigJson: Reçu " + content.length() + " chars");
+            // Extraire apiKey du JSON pour logging (sans exposer la clé complète)
+            try {
+                org.json.JSONObject json = new org.json.JSONObject(content);
+                org.json.JSONObject cloud = json.optJSONObject("cloud");
+                if (cloud != null) {
+                    String provider = cloud.optString("provider", "unknown");
+                    boolean hasApiKey = cloud.has("apiKey");
+                    String apiKeyPreview = hasApiKey ? (cloud.optString("apiKey", "").isEmpty() ? "VIDE" : cloud.optString("apiKey", "").substring(0, Math.min(4, cloud.optString("apiKey", "").length())) + "...") : "ABSENT";
+                    Log.i(TAG, "📥 writeAiConfigJson: provider=" + provider + ", apiKey=" + apiKeyPreview);
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Erreur parsing JSON pour log", e);
+            }
+            String result = AiConfigManager.writeConfigJson(mContext, content);
+            Log.i(TAG, "✅ writeAiConfigJson: Sauvegarde terminée");
             return "OK";
         } catch (org.json.JSONException e) {
-            Log.e(TAG, "Invalid JSON content", e);
+            Log.e(TAG, "❌ writeAiConfigJson: Invalid JSON content", e);
             return "JSON error: " + e.getMessage();
         } catch (Exception e) {
-            Log.e(TAG, "Error writing ai_config.json", e);
+            Log.e(TAG, "❌ writeAiConfigJson: Error writing ai_config.json", e);
             return "Error: " + e.getMessage();
         }
     }

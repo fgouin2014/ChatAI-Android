@@ -764,6 +764,24 @@
         async persistAiConfig(successMessage = 'Configuration sauvegardée') {
             try {
                 const content = JSON.stringify(this.aiConfigObject, null, 2);
+                
+                // ⭐ LOG CRITIQUE: Vérifier apiKey dans le JSON avant envoi
+                try {
+                    const jsonObj = JSON.parse(content);
+                    const cloud = jsonObj?.cloud;
+                    if (cloud) {
+                        const provider = cloud.provider || 'unknown';
+                        const hasApiKey = cloud.hasOwnProperty('apiKey');
+                        const apiKeyValue = cloud.apiKey;
+                        console.log('🔍 persistAiConfig: provider=' + provider + ', apiKey=' + (hasApiKey ? (apiKeyValue === '' ? 'VIDE' : apiKeyValue.length + ' chars') : 'ABSENT'));
+                        if (!hasApiKey) {
+                            console.error('❌ persistAiConfig: apiKey ABSENT du JSON! Cela va empêcher la sauvegarde!');
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Erreur parsing JSON pour log:', e);
+                }
+                
                 const result = await this.pushAiConfigContent(content);
                 if (result === true || result === 'OK') {
                     this.aiConfigCache = content;

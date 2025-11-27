@@ -117,8 +117,19 @@ public final class AiConfigManager {
     }
 
     public static synchronized String writeConfigJson(Context context, String jsonContent) throws JSONException {
+        Log.i(TAG, "📝 writeConfigJson: Début");
         JSONObject json = new JSONObject(jsonContent);
         json.put("updatedAt", System.currentTimeMillis());
+        
+        // Log apiKey avant traitement
+        JSONObject cloud = json.optJSONObject("cloud");
+        if (cloud != null) {
+            String provider = cloud.optString("provider", "unknown");
+            boolean hasApiKey = cloud.has("apiKey");
+            String apiKeyValue = hasApiKey ? cloud.optString("apiKey", "") : null;
+            Log.i(TAG, "📝 writeConfigJson: provider=" + provider + ", apiKey=" + (hasApiKey ? (apiKeyValue.isEmpty() ? "VIDE" : apiKeyValue.length() + " chars") : "ABSENT"));
+        }
+        
         // Nettoyage: si moteur hotword != porcupine, retirer les champs Picovoice pour éviter la confusion
         JSONObject hotword = json.optJSONObject("hotword");
         if (hotword != null) {
@@ -133,8 +144,11 @@ public final class AiConfigManager {
         // pour rendre l'intention explicite (vide = suppression, absent = non modifié)
         // Le nettoyage de apiKey vide a été supprimé pour permettre la distinction
         // entre "apiKey absent" (non modifié) et "apiKey = ''" (suppression explicite)
+        Log.i(TAG, "📝 writeConfigJson: Appel applyJsonToPreferences");
         applyJsonToPreferences(context, json);
+        Log.i(TAG, "📝 writeConfigJson: Écriture fichier");
         writeJsonToFile(json);
+        Log.i(TAG, "✅ writeConfigJson: Terminé");
         return toPrettyString(json);
     }
 
@@ -320,17 +334,23 @@ public final class AiConfigManager {
         if (cloud != null) {
             putStringIfPresent(editor, "cloud_provider", cloud, "provider");
             String provider = cloud.optString("provider", "ollama");
+            Log.i(TAG, "🔑 applyJsonToPreferences: provider=" + provider);
+            
             // ⭐ FIX CRITIQUE: Sauvegarder la clé API selon le provider
             // Toujours vérifier apiKey dans le JSON, même si vide ("" = suppression explicite)
             KeyringManager keyring = KeyringManager.getInstance(context);
+            boolean hasApiKey = cloud.has("apiKey");
+            Log.i(TAG, "🔑 applyJsonToPreferences: cloud.has('apiKey')=" + hasApiKey);
             
-            if (cloud.has("apiKey")) {
+            if (hasApiKey) {
                 // La clé est présente dans le JSON (modifiée, vide, ou explicitement supprimée)
                 String apiKey = cloud.optString("apiKey", null);
+                Log.i(TAG, "🔑 applyJsonToPreferences: apiKey=" + (apiKey == null ? "null" : (apiKey.isEmpty() ? "VIDE" : apiKey.length() + " chars")));
                 
                 if (apiKey != null && !apiKey.trim().isEmpty()) {
                     // ⭐ NOUVELLE CLÉ: Sauvegarder dans KeyringManager
                     String existingKey = keyring.getApiKey(provider);
+                    Log.i(TAG, "🔑 applyJsonToPreferences: Clé existante=" + (existingKey == null ? "null" : existingKey.length() + " chars"));
                     if (existingKey == null || !existingKey.equals(apiKey.trim())) {
                         Log.i(TAG, "💾 SAUVEGARDE clé " + provider + " depuis ai_config.json (" + apiKey.length() + " chars)");
                         keyring.setApiKey(provider, apiKey.trim());
@@ -341,6 +361,7 @@ public final class AiConfigManager {
                 } else {
                     // ⭐ CHAMP VIDE: apiKey = "" ou null = suppression explicite
                     String existingKey = keyring.getApiKey(provider);
+                    Log.i(TAG, "🔑 applyJsonToPreferences: Clé existante pour suppression=" + (existingKey == null ? "null" : existingKey.length() + " chars"));
                     if (existingKey != null && !existingKey.trim().isEmpty()) {
                         Log.i(TAG, "🗑️ SUPPRESSION clé " + provider + " (champ vide dans JSON, clé existante trouvée)");
                         keyring.clearApiKey(provider);
@@ -353,6 +374,7 @@ public final class AiConfigManager {
                 // ⭐ apiKey ABSENT du JSON = webapp ne l'a pas modifiée
                 // CONSERVER la clé existante dans KeyringManager
                 String existingKey = keyring.getApiKey(provider);
+                Log.i(TAG, "🔑 applyJsonToPreferences: apiKey ABSENT, clé existante=" + (existingKey == null ? "null" : existingKey.length() + " chars"));
                 if (existingKey != null) {
                     Log.d(TAG, "Clé " + provider + " non modifiée dans JSON, conservation clé existante (" + existingKey.length() + " chars)");
                 } else {
