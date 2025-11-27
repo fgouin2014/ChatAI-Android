@@ -86,6 +86,40 @@ public final class AiConfigManager {
             String json = builder.toString().trim();
             if (!json.isEmpty()) {
                 JSONObject jsonObj = new JSONObject(json);
+                // ⭐ FIX CRITIQUE: Enrichir le JSON avec apiKey depuis KeyringManager si absent ou vide
+                // Cela garantit que la webapp reçoit toujours apiKey, même si le fichier ne le contient pas
+                JSONObject cloud = jsonObj.optJSONObject("cloud");
+                if (cloud != null) {
+                    String provider = cloud.optString("provider", "ollama");
+                    boolean hasApiKey = cloud.has("apiKey");
+                    String fileApiKey = hasApiKey ? cloud.optString("apiKey", null) : null;
+                    
+                    KeyringManager keyring = KeyringManager.getInstance(context);
+                    String keyringApiKey = keyring.getApiKey(provider);
+                    
+                    Log.d(TAG, "📖 readConfigJson: provider=" + provider + ", hasApiKey=" + hasApiKey + 
+                        ", fileApiKey=" + (fileApiKey == null ? "null" : (fileApiKey.isEmpty() ? "\"\"" : fileApiKey.length() + " chars")) +
+                        ", keyringApiKey=" + (keyringApiKey == null ? "null" : keyringApiKey.length() + " chars"));
+                    
+                    // Enrichir si apiKey est absent du fichier OU si apiKey est vide mais qu'une clé existe dans KeyringManager
+                    // (ce dernier cas peut arriver si le fichier a été écrit avec apiKey="" par erreur lors d'un changement de provider)
+                    if (!hasApiKey || (fileApiKey != null && fileApiKey.trim().isEmpty() && keyringApiKey != null && !keyringApiKey.trim().isEmpty())) {
+                        if (keyringApiKey != null && !keyringApiKey.trim().isEmpty()) {
+                            cloud.put("apiKey", keyringApiKey.trim());
+                            Log.i(TAG, "📖 ENRICHISSEMENT JSON: apiKey ajouté depuis Keyring pour " + provider + " (" + keyringApiKey.length() + " chars)");
+                        } else {
+                            // S'assurer que apiKey est présent même si vide
+                            if (!hasApiKey) {
+                                cloud.put("apiKey", "");
+                                Log.d(TAG, "📖 ENRICHISSEMENT JSON: apiKey = \"\" pour " + provider + " (aucune clé dans Keyring)");
+                            }
+                        }
+                        // Reconstruire le JSON avec apiKey
+                        json = toPrettyString(jsonObj);
+                    } else {
+                        Log.v(TAG, "📖 readConfigJson: apiKey déjà présent dans fichier, pas d'enrichissement nécessaire");
+                    }
+                }
                 // ⭐ FIX AUDIT: Ne pas supprimer apiKey vide - elle doit toujours être présente
                 // pour rendre l'intention explicite (vide = suppression, absent = non modifié)
                 // ⭐ OPTIMISATION : Ne pas appliquer les préférences si demandé (évite appels redondants)
