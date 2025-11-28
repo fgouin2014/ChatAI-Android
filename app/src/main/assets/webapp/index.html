@@ -388,21 +388,61 @@
                     <!-- ⭐ SECTION 3: CONFIGURATION RAG -->
                     <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
                         <h4>🔍 RAG (Recherche sémantique) <span id="ragStatusBadge" style="font-size: 12px; font-weight: normal; margin-left: 8px;"></span></h4>
+                        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
+                            <strong>💡 RAG:</strong> Recherche sémantique dans l'historique des conversations pour améliorer les réponses de l'IA.<br>
+                            <strong>🔢 Embeddings:</strong> Conversion du texte en vecteurs numériques pour la recherche de similarité.
+                        </p>
                         <div class="form-grid">
-                            <label>Modèle d'embedding
-                                <select id="configEmbeddingModel">
-                                    <option value="nomic-embed-text">Nomic Embed Text (768 dim)</option>
-                                    <option value="mxbai-embed-large">MXBAI Embed Large (1024 dim)</option>
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Source d'embeddings</span>
+                                <select id="configEmbeddingSource">
+                                    <option value="ollama">Ollama (PC ou Cloud)</option>
+                                    <option value="onnx_local">ONNX Local (Device) ⭐ Offline</option>
                                 </select>
-                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Modèle pour générer des embeddings (RAG). Requis pour recherche sémantique dans l'historique.</small>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    <strong>Ollama:</strong> Utilise le serveur Ollama (PC ou Cloud) pour générer les embeddings.<br>
+                                    <strong>ONNX Local:</strong> Utilise le modèle ONNX installé sur le device (100% offline, pas besoin de PC).
+                                </small>
                             </label>
-                            <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                            
+                            <!-- Section Ollama Embeddings -->
+                            <div id="ollamaEmbeddingSection" class="form-grid" style="grid-column: 1 / -1; margin-top: 12px; padding: 12px; background: rgba(148, 163, 184, 0.05); border-radius: 6px;">
+                                <label>
+                                    Modèle d'embedding Ollama
+                                    <select id="configEmbeddingModel">
+                                        <option value="nomic-embed-text">Nomic Embed Text (768 dim)</option>
+                                        <option value="mxbai-embed-large">MXBAI Embed Large (1024 dim)</option>
+                                    </select>
+                                    <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                        Modèle Ollama installé sur votre serveur. Vérifier avec <code>ollama list</code>.
+                                    </small>
+                                </label>
+                            </div>
+                            
+                            <!-- Section ONNX Local Embeddings -->
+                            <div id="onnxEmbeddingSection" class="form-grid" style="grid-column: 1 / -1; margin-top: 12px; padding: 12px; background: rgba(59, 130, 246, 0.05); border-radius: 6px; display: none;">
+                                <label>
+                                    Modèle ONNX Local
+                                    <select id="configOnnxEmbeddingModel">
+                                        <option value="">– Scanner les modèles –</option>
+                                    </select>
+                                    <button id="refreshOnnxEmbeddingsBtn" class="panel-button secondary" style="margin-top: 8px; padding: 6px 12px; font-size: 11px;">
+                                        🔄 Scanner modèles ONNX
+                                    </button>
+                                    <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                        Modèles ONNX d'embeddings scannés depuis <code>/storage/emulated/0/ChatAI-Files/models/embeddings/</code><br>
+                                        <strong>Modèle attendu:</strong> <code>model.onnx</code> (all-MiniLM-L6-v2, 384 dimensions)
+                                    </small>
+                                </label>
+                            </div>
+                            
+                            <label style="grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-top: 16px;">
                                 <input type="checkbox" id="configRAGEnabled" style="width: auto; margin: 0;">
                                 <span>Activer RAG (Recherche sémantique dans l'historique)</span>
                             </label>
                             <div id="ragStatusMessage" style="font-size: 11px; margin-left: 24px; margin-top: 4px; padding: 8px; border-radius: 4px; display: none;"></div>
                             <small style="font-size: 11px; color: #64748b; margin-left: 24px; margin-top: 4px; display: block;">
-                                Le RAG utilise les conversations précédentes pour améliorer les réponses. Nécessite Ollama local avec modèle d'embedding.
+                                Le RAG utilise les conversations précédentes pour améliorer les réponses. Nécessite un modèle d'embedding (Ollama ou ONNX local).
                             </small>
                         </div>
                     </div>
@@ -1877,6 +1917,81 @@
               ttsEngineSelect.addEventListener('change', updateTtsEngineUI);
               // Initialiser au chargement
               updateTtsEngineUI();
+          }
+          
+          // ⭐ NOUVEAU: Gérer l'affichage/masquage des sections Embeddings selon la source sélectionnée
+          const embeddingSourceSelect = document.getElementById('configEmbeddingSource');
+          const ollamaEmbeddingSection = document.getElementById('ollamaEmbeddingSection');
+          const onnxEmbeddingSection = document.getElementById('onnxEmbeddingSection');
+          
+          function updateEmbeddingSourceUI() {
+              if (!embeddingSourceSelect || !ollamaEmbeddingSection || !onnxEmbeddingSection) return;
+              
+              const selectedSource = embeddingSourceSelect.value;
+              
+              if (selectedSource === 'onnx_local') {
+                  ollamaEmbeddingSection.style.display = 'none';
+                  onnxEmbeddingSection.style.display = 'block';
+                  // Scanner automatiquement les modèles ONNX
+                  scanOnnxEmbeddingModels();
+              } else {
+                  ollamaEmbeddingSection.style.display = 'block';
+                  onnxEmbeddingSection.style.display = 'none';
+              }
+          }
+          
+          if (embeddingSourceSelect) {
+              embeddingSourceSelect.addEventListener('change', updateEmbeddingSourceUI);
+              // Initialiser au chargement
+              updateEmbeddingSourceUI();
+          }
+          
+          // ⭐ NOUVEAU: Scanner les modèles ONNX d'embeddings
+          function scanOnnxEmbeddingModels() {
+              const select = document.getElementById('configOnnxEmbeddingModel');
+              if (!select) return;
+              
+              // Afficher "Chargement..."
+              select.innerHTML = '<option value="">⏳ Scanner en cours...</option>';
+              
+              try {
+                  if (window.Android && window.Android.scanLocalDeviceModels) {
+                      const modelsJson = window.Android.scanLocalDeviceModels();
+                      const models = JSON.parse(modelsJson);
+                      
+                      // Filtrer les modèles ONNX d'embeddings
+                      const embeddingModels = models.filter(m => 
+                          m.type === 'ONNX' && 
+                          m.category === 'Embeddings' &&
+                          m.name.toLowerCase().endsWith('.onnx')
+                      );
+                      
+                      select.innerHTML = '<option value="">– Choisir un modèle –</option>';
+                      
+                      if (embeddingModels.length === 0) {
+                          select.innerHTML += '<option value="" disabled>Aucun modèle ONNX trouvé</option>';
+                      } else {
+                          embeddingModels.forEach(model => {
+                              const sizeMB = (model.size / (1024 * 1024)).toFixed(2);
+                              const option = document.createElement('option');
+                              option.value = model.path;
+                              option.textContent = `${model.name} (${sizeMB} MB)`;
+                              select.appendChild(option);
+                          });
+                      }
+                  } else {
+                      select.innerHTML = '<option value="">❌ API non disponible</option>';
+                  }
+              } catch (e) {
+                  console.error('Erreur scan modèles ONNX embeddings:', e);
+                  select.innerHTML = '<option value="">❌ Erreur scan</option>';
+              }
+          }
+          
+          // Bouton pour scanner les modèles ONNX
+          const refreshOnnxEmbeddingsBtn = document.getElementById('refreshOnnxEmbeddingsBtn');
+          if (refreshOnnxEmbeddingsBtn) {
+              refreshOnnxEmbeddingsBtn.addEventListener('click', scanOnnxEmbeddingModels);
           }
           
           // Bouton pour récupérer les modèles locaux

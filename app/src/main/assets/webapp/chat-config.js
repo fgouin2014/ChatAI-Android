@@ -175,8 +175,20 @@
                 if (this.core.configRAGEnabled) {
                     this.core.configRAGEnabled.checked = cfg.rag.enabled === true;
                 }
-                if (this.core.configEmbeddingModel) {
-                    this.core.configEmbeddingModel.value = cfg.rag.embeddingModel || 'nomic-embed-text';
+                // ⭐ MODIFIÉ: Support source embeddings (Ollama ou ONNX local)
+                if (this.core.configEmbeddingSource) {
+                    this.core.configEmbeddingSource.value = cfg.rag.embeddingSource || 'ollama';
+                    // Déclencher l'événement change pour mettre à jour l'UI
+                    this.core.configEmbeddingSource.dispatchEvent(new Event('change'));
+                }
+                if (cfg.rag.embeddingSource === 'onnx_local') {
+                    if (this.core.configOnnxEmbeddingModel) {
+                        this.core.configOnnxEmbeddingModel.value = cfg.rag.onnxEmbeddingModel || '';
+                    }
+                } else {
+                    if (this.core.configEmbeddingModel) {
+                        this.core.configEmbeddingModel.value = cfg.rag.embeddingModel || 'nomic-embed-text';
+                    }
                 }
             } else {
                 // Valeurs par défaut si RAG non configuré
@@ -519,7 +531,13 @@
                     // ⭐ NOUVEAU: Configuration RAG
                     cfg.rag = cfg.rag || {};
                     cfg.rag.enabled = core.configRAGEnabled?.checked === true;
-                    cfg.rag.embeddingModel = core.configEmbeddingModel?.value || 'nomic-embed-text';
+                    // ⭐ MODIFIÉ: Support source embeddings (Ollama ou ONNX local)
+                    cfg.rag.embeddingSource = core.configEmbeddingSource?.value || 'ollama';
+                    if (cfg.rag.embeddingSource === 'onnx_local') {
+                        cfg.rag.onnxEmbeddingModel = core.configOnnxEmbeddingModel?.value || '';
+                    } else {
+                        cfg.rag.embeddingModel = core.configEmbeddingModel?.value || 'nomic-embed-text';
+                    }
                     break;
                 case 'thinking':
                     cfg.webSearch = cfg.webSearch || {};
