@@ -162,7 +162,7 @@
                         <h4>☁️ Cloud (Ollama Cloud API)</h4>
                         <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); align-items: start;">
                             <label>
-                                <span style="font-weight: 500; margin-bottom: 4px;">Provider</span>
+                                <span style="font-weight: 500; margin-bottom: 4px;">Provider Cloud</span>
                                 <select id="configCloudProvider">
                                     <option value="">– Choisir –</option>
                                     <option value="ollama">Ollama</option>
@@ -173,6 +173,9 @@
                                     <option value="custom">Autre (personnalisé)</option>
                                 </select>
                                 <input type="text" id="configCloudProviderCustom" class="custom-input hidden" placeholder="Provider personnalisé">
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    <strong>Provider:</strong> Service cloud à utiliser pour l'IA (Ollama Cloud, OpenAI, Hugging Face, etc.).
+                                </small>
                             </label>
                             <label>
                                 <span id="configCloudApiKeyLabel" style="font-weight: 500; margin-bottom: 4px;">🔑 API Key</span>
@@ -460,6 +463,7 @@
                                             <option value="whisper_server" selected>Whisper Server (local HTTP)</option>
                                         </select>
                                         <small style="font-size: 10px; color: var(--text-secondary); display: block; margin-top: 4px;">
+                                            <strong>Moteur:</strong> Implémentation technique pour la transcription vocale (Speech-to-Text).<br>
                                             <strong>Whisper Server:</strong> Utilise le serveur Whisper local sur le device (recommandé).<br>
                                             <strong>Disable:</strong> Désactive la transcription vocale.
                                         </small>
@@ -551,11 +555,16 @@
                                     <span>Hotword activé</span>
                                 </label>
                                 <label>
-                                    <span style="font-weight: 500; margin-bottom: 4px;">Moteur</span>
+                                    <span style="font-weight: 500; margin-bottom: 4px;">Moteur Hotword</span>
                                     <select id="configHotwordEngine">
                                         <option value="openwakeword">openWakeWord (recommandé)</option>
                                         <option value="porcupine">Porcupine (legacy)</option>
                                     </select>
+                                    <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                        <strong>Moteur:</strong> Implémentation technique pour la détection de mots-clés (hotword).<br>
+                                        <strong>openWakeWord:</strong> Moteur open-source moderne (recommandé).<br>
+                                        <strong>Porcupine:</strong> Moteur commercial legacy (nécessite une clé d'accès).
+                                    </small>
                                 </label>
                                 <label style="min-height: auto;">
                                     <input type="checkbox" id="configHotwordAutoListen">
@@ -662,6 +671,7 @@
                                     <option value="android">Android TTS (fallback)</option>
                                 </select>
                                 <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    <strong>Moteur:</strong> Implémentation technique pour la synthèse vocale (Text-to-Speech).<br>
                                     <strong>ONNX TTS:</strong> Synthèse vocale locale haute qualité (SpeechT5).<br>
                                     <strong>Android TTS:</strong> Moteur système Android (fallback si ONNX indisponible).
                                 </small>
@@ -868,7 +878,7 @@
                                 <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Provider Web Search</span>
                                 <input type="text" id="configWebSearchProvider" placeholder="ollama">
                                 <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
-                                    Provider à utiliser pour la recherche web (ex: "ollama", "perplexity").<br>
+                                    <strong>Provider:</strong> Service cloud à utiliser pour la recherche web (ex: "ollama", "perplexity").<br>
                                     <strong>Laisser vide pour désactiver</strong> la recherche web.
                                 </small>
                             </label>
