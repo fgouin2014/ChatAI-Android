@@ -2180,9 +2180,11 @@ public class WebAppInterface {
             }
             
             // Nettoyer le base64 (retirer préfixe data:image/... si présent)
-            String cleanBase64 = imageBase64;
-            if (imageBase64.contains(",")) {
+            final String cleanBase64;
+            if (imageBase64 != null && imageBase64.contains(",")) {
                 cleanBase64 = imageBase64.substring(imageBase64.indexOf(",") + 1);
+            } else {
+                cleanBase64 = imageBase64;
             }
             
             // Analyser l'image de manière asynchrone (pour ne pas bloquer le thread UI)
