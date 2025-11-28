@@ -156,15 +156,18 @@
             const local = cfg.local_server || cfg.localServer;
             if (local) {
                 if (this.core.configLocalUrl) this.core.configLocalUrl.value = local.url || '';
-                // Modèle local fixé à gemma3-270m.gguf (readonly dans HTML)
-                if (this.core.configLocalModel) {
-                    this.core.configLocalModel.value = 'gemma3-270m.gguf';
+                // Modèle local : utiliser setSelectValue pour gérer select + custom input
+                // ⭐ Conversion automatique de l'ancien format (gemma3-270m.gguf) vers le nouveau (gemma3:270m)
+                let modelValue = local.model || 'gemma3:270m';
+                // Migration automatique: gemma3-270m.gguf → gemma3:270m
+                if (modelValue === 'gemma3-270m.gguf') {
+                    modelValue = 'gemma3:270m';
+                    console.log('🔄 Migration automatique du modèle: gemma3-270m.gguf → gemma3:270m');
                 }
+                this.setSelectValue(this.core.configLocalModel, this.core.configLocalModelCustom, modelValue);
             } else {
                 // Initialiser avec valeur par défaut si pas de config
-                if (this.core.configLocalModel) {
-                    this.core.configLocalModel.value = 'gemma3-270m.gguf';
-                }
+                this.setSelectValue(this.core.configLocalModel, this.core.configLocalModelCustom, 'gemma3:270m');
             }
             
             // ⭐ NOUVEAU: Charger configuration RAG
@@ -508,11 +511,11 @@
                     cfg.cloud.selectedModel = this.getSelectValue(core.configCloudModel, core.configCloudModelCustom);
                     break;
                 case 'local':
-                    // Tab Local : Configuration du serveur Ollama local + modèle gemma + RAG
+                    // Tab Local : Configuration du serveur Ollama local + modèle Ollama + RAG
                     cfg.local_server = cfg.local_server || {};
                     cfg.local_server.url = core.configLocalUrl?.value || '';
-                    // Modèle local fixé à gemma3-270m.gguf
-                    cfg.local_server.model = 'gemma3-270m.gguf';
+                    // Modèle local : utiliser getSelectValue pour gérer select + custom input
+                    cfg.local_server.model = this.getSelectValue(core.configLocalModel, core.configLocalModelCustom) || 'gemma3:270m';
                     // ⭐ NOUVEAU: Configuration RAG
                     cfg.rag = cfg.rag || {};
                     cfg.rag.enabled = core.configRAGEnabled?.checked === true;

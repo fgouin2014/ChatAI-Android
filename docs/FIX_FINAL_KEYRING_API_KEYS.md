@@ -94,3 +94,4 @@ Des logs ont été ajoutés pour tracer:
 - Si KeyringManager n'a pas de clé, `apiKey = ""` est ajouté pour rendre l'état explicite
 - Cette approche est cohérente avec `buildJsonFromPreferences()` qui fait la même chose
 
+

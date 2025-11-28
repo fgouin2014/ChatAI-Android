@@ -139,6 +139,9 @@ object ConversationHistoryHelper {
                         put("timestamp", conv.timestamp)
                         put("responseTimeMs", conv.responseTimeMs)
                         put("thinkingTrace", conv.thinkingTrace ?: "")
+                        // ⭐ CRITIQUE: Sauvegarder embeddings (RAG/mémoire)
+                        put("embeddingsJson", conv.embeddingsJson ?: "")
+                        put("tags", conv.tags ?: "")
                     }
                     jsonArray.put(jsonObj)
                 }

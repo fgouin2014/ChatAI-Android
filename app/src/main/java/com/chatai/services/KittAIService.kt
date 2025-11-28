@@ -1772,22 +1772,25 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
      * Compatible avec l'API OpenAI
      */
     private suspend fun tryLocalServer(userInput: String): String? = withContext(Dispatchers.IO) {
+        // ⭐ FIX: Déclarer localServerUrl en dehors du try pour accès dans catch
+        val localServerUrl = sharedPreferences.getString("local_server_url", null)?.trim()
+        
+        // Vérifier si URL est configurée (avant le try pour éviter erreurs dans catch)
+        if (localServerUrl.isNullOrEmpty()) {
+            Log.d(TAG, "Local server URL not configured")
+            addDiagnosticLog("    - ❌ URL: Not configured")
+            addDiagnosticLog("    - 💡 Configurez l'URL dans l'onglet Local de la webapp")
+            addDiagnosticLog("    - 💡 Format: http://VOTRE_IP:11434/v1/chat/completions")
+            addDiagnosticLog("    - 💡 Exemple: http://192.168.1.100:11434/v1/chat/completions")
+            return@withContext null
+        }
+        
         try {
-            // Récupérer l'URL du serveur local depuis les préférences
-            val localServerUrl = sharedPreferences.getString("local_server_url", null)?.trim()
-            Log.i(TAG, "Local Server URL check: ${if (localServerUrl.isNullOrEmpty()) "EMPTY/NULL" else "FOUND"}")
-            
-            if (localServerUrl.isNullOrEmpty()) {
-                Log.d(TAG, "Local server URL not configured")
-                addDiagnosticLog("    - URL: Not configured")
-                addDiagnosticLog("    - Configure in settings: http://YOUR_IP:PORT/v1/chat/completions")
-                return@withContext null
-            }
-            
+            Log.i(TAG, "Local Server URL check: FOUND")
             addDiagnosticLog("    - URL: $localServerUrl")
             
-            // Récupérer le modèle local (optionnel)
-            val localModel = sharedPreferences.getString("local_model_name", "llama3.2")?.trim()
+            // Récupérer le modèle local (configurable par l'utilisateur, par défaut: gemma3-270m.gguf)
+            val localModel = sharedPreferences.getString("local_model_name", "gemma3-270m.gguf")?.trim()
             addDiagnosticLog("    - Model: $localModel")
             
             Log.d(TAG, "Trying Local Server API...")
@@ -1879,9 +1882,31 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             
             return@withContext null
             
+        } catch (e: java.net.ConnectException) {
+            Log.e(TAG, "Local Server connection refused", e)
+            val port = localServerUrl?.substringAfterLast(":")?.substringBefore("/") ?: "11434"
+            addDiagnosticLog("    - ❌ Connexion refusée (port $port)")
+            addDiagnosticLog("    - 💡 Le serveur Ollama local n'est pas démarré")
+            addDiagnosticLog("    - 💡 Démarrer Ollama: ollama serve (ou installer Ollama)")
+            addDiagnosticLog("    - 💡 Vérifier l'URL: $localServerUrl")
+            return@withContext null
+        } catch (e: java.net.SocketTimeoutException) {
+            Log.e(TAG, "Local Server timeout", e)
+            addDiagnosticLog("    - ⏱️ Timeout de connexion")
+            addDiagnosticLog("    - 💡 Le serveur Ollama ne répond pas")
+            addDiagnosticLog("    - 💡 Vérifier que Ollama est démarré et accessible")
+            return@withContext null
+        } catch (e: java.net.UnknownHostException) {
+            Log.e(TAG, "Local Server unknown host", e)
+            addDiagnosticLog("    - ❌ Hôte inconnu")
+            addDiagnosticLog("    - 💡 Vérifier l'URL du serveur: $localServerUrl")
+            addDiagnosticLog("    - 💡 Utiliser l'IP de votre PC (ex: http://192.168.1.100:11434)")
+            return@withContext null
         } catch (e: Exception) {
             Log.e(TAG, "Local Server error", e)
-            addDiagnosticLog("    - Exception: ${e.message}")
+            addDiagnosticLog("    - ❌ Exception: ${e.message}")
+            addDiagnosticLog("    - 💡 Vérifier que le serveur Ollama est démarré (port 11434)")
+            addDiagnosticLog("    - 💡 Vérifier l'URL configurée: $localServerUrl")
             return@withContext null
         }
     }

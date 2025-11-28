@@ -171,8 +171,8 @@ class OllamaThinkingService(private val context: Context) {
                 ?: sharedPreferences.getString("selected_model", null)?.trim()
                 ?: "qwen3"
         } else {
-            // Mode Local : toujours gemma3-270m.gguf (fixé)
-            "gemma3-270m.gguf"
+            // Mode Local : utiliser le modèle configuré par l'utilisateur (par défaut: gemma3-270m.gguf)
+            sharedPreferences.getString("local_model_name", "gemma3-270m.gguf")?.trim() ?: "gemma3-270m.gguf"
         }
         
         Log.i(TAG, "Using ${if (useCloud) "Cloud" else "Local"} API: $apiUrl")
@@ -521,8 +521,11 @@ class OllamaThinkingService(private val context: Context) {
             }
             val errorMessage = if (!useCloud) {
                 // Connexion refusée sur serveur local
-                "Connexion refusée - Le serveur Ollama local ($apiUrl) n'est pas accessible. " +
-                "Vérifiez que le serveur est démarré et que l'URL est correcte."
+                val port = apiUrl.substringAfterLast(":").substringBefore("/").takeIf { it.isNotEmpty() } ?: "11434"
+                "Le serveur Ollama local n'est pas démarré (port $port). " +
+                "Pour démarrer Ollama: ouvrez un terminal et exécutez 'ollama serve'. " +
+                "Si Ollama n'est pas installé, téléchargez-le sur ollama.ai. " +
+                "Vérifiez aussi que l'URL configurée est correcte: $apiUrl"
             } else {
                 // Connexion refusée sur Cloud (ne devrait pas arriver ici car fallback déjà fait)
                 "Connexion refusée - Vérifiez votre connexion réseau et réessayez."
@@ -664,7 +667,7 @@ class OllamaThinkingService(private val context: Context) {
             // Récupérer config Local (pas de clé API nécessaire pour Local)
             val localUrl = sharedPreferences.getString("local_server_url", null)?.trim()
                 ?: OLLAMA_LOCAL_DEFAULT
-            val localModel = "gemma3-270m.gguf" // Modèle local fixé
+            val localModel = sharedPreferences.getString("local_model_name", "gemma3-270m.gguf")?.trim() ?: "gemma3-270m.gguf"
             // Note: Ollama local n'a pas besoin de clé API
         
         Log.i(TAG, "Using Local fallback: $localUrl, Model: $localModel")

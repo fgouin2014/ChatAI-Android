@@ -13,10 +13,12 @@ import androidx.recyclerview.widget.RecyclerView
 import com.chatai.R
 import com.chatai.database.ChatAIDatabase
 import com.chatai.database.ConversationEntity
+import com.chatai.managers.BackupManager
 import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -706,6 +708,8 @@ class ConversationHistoryActivity : AppCompatActivity() {
      */
     private fun showExportMenu() {
         val options = arrayOf(
+            "💾 Backup Complet (Conversations + Config + Clés)",
+            "📥 Restaurer Backup Complet",
             "📊 Exporter TOUT dans logcat",
             "🆔 Exporter une conversation par ID",
             "💾 Exporter vers fichier JSON",
@@ -717,11 +721,13 @@ class ConversationHistoryActivity : AppCompatActivity() {
             .setTitle("Options d'Export/Import")
             .setItems(options) { _, which ->
                 when (which) {
-                    0 -> exportConversationsToLogcat()
-                    1 -> promptForConversationId()
-                    2 -> exportConversationsToJson()
-                    3 -> exportConversationsToHtml() // ⭐ NOUVEAU Phase 4
-                    4 -> importConversationsFromJson()
+                    0 -> showFullBackupDialog()
+                    1 -> showRestoreBackupDialog()
+                    2 -> exportConversationsToLogcat()
+                    3 -> promptForConversationId()
+                    4 -> exportConversationsToJson()
+                    5 -> exportConversationsToHtml()
+                    6 -> importConversationsFromJson()
                 }
             }
             .show()
@@ -935,6 +941,9 @@ class ConversationHistoryActivity : AppCompatActivity() {
                         put("responseTimeMs", conv.responseTimeMs)
                         put("platform", conv.platform)
                         put("sessionId", conv.sessionId ?: "")
+                        // ⭐ CRITIQUE: Sauvegarder embeddings (RAG/mémoire)
+                        put("embeddingsJson", conv.embeddingsJson ?: "")
+                        put("tags", conv.tags ?: "")
                     }
                     jsonArray.put(jsonObj)
                 }
@@ -1325,7 +1334,10 @@ class ConversationHistoryActivity : AppCompatActivity() {
                     apiUsed = jsonObj.optString("apiUsed", "imported"),
                     responseTimeMs = jsonObj.optLong("responseTimeMs", 0),
                     platform = jsonObj.optString("platform", "imported"),
-                    sessionId = jsonObj.optString("sessionId").takeIf { it.isNotEmpty() }
+                    sessionId = jsonObj.optString("sessionId").takeIf { it.isNotEmpty() },
+                    // ⭐ CRITIQUE: Restaurer embeddings (RAG/mémoire)
+                    embeddingsJson = jsonObj.optString("embeddingsJson").takeIf { it.isNotEmpty() },
+                    tags = jsonObj.optString("tags").takeIf { it.isNotEmpty() }
                 )
                 conversations.add(conversation)
             }
@@ -1354,6 +1366,274 @@ class ConversationHistoryActivity : AppCompatActivity() {
                     "❌ Erreur import: ${e.message}",
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
+            }
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Affiche le dialog pour backup complet
+     */
+    private fun showFullBackupDialog() {
+        androidx.appcompat.app.AlertDialog.Builder(this, R.style.KittDialogTheme)
+            .setTitle("💾 Backup Complet")
+            .setMessage("Créer un backup complet incluant:\n• Toutes les conversations\n• Embeddings (RAG/mémoire)\n• Configuration complète\n• Clés API (optionnel)")
+            .setPositiveButton("Sans clés API") { _, _ ->
+                createFullBackup(includeApiKeys = false)
+            }
+            .setNeutralButton("Avec clés API") { _, _ ->
+                createFullBackup(includeApiKeys = true)
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Crée un backup complet
+     */
+    private fun createFullBackup(includeApiKeys: Boolean) {
+        lifecycleScope.launch {
+            val progressDialog = androidx.appcompat.app.AlertDialog.Builder(this@ConversationHistoryActivity, R.style.KittDialogTheme)
+                .setTitle("💾 Création du backup...")
+                .setMessage("Collecte des données en cours...")
+                .setCancelable(false)
+                .create()
+            
+            progressDialog.show()
+            
+            try {
+                val backupManager = com.chatai.managers.BackupManager(this@ConversationHistoryActivity)
+                val backupFile = backupManager.exportFullBackup(includeApiKeys)
+                
+                progressDialog.dismiss()
+                
+                if (backupFile != null) {
+                    val message = """
+                        ✅ Backup créé avec succès!
+                        
+                        📁 Emplacement:
+                        ${backupFile.absolutePath}
+                        
+                        📊 Taille: ${String.format("%.2f", backupFile.length() / 1024.0)} KB
+                        
+                        Le backup inclut:
+                        • Conversations + Embeddings (RAG)
+                        • Configuration complète
+                        ${if (includeApiKeys) "• Clés API (chiffrées)" else ""}
+                    """.trimIndent()
+                    
+                    androidx.appcompat.app.AlertDialog.Builder(this@ConversationHistoryActivity, R.style.KittDialogTheme)
+                        .setTitle("✅ Backup Réussi")
+                        .setMessage(message)
+                        .setPositiveButton("Partager") { _, _ ->
+                            shareBackupFile(backupFile)
+                        }
+                        .setNeutralButton("OK", null)
+                        .show()
+                } else {
+                    android.widget.Toast.makeText(
+                        this@ConversationHistoryActivity,
+                        "❌ Erreur lors de la création du backup",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            } catch (e: Exception) {
+                progressDialog.dismiss()
+                android.util.Log.e("CONV_BACKUP", "Erreur backup complet", e)
+                android.widget.Toast.makeText(
+                    this@ConversationHistoryActivity,
+                    "❌ Erreur: ${e.message}",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Partage le fichier backup
+     */
+    private fun shareBackupFile(file: File) {
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                this,
+                "${packageName}.provider",
+                file
+            )
+            
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, "ChatAI Backup - ${file.name}")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            
+            startActivity(Intent.createChooser(intent, "Partager le backup"))
+        } catch (e: Exception) {
+            android.util.Log.e("CONV_BACKUP", "Erreur partage backup", e)
+            android.widget.Toast.makeText(
+                this,
+                "❌ Erreur partage: ${e.message}",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Affiche le dialog pour restaurer un backup
+     */
+    private fun showRestoreBackupDialog() {
+        lifecycleScope.launch {
+            val backupManager = com.chatai.managers.BackupManager(this@ConversationHistoryActivity)
+            val availableBackups = backupManager.listAvailableBackups()
+            
+            if (availableBackups.isEmpty()) {
+                android.widget.Toast.makeText(
+                    this@ConversationHistoryActivity,
+                    "Aucun backup trouvé. Utilisez 'Choisir fichier'...",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                selectBackupFile()
+                return@launch
+            }
+            
+            val backupNames = availableBackups.map { backup ->
+                val date = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(backup.timestamp))
+                val sizeKB = String.format("%.1f", backup.sizeBytes / 1024.0)
+                "$date - ${backup.conversationsCount} conversations (${sizeKB} KB)"
+            }.toTypedArray()
+            
+            androidx.appcompat.app.AlertDialog.Builder(this@ConversationHistoryActivity, R.style.KittDialogTheme)
+                .setTitle("📥 Restaurer Backup")
+                .setItems(backupNames) { _, which ->
+                    val selectedBackup = availableBackups[which]
+                    showRestoreOptionsDialog(selectedBackup.file)
+                }
+                .setNegativeButton("Choisir autre fichier") { _, _ ->
+                    selectBackupFile()
+                }
+                .setNeutralButton("Annuler", null)
+                .show()
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Sélectionne un fichier backup depuis l'explorateur
+     */
+    private fun selectBackupFile() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "*/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        
+        try {
+            startActivityForResult(
+                Intent.createChooser(intent, "Sélectionner un fichier backup"),
+                REQUEST_CODE_SELECT_BACKUP
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("CONV_BACKUP", "Erreur sélection fichier", e)
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Affiche les options de restauration
+     */
+    private fun showRestoreOptionsDialog(backupFile: File) {
+        val restoreModes = arrayOf("Fusionner", "Remplacer")
+        
+        androidx.appcompat.app.AlertDialog.Builder(this, R.style.KittDialogTheme)
+            .setTitle("📥 Mode de Restauration")
+            .setMessage("Fusionner: Ajoute aux données existantes\n\nRemplacer: Efface tout et restaure uniquement le backup")
+            .setItems(restoreModes) { _, which ->
+                val mode = when (which) {
+                    0 -> com.chatai.managers.BackupManager.RestoreMode.MERGE
+                    else -> com.chatai.managers.BackupManager.RestoreMode.REPLACE
+                }
+                restoreFullBackup(backupFile, mode)
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Restaure un backup complet
+     */
+    private fun restoreFullBackup(backupFile: File, restoreMode: com.chatai.managers.BackupManager.RestoreMode) {
+        lifecycleScope.launch {
+            val progressDialog = androidx.appcompat.app.AlertDialog.Builder(this@ConversationHistoryActivity, R.style.KittDialogTheme)
+                .setTitle("📥 Restauration en cours...")
+                .setMessage("Restauration du backup...")
+                .setCancelable(false)
+                .create()
+            
+            progressDialog.show()
+            
+            try {
+                val backupManager = com.chatai.managers.BackupManager(this@ConversationHistoryActivity)
+                val result = backupManager.restoreFullBackup(backupFile, restoreMode)
+                
+                progressDialog.dismiss()
+                
+                if (result.success) {
+                    val message = """
+                        ✅ Backup restauré avec succès!
+                        
+                        📊 Résultats:
+                        • ${result.conversationsRestored} conversations restaurées
+                        • Configuration: ${if (result.configurationRestored) "✅" else "❌"}
+                        • Clés API: ${if (result.apiKeysRestored) "✅" else "❌"}
+                        
+                        Mode: ${if (restoreMode == com.chatai.managers.BackupManager.RestoreMode.MERGE) "Fusionné" else "Remplacé"}
+                    """.trimIndent()
+                    
+                    androidx.appcompat.app.AlertDialog.Builder(this@ConversationHistoryActivity, R.style.KittDialogTheme)
+                        .setTitle("✅ Restauration Réussie")
+                        .setMessage(message)
+                        .setPositiveButton("OK") { _, _ ->
+                            loadConversationsWithFilters()
+                            loadStats()
+                        }
+                        .show()
+                } else {
+                    androidx.appcompat.app.AlertDialog.Builder(this@ConversationHistoryActivity, R.style.KittDialogTheme)
+                        .setTitle("❌ Erreur de Restauration")
+                        .setMessage("Erreur: ${result.error ?: "Inconnue"}")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            } catch (e: Exception) {
+                progressDialog.dismiss()
+                android.util.Log.e("CONV_BACKUP", "Erreur restore backup", e)
+                android.widget.Toast.makeText(
+                    this@ConversationHistoryActivity,
+                    "❌ Erreur: ${e.message}",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+    
+    companion object {
+        private const val REQUEST_CODE_SELECT_BACKUP = 1001
+    }
+    
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        
+        if (requestCode == REQUEST_CODE_SELECT_BACKUP && resultCode == RESULT_OK && data != null) {
+            val uri = data.data
+            if (uri != null) {
+                try {
+                    val inputStream = contentResolver.openInputStream(uri)
+                    val tempFile = File(cacheDir, "backup_temp.json")
+                    tempFile.outputStream().use { output ->
+                        inputStream?.use { input ->
+                            input.copyTo(output)
+                        }
+                    }
+                    showRestoreOptionsDialog(tempFile)
+                } catch (e: Exception) {
+                    android.util.Log.e("CONV_BACKUP", "Erreur copie fichier", e)
+                }
             }
         }
     }

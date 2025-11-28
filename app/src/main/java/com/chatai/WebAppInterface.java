@@ -23,8 +23,10 @@ import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import java.util.Locale;
+import java.io.File;
 
 import com.chatai.hotword.HotwordAssetProvider;
+import java.io.File;
 
 public class WebAppInterface {
     private Context mContext;
@@ -877,10 +879,23 @@ public class WebAppInterface {
              * ⭐ NOUVEAU : Démarrer le serveur Whisper via Termux
              * Envoie un Intent à Termux pour exécuter la commande whisper-server
              */
+            /**
+             * ⭐ NOTE: Serveur TTS natif démarre automatiquement avec BackgroundService
+             * Plus besoin de Termux - serveur HTTP natif Android sur port 11401
+             */
+            
             @JavascriptInterface
             public void startWhisperServer() {
                 try {
                     Log.i(TAG, "startWhisperServer: Envoi Intent à Termux");
+                    
+                    // ⭐ DYNAMIQUE: Lire le modèle depuis la configuration
+                    com.chatai.audio.AudioEngineConfig audioConfig = com.chatai.audio.AudioEngineConfig.Companion.fromContext(mContext);
+                    String modelName = audioConfig.getPreferredModel();
+                    String modelPath = "/sdcard/ChatAI-Files/models/whisper/" + modelName;
+                    
+                    Log.i(TAG, "startWhisperServer: Modèle configuré = " + modelName);
+                    Log.i(TAG, "startWhisperServer: Chemin complet = " + modelPath);
                     
                     // Créer Intent pour Termux RUN_COMMAND
                     Intent intent = new Intent();
@@ -888,7 +903,7 @@ public class WebAppInterface {
                     intent.putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash");
                     intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", new String[]{
                         "-c",
-                        "./whisper.cpp/build/bin/whisper-server -m /sdcard/ChatAI-Files/models/whisper/ggml-small.bin --port 11400 --host 127.0.0.1 -l fr -t 4"
+                        "./whisper.cpp/build/bin/whisper-server -m " + modelPath + " --port 11400 --host 127.0.0.1 -l fr -t 4"
                     });
                     intent.putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home");
                     intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true); // En arrière-plan
@@ -1347,6 +1362,136 @@ public class WebAppInterface {
             @JavascriptInterface
             public String getAvailablePlugins() {
                 return "{\"plugins\":[\"translator\",\"calculator\",\"weather\",\"camera\",\"files\",\"jokes\",\"tips\"]}";
+            }
+            
+            /**
+             * ⭐ NOUVEAU : Scanne tous les modèles locaux sur le device (GGUF, ONNX, GGML)
+             * Scanne récursivement /storage/emulated/0/ChatAI-Files/models/ et tous ses sous-dossiers
+             * Retourne une liste JSON des modèles trouvés avec leur type et localisation
+             * @return JSON array avec format: [{"name": "model.gguf", "size": 123456789, "type": "gguf", "path": "models/model.gguf"}, ...]
+             */
+            @JavascriptInterface
+            public String scanLocalDeviceModels() {
+                try {
+                    String modelsPath = "/storage/emulated/0/ChatAI-Files/models/";
+                    File modelsDir = new File(modelsPath);
+                    
+                    Log.d(TAG, "Scanning device models recursively in: " + modelsPath);
+                    
+                    if (!modelsDir.exists()) {
+                        Log.w(TAG, "Models directory does not exist: " + modelsPath);
+                        return "[]";
+                    }
+                    
+                    if (!modelsDir.isDirectory()) {
+                        Log.w(TAG, "Models path is not a directory: " + modelsPath);
+                        return "[]";
+                    }
+                    
+                    JSONArray models = new JSONArray();
+                    
+                    // Scanner récursivement
+                    scanDirectoryRecursive(modelsDir, modelsDir, models);
+                    
+                    Log.i(TAG, "Scanned " + models.length() + " model(s) on device");
+                    return models.toString();
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "Error scanning device models", e);
+                    return "[]";
+                }
+            }
+            
+            /**
+             * ⭐ Helper : Scanne récursivement un répertoire pour trouver tous les modèles
+             * @param rootDir Le répertoire racine (pour calculer les chemins relatifs)
+             * @param currentDir Le répertoire actuel à scanner
+             * @param models Le JSONArray où ajouter les modèles trouvés
+             */
+            private void scanDirectoryRecursive(File rootDir, File currentDir, JSONArray models) {
+                try {
+                    File[] files = currentDir.listFiles();
+                    
+                    if (files == null) {
+                        return;
+                    }
+                    
+                    for (File file : files) {
+                        if (file.isFile()) {
+                            String fileName = file.getName().toLowerCase();
+                            String fileExtension = "";
+                            String modelType = "";
+                            
+                            // Détecter le type de modèle
+                            if (fileName.endsWith(".gguf")) {
+                                fileExtension = ".gguf";
+                                modelType = "GGUF";
+                            } else if (fileName.endsWith(".onnx")) {
+                                fileExtension = ".onnx";
+                                modelType = "ONNX";
+                            } else if (fileName.endsWith(".bin") && file.getParent() != null && 
+                                     file.getParent().toLowerCase().contains("whisper")) {
+                                // Fichiers .bin dans whisper/ sont des modèles GGML Whisper
+                                fileExtension = ".bin";
+                                modelType = "GGML (Whisper)";
+                            }
+                            
+                            // Si c'est un modèle reconnu, l'ajouter
+                            if (!fileExtension.isEmpty()) {
+                                try {
+                                    JSONObject model = new JSONObject();
+                                    model.put("name", file.getName());
+                                    model.put("size", file.length()); // Taille en bytes
+                                    model.put("type", modelType);
+                                    
+                                    // Chemin relatif depuis models/
+                                    String relativePath = rootDir.toPath().relativize(file.toPath()).toString().replace("\\", "/");
+                                    model.put("path", relativePath);
+                                    
+                                    // Catégorie basée sur le dossier parent
+                                    String category = "Autre";
+                                    String parentPath = file.getParent();
+                                    if (parentPath != null) {
+                                        if (parentPath.contains("/tts/") || parentPath.contains("\\tts\\")) {
+                                            category = "TTS";
+                                        } else if (parentPath.contains("/embeddings/") || parentPath.contains("\\embeddings\\")) {
+                                            category = "Embeddings";
+                                        } else if (parentPath.contains("/vision/") || parentPath.contains("\\vision\\")) {
+                                            category = "Vision";
+                                        } else if (parentPath.contains("/classification/") || parentPath.contains("\\classification\\")) {
+                                            category = "Classification";
+                                        } else if (parentPath.contains("/translation/") || parentPath.contains("\\translation\\")) {
+                                            category = "Traduction";
+                                        } else if (parentPath.contains("/whisper/") || parentPath.contains("\\whisper\\")) {
+                                            category = "STT (Whisper)";
+                                        } else if (parentPath.endsWith("/models") || parentPath.endsWith("\\models")) {
+                                            category = "LLM (Ollama)";
+                                        }
+                                    }
+                                    model.put("category", category);
+                                    
+                                    models.put(model);
+                                    
+                                    long sizeMB = file.length() / (1024 * 1024);
+                                    Log.d(TAG, "Found " + modelType + " model: " + file.getName() + " (" + sizeMB + " MB) in " + category);
+                                    
+                                } catch (JSONException e) {
+                                    Log.e(TAG, "Error creating JSON for model: " + file.getName(), e);
+                                }
+                            }
+                        } else if (file.isDirectory()) {
+                            // Scanner récursivement les sous-dossiers
+                            // (ignorer les dossiers système comme .git, node_modules, etc.)
+                            String dirName = file.getName().toLowerCase();
+                            if (!dirName.startsWith(".") && !dirName.equals("node_modules")) {
+                                scanDirectoryRecursive(rootDir, file, models);
+                            }
+                        }
+                    }
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "Error scanning directory: " + currentDir.getAbsolutePath(), e);
+                }
             }
             
             // ========== NAVIGATION VERS AUTRES ACTIVITÉS ==========
@@ -1895,6 +2040,71 @@ public class WebAppInterface {
         } catch (Exception e) {
             Log.e(TAG, "Error checking diagnostics HTML existence", e);
             return "false";
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Vérifie la présence des fichiers TTS ONNX requis
+     * @return JSON string avec statut de chaque fichier requis
+     */
+    @JavascriptInterface
+    public String checkTtsOnnxFiles() {
+        try {
+            String basePath = "/storage/emulated/0/ChatAI-Files/models/tts";
+            JSONObject result = new JSONObject();
+            JSONArray files = new JSONArray();
+            
+            // Liste des fichiers requis
+            String[] requiredFiles = {
+                "encoder_model.onnx",
+                "decoder_model.onnx",
+                "decoder_postnet_and_vocoder.onnx",
+                "vocab.json",
+                "default_speaker_embeddings.json"
+            };
+            
+            int foundCount = 0;
+            long totalSize = 0;
+            
+            for (String fileName : requiredFiles) {
+                File file = new File(basePath, fileName);
+                boolean exists = file.exists() && file.canRead();
+                long size = exists ? file.length() : 0;
+                
+                if (exists) {
+                    foundCount++;
+                    totalSize += size;
+                }
+                
+                JSONObject fileInfo = new JSONObject();
+                fileInfo.put("name", fileName);
+                fileInfo.put("exists", exists);
+                fileInfo.put("size", size);
+                fileInfo.put("size_mb", String.format("%.2f", size / (1024.0 * 1024.0)));
+                fileInfo.put("path", file.getAbsolutePath());
+                files.put(fileInfo);
+            }
+            
+            result.put("files", files);
+            result.put("found_count", foundCount);
+            result.put("total_count", requiredFiles.length);
+            result.put("total_size_mb", String.format("%.2f", totalSize / (1024.0 * 1024.0)));
+            result.put("all_present", foundCount == requiredFiles.length);
+            result.put("base_path", basePath);
+            
+            Log.d(TAG, "TTS ONNX files check: " + foundCount + "/" + requiredFiles.length + " files found");
+            return result.toString();
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking TTS ONNX files", e);
+            try {
+                JSONObject error = new JSONObject();
+                error.put("error", e.getMessage());
+                error.put("all_present", false);
+                return error.toString();
+            } catch (JSONException je) {
+                return "{\"error\":\"Unknown error\",\"all_present\":false}";
+            }
         }
     }
 

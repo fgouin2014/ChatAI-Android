@@ -193,3 +193,4 @@ diagnosticResult.appendLine(summary)
 4. **Export**: Utiliser `exportKeys(true)` pour sécurité maximale
 5. **Import**: Vérifier l'intégrité après import avec `verifyIntegrity()`
 
+

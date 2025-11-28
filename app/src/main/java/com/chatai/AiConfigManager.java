@@ -319,11 +319,11 @@ public final class AiConfigManager {
             constraints.put("maxContextTokens", prefs.getInt("max_context_tokens", 8192));
             constraints.put("maxResponseTokens", prefs.getInt("max_response_tokens", 2048));
 
-            // local_server : Configuration du serveur Ollama local + modèle gemma fixé
+            // local_server : Configuration du serveur Ollama local (modèle configurable par l'utilisateur)
             JSONObject localServer = new JSONObject();
             localServer.put("url", prefs.getString("local_server_url", "http://127.0.0.1:11434/v1/chat/completions"));
-            // CRITIQUE: Modèle local fixé à gemma3-270m.gguf (ignorer toute autre valeur)
-            localServer.put("model", "gemma3-270m.gguf");
+            // Modèle local : utiliser la valeur configurée par l'utilisateur (par défaut: gemma3-270m.gguf)
+            localServer.put("model", prefs.getString("local_model_name", "gemma3-270m.gguf"));
             
             // ⭐ NOUVEAU: Configuration RAG (Recherche sémantique)
             JSONObject rag = new JSONObject();
@@ -423,15 +423,10 @@ public final class AiConfigManager {
         JSONObject localServer = json.optJSONObject("local_server");
         if (localServer != null) {
             putStringIfPresent(editor, "local_server_url", localServer, "url");
-            // CRITIQUE: Modèle local fixé à gemma3-270m.gguf (ignorer la valeur du JSON)
-            // Ne pas utiliser putStringIfPresent pour le modèle, forcer gemma3-270m.gguf
-            String jsonModel = localServer.optString("model", "");
-            String fixedModel = "gemma3-270m.gguf";
-            if (!jsonModel.equals(fixedModel)) {
-                Log.d(TAG, "Local server model override: '" + jsonModel + "' → '" + fixedModel + "' (modèle local fixé)");
-            }
-            editor.putString("local_model_name", fixedModel);
-            Log.d(TAG, "Local server config: url=" + localServer.optString("url") + ", model=" + fixedModel + " (fixé)");
+            // Modèle local : utiliser la valeur du JSON (configurable par l'utilisateur)
+            putStringIfPresent(editor, "local_model_name", localServer, "model");
+            String modelName = localServer.optString("model", "gemma3-270m.gguf");
+            Log.d(TAG, "Local server config: url=" + localServer.optString("url") + ", model=" + modelName + " (configurable)");
         }
         
         // ⭐ NOUVEAU: Traiter RAG (Recherche sémantique)

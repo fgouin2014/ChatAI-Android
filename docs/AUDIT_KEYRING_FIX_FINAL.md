@@ -222,3 +222,4 @@ Après ces corrections:
 - KeyringManager: `ChatAI-Android/app/src/main/java/com/chatai/KeyringManager.java`
 - Guide KeyringManager: `docs/GUIDE_KEYRING_MANAGER.md`
 
+

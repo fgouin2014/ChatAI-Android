@@ -98,6 +98,9 @@ dependencies {
     implementation 'org.tensorflow:tensorflow-lite-support:0.4.4'
     implementation 'org.tensorflow:tensorflow-lite-select-tf-ops:2.12.0'
     
+    // ONNX Runtime Android (pour TTS, Embeddings, Vision, etc.)
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.16.0'
+    
     // Kotlinx datetime (corrige NoClassDefFoundError: kotlinx.datetime.TimeZone)
     implementation "org.jetbrains.kotlinx:kotlinx-datetime:0.6.0"
     

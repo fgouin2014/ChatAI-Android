@@ -33,6 +33,7 @@ public class WebServer {
     private ServerSocket serverSocket;
     private boolean isRunning = false;
     private Thread serverThread;
+    private int actualPort = PORT; // Port réel utilisé (peut différer si PORT est occupé)
     
     public WebServer(Context context) {
         this.context = context;
@@ -74,32 +75,96 @@ public class WebServer {
             }
         }
         
-        try {
-            serverSocket = new ServerSocket(PORT);
-            isRunning = true;
-            
-            serverThread = new Thread(() -> {
-                Log.i(TAG, "Serveur web démarré sur le port " + PORT);
+        // ⚠️ PORT 8888 CRITIQUE : Utilisé pour WASM/EmulatorJS (URLs codées en dur dans le code)
+        // Essayer d'abord le port 8888, puis attendre et réessayer avant d'utiliser un port alternatif
+        int portToTry = PORT;
+        int maxRetries = 3; // Réessayer 3 fois le port 8888 avant de passer à un port alternatif
+        int retryDelayMs = 1000; // Attendre 1 seconde entre chaque tentative
+        
+        // Essayer d'abord le port 8888 plusieurs fois (peut être dans TIME_WAIT)
+        for (int retry = 0; retry < maxRetries; retry++) {
+            try {
+                serverSocket = new ServerSocket(portToTry);
+                actualPort = portToTry;
+                isRunning = true;
                 
-                while (isRunning && !serverSocket.isClosed()) {
-                    try {
-                        Socket clientSocket = serverSocket.accept();
-                        // Traiter chaque connexion dans un thread séparé
-                        new Thread(() -> handleClient(clientSocket)).start();
-                    } catch (IOException e) {
-                        if (isRunning) {
-                            Log.e(TAG, "Erreur acceptation connexion", e);
+                serverThread = new Thread(() -> {
+                    Log.i(TAG, "Serveur web démarré sur le port " + actualPort);
+                    
+                    while (isRunning && !serverSocket.isClosed()) {
+                        try {
+                            Socket clientSocket = serverSocket.accept();
+                            // Traiter chaque connexion dans un thread séparé
+                            new Thread(() -> handleClient(clientSocket)).start();
+                        } catch (IOException e) {
+                            if (isRunning) {
+                                Log.e(TAG, "Erreur acceptation connexion", e);
+                            }
                         }
                     }
+                });
+                
+                serverThread.start();
+                Log.i(TAG, "Serveur web prêt sur http://localhost:" + actualPort);
+                return; // Succès sur le port 8888
+                
+            } catch (java.net.BindException e) {
+                if (retry < maxRetries - 1) {
+                    // Port occupé, attendre et réessayer (peut être dans TIME_WAIT)
+                    Log.w(TAG, "Port " + portToTry + " occupé (tentative " + (retry + 1) + "/" + maxRetries + "), attente de " + retryDelayMs + "ms...");
+                    try {
+                        Thread.sleep(retryDelayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        Log.e(TAG, "Interruption lors de l'attente", ie);
+                        isRunning = false;
+                        return;
+                    }
+                } else {
+                    // Après 3 tentatives, utiliser un port alternatif avec avertissement CRITIQUE
+                    Log.e(TAG, "❌❌❌ ATTENTION CRITIQUE: Port " + PORT + " toujours occupé après " + maxRetries + " tentatives");
+                    Log.e(TAG, "❌ Les URLs codées en dur (WASM/EmulatorJS) ne fonctionneront PAS avec un port alternatif !");
+                    Log.e(TAG, "❌ URLs affectées: /gamelibrary/, /gamedata/, /relax/, etc.");
+                    Log.e(TAG, "❌ Solution: Arrêter le processus qui occupe le port 8888 ou redémarrer l'app");
+                    
+                    // Essayer quand même un port alternatif en dernier recours
+                    int fallbackPort = PORT + 1;
+                    try {
+                        serverSocket = new ServerSocket(fallbackPort);
+                        actualPort = fallbackPort;
+                        isRunning = true;
+                        
+                        serverThread = new Thread(() -> {
+                            Log.i(TAG, "Serveur web démarré sur le port " + actualPort + " (FALLBACK - URLs WASM ne fonctionneront pas)");
+                            
+                            while (isRunning && !serverSocket.isClosed()) {
+                                try {
+                                    Socket clientSocket = serverSocket.accept();
+                                    new Thread(() -> handleClient(clientSocket)).start();
+                                } catch (IOException ex) {
+                                    if (isRunning) {
+                                        Log.e(TAG, "Erreur acceptation connexion", ex);
+                                    }
+                                }
+                            }
+                        });
+                        
+                        serverThread.start();
+                        Log.e(TAG, "⚠️ Serveur web démarré sur port alternatif " + fallbackPort + " - WASM/EmulatorJS NE FONCTIONNERA PAS");
+                        return;
+                    } catch (java.net.BindException fallbackException) {
+                        Log.e(TAG, "Erreur démarrage serveur web: port " + PORT + " et port alternatif " + fallbackPort + " tous deux occupés", fallbackException);
+                        isRunning = false;
+                    } catch (IOException fallbackException) {
+                        Log.e(TAG, "Erreur démarrage serveur web (port alternatif): " + fallbackException.getMessage(), fallbackException);
+                        isRunning = false;
+                    }
                 }
-            });
-            
-            serverThread.start();
-            Log.i(TAG, "Serveur web prêt sur http://localhost:" + PORT);
-            
-        } catch (IOException e) {
-            Log.e(TAG, "Erreur démarrage serveur web", e);
-            isRunning = false;
+            } catch (IOException e) {
+                Log.e(TAG, "Erreur démarrage serveur web", e);
+                isRunning = false;
+                return; // Erreur autre que BindException, arrêter
+            }
         }
     }
     
@@ -126,6 +191,13 @@ public class WebServer {
         }
         
         Log.i(TAG, "Serveur web arrêté");
+    }
+    
+    /**
+     * Retourne le port réel utilisé (peut différer de PORT si le port par défaut était occupé)
+     */
+    public int getActualPort() {
+        return actualPort;
     }
     
     /**

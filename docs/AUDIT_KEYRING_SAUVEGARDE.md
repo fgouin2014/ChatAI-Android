@@ -176,3 +176,4 @@ Ajouter des logs à chaque étape pour tracer le flux.
 3. ✅ Ajouter logs de debug complets
 4. ✅ Tester le flux complet
 
+

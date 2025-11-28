@@ -95,3 +95,4 @@ return json; // ✅ Retourne le JSON enrichi avec apiKey depuis KeyringManager
 - Si KeyringManager n'a pas de clé, `apiKey = ""` est ajouté pour rendre l'état explicite
 - Cette approche est cohérente avec `buildJsonFromPreferences()` qui fait la même chose
 
+

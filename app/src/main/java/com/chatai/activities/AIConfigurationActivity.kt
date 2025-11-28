@@ -246,7 +246,7 @@ class AIConfigurationActivity : AppCompatActivity() {
         val localServerUrl = sharedPreferences.getString("local_server_url", "")
         localServerUrlInput.setText(localServerUrl)
         
-        val localModelName = sharedPreferences.getString("local_model_name", "llama3.2")
+        val localModelName = sharedPreferences.getString("local_model_name", "gemma3-270m.gguf")
         localModelNameInput.setText(localModelName)
         
         // Charger la configuration TTS

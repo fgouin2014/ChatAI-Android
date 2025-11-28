@@ -268,48 +268,136 @@
                     
                     <!-- Tab Content: Local -->
                     <div class="config-tab-content" data-content="local">
+                    
+                    <!-- ⭐ SECTION 1: SERVEUR OLLAMA (PC) -->
                     <div class="panel-section">
-                        <h4>💻 Serveur local</h4>
+                        <h4>🖥️ Serveur Ollama (PC)</h4>
+                        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
+                            Le serveur Ollama doit tourner sur votre PC. Trouvez l'IP de votre PC avec <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">ipconfig</code> (Windows) ou <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">ifconfig</code> (Linux/Mac).
+                            <br><strong style="color: #f87171;">⚠️ N'utilisez pas 127.0.0.1</strong> - Utilisez l'IP de votre PC sur le réseau local.
+                        </p>
+                        
                         <div class="form-grid">
-                            <label>URL du serveur Ollama
-                                <input type="text" id="configLocalUrl" placeholder="http://127.0.0.1:11434/v1/chat/completions">
-                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">URL complète avec /v1/chat/completions</small>
-                            </label>
-                            <label>Modèle local
-                                <input type="text" id="configLocalModel" value="gemma3-270m.gguf" readonly style="background: rgba(100, 116, 139, 0.1); cursor: not-allowed;">
-                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Modèle fixé: gemma3-270m.gguf (disponible dans ChatAI-Files/models/)</small>
-                            </label>
-                        </div>
-                        <!-- ⭐ NOUVEAU: Configuration RAG -->
-                        <div class="panel-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(100, 116, 139, 0.2);">
-                            <h4>🔍 RAG (Recherche sémantique) <span id="ragStatusBadge" style="font-size: 12px; font-weight: normal; margin-left: 8px;"></span></h4>
-                            <div class="form-grid">
-                                <label>Modèle d'embedding
-                                    <select id="configEmbeddingModel">
-                                        <option value="nomic-embed-text">Nomic Embed Text (768 dim)</option>
-                                        <option value="mxbai-embed-large">MXBAI Embed Large (1024 dim)</option>
-                                    </select>
-                                    <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Modèle pour générer des embeddings (RAG). Requis pour recherche sémantique dans l'historique.</small>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
-                                    <input type="checkbox" id="configRAGEnabled" style="width: auto; margin: 0;">
-                                    <span>Activer RAG (Recherche sémantique dans l'historique)</span>
-                                </label>
-                                <div id="ragStatusMessage" style="font-size: 11px; margin-left: 24px; margin-top: 4px; padding: 8px; border-radius: 4px; display: none;"></div>
-                                <small style="font-size: 11px; color: #64748b; margin-left: 24px; margin-top: 4px; display: block;">
-                                    Le RAG utilise les conversations précédentes pour améliorer les réponses. Nécessite Ollama local avec modèle d'embedding.
+                            <label>
+                                URL du serveur
+                                <input type="text" id="configLocalUrl" placeholder="http://192.168.1.100:11434/v1/chat/completions">
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Format: <code>http://VOTRE_IP:11434/v1/chat/completions</code>
+                                    <br>Exemple: <code>http://10.43.62.249:11434/v1/chat/completions</code>
                                 </small>
-                            </div>
+                                <div id="localUrlValidation" style="margin-top: 6px; font-size: 11px; display: none;"></div>
+                            </label>
+                            
+                            <label>
+                                Statut du serveur
+                                <div id="localServerStatus" style="display: flex; align-items: center; gap: 8px; padding: 8px; background: rgba(148, 163, 184, 0.1); border-radius: 6px; margin-top: 4px;">
+                                    <span id="localServerStatusDot" style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; display: inline-block;"></span>
+                                    <span id="localServerStatusText" style="font-size: 12px; color: #94a3b8;">Non testé</span>
+                                </div>
+                            </label>
                         </div>
-                        <div class="config-actions-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
+                        
+                        <div class="form-grid">
+                            <label>
+                                Modèle Ollama sur PC
+                                <select id="configLocalModel">
+                                    <option value="">– Choisir –</option>
+                                    <option value="gemma3:270m">Gemma 3 270M (278 MB) ⭐</option>
+                                    <option value="llama3.2:3b">Llama 3.2 3B (1.93 GB)</option>
+                                    <option value="gemma3:1b">Gemma 3 1B (778 MB)</option>
+                                    <option value="custom">Autre (personnalisé)</option>
+                                </select>
+                                <input type="text" id="configLocalModelCustom" class="custom-input hidden" placeholder="Nom du modèle Ollama (ex: gemma3:270m)">
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Modèle installé sur votre serveur Ollama PC. Vérifier avec <code>ollama list</code> sur votre PC.
+                                </small>
+                            </label>
+                        </div>
+                        
+                        <div class="config-actions-group" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
                             <div class="action-section">
-                                <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">💾 Sauvegarde</div>
-                                <div class="button-grid" style="display: grid; grid-template-columns: 1fr; gap: 8px;">
-                                    <button class="panel-button" id="saveLocalConfigBtn">💾 Sauvegarder</button>
+                                <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">⚡ Actions Serveur PC</div>
+                                <div class="button-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                    <button class="panel-button" id="testLocalServerBtn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                                        🔍 Tester connexion serveur
+                                    </button>
+                                    <button class="panel-button" id="listLocalModelsBtn" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                                        🔄 Récupérer les modèles
+                                    </button>
                                 </div>
                             </div>
                         </div>
+                        
+                        <div id="localServerTestResult" style="display: none; margin-top: 12px; padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px;">
+                            <div id="localServerTestStatus" style="font-weight: 500; margin-bottom: 8px;"></div>
+                            <div id="localServerTestDetails" style="font-size: 12px; color: #94a3b8;"></div>
+                        </div>
+                        
+                        <div id="localModelsResult" style="display: none; margin-top: 12px; padding: 12px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px;">
+                            <div id="localModelsStatus" style="font-weight: 500; margin-bottom: 8px;"></div>
+                            <div id="localModelsList" style="font-size: 12px; color: #94a3b8;"></div>
+                        </div>
                     </div>
+                    
+                    <!-- ⭐ SECTION 2: MODÈLES LOCAUX (DEVICE) -->
+                    <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid rgba(148, 163, 184, 0.3);">
+                        <h4>📱 Modèles Locaux (Device)</h4>
+                        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
+                            Fichiers GGUF stockés directement sur votre device Android.
+                            <br>Localisation: <code>/storage/emulated/0/ChatAI-Files/models/</code>
+                        </p>
+                        
+                        <div class="form-grid">
+                            <label>
+                                Modèles disponibles sur device
+                                <div id="localDeviceModelsList" style="min-height: 60px; padding: 12px; background: rgba(148, 163, 184, 0.05); border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.2);">
+                                    <div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 20px;">
+                                        ⏳ Chargement des modèles...
+                                    </div>
+                                </div>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Scanner automatique depuis <code>/storage/emulated/0/ChatAI-Files/models/</code>
+                                </small>
+                            </label>
+                        </div>
+                        
+                        <div class="button-group" style="margin-top: 12px;">
+                            <button class="panel-button secondary" id="refreshDeviceModelsBtn" style="background: rgba(59, 130, 246, 0.2);">
+                                🔄 Actualiser liste
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- ⭐ SECTION 3: CONFIGURATION RAG -->
+                    <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
+                        <h4>🔍 RAG (Recherche sémantique) <span id="ragStatusBadge" style="font-size: 12px; font-weight: normal; margin-left: 8px;"></span></h4>
+                        <div class="form-grid">
+                            <label>Modèle d'embedding
+                                <select id="configEmbeddingModel">
+                                    <option value="nomic-embed-text">Nomic Embed Text (768 dim)</option>
+                                    <option value="mxbai-embed-large">MXBAI Embed Large (1024 dim)</option>
+                                </select>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Modèle pour générer des embeddings (RAG). Requis pour recherche sémantique dans l'historique.</small>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                                <input type="checkbox" id="configRAGEnabled" style="width: auto; margin: 0;">
+                                <span>Activer RAG (Recherche sémantique dans l'historique)</span>
+                            </label>
+                            <div id="ragStatusMessage" style="font-size: 11px; margin-left: 24px; margin-top: 4px; padding: 8px; border-radius: 4px; display: none;"></div>
+                            <small style="font-size: 11px; color: #64748b; margin-left: 24px; margin-top: 4px; display: block;">
+                                Le RAG utilise les conversations précédentes pour améliorer les réponses. Nécessite Ollama local avec modèle d'embedding.
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <!-- ⭐ BOUTONS DE SAUVEGARDE -->
+                    <div class="config-actions-group" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid rgba(148, 163, 184, 0.3);">
+                        <div class="action-section">
+                            <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">💾 Sauvegarde</div>
+                            <button class="panel-button" id="saveLocalConfigBtn" style="width: 100%;">💾 Sauvegarder toute la configuration</button>
+                        </div>
+                    </div>
+                    
                     </div>
                     
                     <!-- Tab Content: Audio -->
@@ -385,8 +473,10 @@
                                         <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle audio</span>
                                         <select id="configAudioModel">
                                             <option value="">Désactivé</option>
-                                            <option value="ggml-small.bin">GGML Small</option>
-                                            <option value="ggml-medium.bin">GGML Medium</option>
+                                            <option value="ggml-small.bin">GGML Small (465 MB)</option>
+                                            <option value="ggml-medium-q5_0.bin">GGML Medium Q5_0 (514 MB) ⭐ Recommandé</option>
+                                            <option value="ggml-small-q8_0.bin">GGML Small Q8_0 (252 MB)</option>
+                                            <option value="ggml-medium.bin">GGML Medium (non quantifié)</option>
                                             <option value="ggml-large.bin">GGML Large</option>
                                             <option value="whisper-large-v3">Whisper Large V3</option>
                                             <option value="custom">Autre (personnalisé)</option>
@@ -551,8 +641,77 @@
                     <!-- Tab Content: TTS -->
                     <div class="config-tab-content" data-content="tts">
                     <div class="panel-section">
-                        <h4>🎙️ TTS</h4>
+                        <h4>🎙️ TTS (Text-to-Speech)</h4>
+                        
+                        <!-- Moteur TTS -->
                         <div class="form-grid">
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Moteur TTS</span>
+                                <select id="configTtsEngine">
+                                    <option value="onnx_server" selected>ONNX TTS Server (port 11401) ⭐ Recommandé</option>
+                                    <option value="android">Android TTS (fallback)</option>
+                                </select>
+                            </label>
+                        </div>
+                        
+                        <!-- Statut serveur TTS -->
+                        <div class="form-grid" style="margin-top: 12px; padding: 12px; background: rgba(148, 163, 184, 0.1); border-radius: 8px;">
+                            <div style="grid-column: 1 / -1;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                    <span style="font-size: 13px; font-weight: 500;">Statut serveur TTS</span>
+                                    <span id="ttsServerStatusText" style="font-size: 12px; padding: 4px 8px; border-radius: 4px; background: rgba(148, 163, 184, 0.2);">Vérification...</span>
+                                </div>
+                                <button id="testTtsServerBtn" class="panel-button" style="width: 100%; margin-top: 8px;">🔍 Tester connexion serveur TTS</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Configuration ONNX TTS -->
+                        <div id="onnxTtsConfig" class="form-grid" style="margin-top: 16px; padding: 12px; background: rgba(148, 163, 184, 0.05); border-radius: 8px;">
+                            <div style="grid-column: 1 / -1;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                    <h5 style="font-size: 14px; margin: 0; color: var(--text-primary);">Modèles ONNX</h5>
+                                    <button id="checkTtsFilesBtn" class="panel-button secondary" style="padding: 4px 12px; font-size: 11px;">🔍 Vérifier fichiers</button>
+                                </div>
+                                
+                                <!-- Statuts des modèles chargés -->
+                                <div id="onnxModelsStatus" style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
+                                    <div>Encoder: <span id="encoderStatus" style="color: var(--text-primary);">-</span></div>
+                                    <div>Decoder: <span id="decoderStatus" style="color: var(--text-primary);">-</span></div>
+                                    <div>Vocoder: <span id="vocoderStatus" style="color: var(--text-primary);">-</span></div>
+                                </div>
+                                
+                                <!-- Liste des fichiers requis -->
+                                <div id="ttsFilesStatus" style="font-size: 11px; color: var(--text-secondary); line-height: 1.8; display: none;">
+                                    <div style="font-weight: 500; margin-bottom: 6px; color: var(--text-primary);">Fichiers requis:</div>
+                                    <div id="ttsFilesList" style="max-height: 200px; overflow-y: auto;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Voix ONNX -->
+                        <div class="form-grid" style="margin-top: 16px;">
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Voix ONNX</span>
+                                <select id="configOnnxTtsVoice">
+                                    <option value="default">Défaut (neutre)</option>
+                                    <option value="male">Masculin (homme)</option>
+                                    <option value="female">Féminin (femme)</option>
+                                </select>
+                            </label>
+                        </div>
+                        
+                        <!-- Test TTS -->
+                        <div class="form-grid" style="margin-top: 16px;">
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Test synthèse vocale</span>
+                                <input type="text" id="ttsTestText" placeholder="Bonjour, ceci est un test" value="Bonjour, ceci est un test de synthèse vocale">
+                            </label>
+                            <button id="testTtsBtn" class="panel-button" style="grid-column: 1 / -1; margin-top: 8px;">🔊 Tester TTS</button>
+                            <audio id="ttsTestAudio" controls style="grid-column: 1 / -1; margin-top: 8px; display: none; width: 100%;"></audio>
+                        </div>
+                        
+                        <!-- Configuration legacy (Android TTS) -->
+                        <div class="form-grid" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
                             <label>Mode
                                 <input type="text" id="configTtsMode" placeholder="local">
                             </label>
@@ -569,15 +728,17 @@
                                 <input type="text" id="configTtsVoiceCustom" class="custom-input hidden" placeholder="Voix personnalisée">
                             </label>
                         </div>
+                        
                         <div class="form-checkbox" style="margin-top: 10px; margin-bottom: 10px;">
                             <label style="display: flex; align-items: center; gap: 8px;">
                                 <input type="checkbox" id="configTtsAutoPlay" style="width: auto; margin: 0;">
                                 <span>Lecture automatique des réponses (TTS)</span>
                             </label>
                             <span style="font-size: 12px; color: var(--text-secondary); margin-left: 24px; display: block; margin-top: 4px;">
-                                Les réponses de l'IA seront automatiquement lues à voix haute (voix KITT)
+                                Les réponses de l'IA seront automatiquement lues à voix haute
                             </span>
                         </div>
+                        
                         <div class="config-actions-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
                             <div class="action-section">
                                 <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">💾 Sauvegarde</div>
@@ -1341,6 +1502,34 @@
               });
           }
           
+          // ⭐ NOUVEAU: Test serveur TTS
+          const testTtsServerBtn = document.getElementById('testTtsServerBtn');
+          if (testTtsServerBtn) {
+              testTtsServerBtn.addEventListener('click', async function() {
+                  await testTtsServerConnection();
+              });
+          }
+          
+          // ⭐ NOUVEAU: Test synthèse TTS
+          const testTtsBtn = document.getElementById('testTtsBtn');
+          if (testTtsBtn) {
+              testTtsBtn.addEventListener('click', async function() {
+                  const testText = document.getElementById('ttsTestText')?.value || 'Bonjour, ceci est un test';
+                  await testTtsSynthesis(testText);
+              });
+          }
+          
+          // ⭐ NOUVEAU: Vérifier fichiers TTS ONNX
+          const checkTtsFilesBtn = document.getElementById('checkTtsFilesBtn');
+          if (checkTtsFilesBtn) {
+              checkTtsFilesBtn.addEventListener('click', async function() {
+                  await checkTtsOnnxFiles();
+              });
+          }
+          
+          // ⭐ NOUVEAU: Vérifier statut serveur TTS au chargement
+          checkTtsServerStatus();
+          
           // Mise à jour dynamique des labels selon le provider
           const providerSelect = document.getElementById('configCloudProvider');
           if (providerSelect) {
@@ -1529,6 +1718,65 @@
                   populateCloudModelDropdown(savedModels);
               }
           }
+          
+          // Gérer l'affichage/masquage de l'input personnalisé pour le modèle Local
+          const localModelSelect = document.getElementById('configLocalModel');
+          const localModelCustomInput = document.getElementById('configLocalModelCustom');
+          if (localModelSelect && localModelCustomInput) {
+              localModelSelect.addEventListener('change', function() {
+                  if (this.value === 'custom') {
+                      localModelCustomInput.classList.remove('hidden');
+                      localModelCustomInput.focus();
+                  } else {
+                      localModelCustomInput.classList.add('hidden');
+                      localModelCustomInput.value = '';
+                  }
+              });
+          }
+          
+          // Bouton pour récupérer les modèles locaux
+          const listLocalModelsBtn = document.getElementById('listLocalModelsBtn');
+          if (listLocalModelsBtn) {
+              listLocalModelsBtn.addEventListener('click', listLocalModels);
+          }
+          
+          // Bouton pour tester la connexion au serveur Ollama local
+          const testLocalServerBtn = document.getElementById('testLocalServerBtn');
+          if (testLocalServerBtn) {
+              testLocalServerBtn.addEventListener('click', testLocalServerConnection);
+          }
+          
+          // Validation de l'URL en temps réel
+          const localUrlInput = document.getElementById('configLocalUrl');
+          if (localUrlInput) {
+              localUrlInput.addEventListener('input', validateLocalServerUrl);
+              localUrlInput.addEventListener('blur', validateLocalServerUrl);
+              
+              // Essayer de charger depuis le cache d'abord
+              const savedModels = loadLocalModelsFromStorage();
+              if (savedModels && savedModels.length > 0) {
+                  populateLocalModelDropdown(savedModels);
+              }
+              
+              // Si URL configurée, charger depuis le serveur après un délai
+              if (localUrlInput.value.trim()) {
+                  // Attendre un peu pour que la page soit chargée
+                  setTimeout(() => {
+                      listLocalModels();
+                  }, 1000);
+              }
+          }
+          
+          // Bouton pour actualiser les modèles device
+          const refreshDeviceModelsBtn = document.getElementById('refreshDeviceModelsBtn');
+          if (refreshDeviceModelsBtn) {
+              refreshDeviceModelsBtn.addEventListener('click', loadLocalDeviceModels);
+          }
+          
+          // Charger automatiquement les modèles device au chargement
+          setTimeout(() => {
+              loadLocalDeviceModels();
+          }, 500);
       });
 
         // Fonction pour lister les modèles disponibles (sans test de connexion)
@@ -1944,6 +2192,938 @@
         }
         
         // Fonction de test de connexion Ollama Cloud (liste + test chat)
+        // ⭐ NOUVEAU: Vérifier statut serveur TTS
+        async function checkTtsServerStatus() {
+            const statusText = document.getElementById('ttsServerStatusText');
+            if (!statusText) return;
+            
+            try {
+                const response = await fetch('http://127.0.0.1:11401/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.status === 'ok' && data.model_loaded === true) {
+                        statusText.textContent = '✅ Disponible';
+                        statusText.style.background = 'rgba(16, 185, 129, 0.2)';
+                        statusText.style.color = '#10b981';
+                        // ⭐ NOUVEAU: Mettre à jour les statuts des modèles individuels
+                        await updateOnnxModelsStatus();
+                    } else {
+                        statusText.textContent = '⚠️ Modèle non chargé';
+                        statusText.style.background = 'rgba(245, 158, 11, 0.2)';
+                        statusText.style.color = '#f59e0b';
+                        // Mettre à jour les statuts même si non prêt
+                        await updateOnnxModelsStatus();
+                    }
+                } else {
+                    throw new Error('HTTP ' + response.status);
+                }
+            } catch (e) {
+                statusText.textContent = '❌ Indisponible';
+                statusText.style.background = 'rgba(239, 68, 68, 0.2)';
+                statusText.style.color = '#dc2626';
+                // Mettre à jour les statuts en erreur
+                updateOnnxModelsStatusError();
+            }
+        }
+        
+        // ⭐ NOUVEAU: Mettre à jour les statuts individuels des modèles ONNX
+        async function updateOnnxModelsStatus() {
+            const encoderStatus = document.getElementById('encoderStatus');
+            const decoderStatus = document.getElementById('decoderStatus');
+            const vocoderStatus = document.getElementById('vocoderStatus');
+            
+            if (!encoderStatus || !decoderStatus || !vocoderStatus) return;
+            
+            try {
+                const response = await fetch('http://127.0.0.1:11401/models');
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Mettre à jour Encoder
+                    if (data.encoder === true) {
+                        encoderStatus.textContent = '✅ Chargé';
+                        encoderStatus.style.color = '#10b981';
+                    } else {
+                        encoderStatus.textContent = '❌ Non chargé';
+                        encoderStatus.style.color = '#dc2626';
+                    }
+                    
+                    // Mettre à jour Decoder
+                    if (data.decoder === true) {
+                        decoderStatus.textContent = '✅ Chargé';
+                        decoderStatus.style.color = '#10b981';
+                    } else {
+                        decoderStatus.textContent = '❌ Non chargé';
+                        decoderStatus.style.color = '#dc2626';
+                    }
+                    
+                    // Mettre à jour Vocoder
+                    if (data.vocoder === true) {
+                        vocoderStatus.textContent = '✅ Chargé';
+                        vocoderStatus.style.color = '#10b981';
+                    } else {
+                        vocoderStatus.textContent = '❌ Non chargé';
+                        vocoderStatus.style.color = '#dc2626';
+                    }
+                } else {
+                    throw new Error('HTTP ' + response.status);
+                }
+            } catch (e) {
+                console.error('Erreur récupération statuts modèles:', e);
+                encoderStatus.textContent = '❓ Erreur';
+                decoderStatus.textContent = '❓ Erreur';
+                vocoderStatus.textContent = '❓ Erreur';
+                encoderStatus.style.color = '#f59e0b';
+                decoderStatus.style.color = '#f59e0b';
+                vocoderStatus.style.color = '#f59e0b';
+            }
+        }
+        
+        // ⭐ NOUVEAU: Mettre à jour les statuts en cas d'erreur
+        function updateOnnxModelsStatusError() {
+            const encoderStatus = document.getElementById('encoderStatus');
+            const decoderStatus = document.getElementById('decoderStatus');
+            const vocoderStatus = document.getElementById('vocoderStatus');
+            
+            if (encoderStatus) {
+                encoderStatus.textContent = '❌ Serveur indisponible';
+                encoderStatus.style.color = '#dc2626';
+            }
+            if (decoderStatus) {
+                decoderStatus.textContent = '❌ Serveur indisponible';
+                decoderStatus.style.color = '#dc2626';
+            }
+            if (vocoderStatus) {
+                vocoderStatus.textContent = '❌ Serveur indisponible';
+                vocoderStatus.style.color = '#dc2626';
+            }
+        }
+        
+        // ⭐ NOUVEAU: Vérifier les fichiers TTS ONNX requis
+        async function checkTtsOnnxFiles() {
+            const checkBtn = document.getElementById('checkTtsFilesBtn');
+            const filesStatusDiv = document.getElementById('ttsFilesStatus');
+            const filesListDiv = document.getElementById('ttsFilesList');
+            
+            if (!checkBtn || !filesStatusDiv || !filesListDiv) return;
+            
+            if (checkBtn) {
+                checkBtn.disabled = true;
+                checkBtn.textContent = '🔄 Vérification...';
+            }
+            
+            try {
+                if (window.AndroidApp && typeof window.AndroidApp.checkTtsOnnxFiles === 'function') {
+                    const resultJson = window.AndroidApp.checkTtsOnnxFiles();
+                    const result = JSON.parse(resultJson);
+                    
+                    filesStatusDiv.style.display = 'block';
+                    filesListDiv.innerHTML = '';
+                    
+                    if (result.error) {
+                        filesListDiv.innerHTML = `<div style="color: #dc2626;">❌ Erreur: ${result.error}</div>`;
+                        return;
+                    }
+                    
+                    const files = result.files || [];
+                    const foundCount = result.found_count || 0;
+                    const totalCount = result.total_count || 0;
+                    const allPresent = result.all_present || false;
+                    
+                    // Afficher résumé
+                    const summaryDiv = document.createElement('div');
+                    summaryDiv.style.marginBottom = '8px';
+                    summaryDiv.style.padding = '6px';
+                    summaryDiv.style.borderRadius = '4px';
+                    summaryDiv.style.background = allPresent ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)';
+                    summaryDiv.style.color = allPresent ? '#10b981' : '#f59e0b';
+                    summaryDiv.style.fontWeight = '500';
+                    summaryDiv.textContent = `${foundCount}/${totalCount} fichiers présents${allPresent ? ' ✅' : ' ⚠️'}`;
+                    filesListDiv.appendChild(summaryDiv);
+                    
+                    // Afficher chaque fichier
+                    files.forEach(file => {
+                        const fileDiv = document.createElement('div');
+                        fileDiv.style.display = 'flex';
+                        fileDiv.style.alignItems = 'center';
+                        fileDiv.style.justifyContent = 'space-between';
+                        fileDiv.style.padding = '4px 0';
+                        fileDiv.style.borderBottom = '1px solid rgba(148, 163, 184, 0.1)';
+                        
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = file.name;
+                        nameSpan.style.flex = '1';
+                        nameSpan.style.color = file.exists ? 'var(--text-primary)' : '#dc2626';
+                        
+                        const statusSpan = document.createElement('span');
+                        if (file.exists) {
+                            statusSpan.textContent = `✅ ${file.size_mb} MB`;
+                            statusSpan.style.color = '#10b981';
+                        } else {
+                            statusSpan.textContent = '❌ Manquant';
+                            statusSpan.style.color = '#dc2626';
+                        }
+                        statusSpan.style.marginLeft = '8px';
+                        statusSpan.style.fontSize = '10px';
+                        
+                        fileDiv.appendChild(nameSpan);
+                        fileDiv.appendChild(statusSpan);
+                        filesListDiv.appendChild(fileDiv);
+                    });
+                    
+                    // Afficher chemin de base
+                    if (result.base_path) {
+                        const pathDiv = document.createElement('div');
+                        pathDiv.style.marginTop = '8px';
+                        pathDiv.style.paddingTop = '8px';
+                        pathDiv.style.borderTop = '1px solid rgba(148, 163, 184, 0.2)';
+                        pathDiv.style.fontSize = '10px';
+                        pathDiv.style.color = 'var(--text-secondary)';
+                        pathDiv.textContent = `Répertoire: ${result.base_path}`;
+                        filesListDiv.appendChild(pathDiv);
+                    }
+                    
+                } else {
+                    filesListDiv.innerHTML = '<div style="color: #dc2626;">❌ Fonction Android non disponible</div>';
+                }
+            } catch (e) {
+                console.error('Erreur vérification fichiers TTS:', e);
+                if (filesListDiv) {
+                    filesListDiv.innerHTML = `<div style="color: #dc2626;">❌ Erreur: ${e.message}</div>`;
+                }
+            } finally {
+                if (checkBtn) {
+                    checkBtn.disabled = false;
+                    checkBtn.textContent = '🔍 Vérifier fichiers';
+                }
+            }
+        }
+        
+        // ⭐ NOUVEAU: Tester connexion serveur TTS
+        async function testTtsServerConnection() {
+            const testBtn = document.getElementById('testTtsServerBtn');
+            const statusText = document.getElementById('ttsServerStatusText');
+            
+            if (testBtn) {
+                testBtn.disabled = true;
+                testBtn.textContent = '🔄 Test en cours...';
+            }
+            
+            try {
+                const response = await fetch('http://127.0.0.1:11401/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.status === 'ok' && data.model_loaded === true) {
+                        if (statusText) {
+                            statusText.textContent = '✅ Disponible';
+                            statusText.style.background = 'rgba(16, 185, 129, 0.2)';
+                            statusText.style.color = '#10b981';
+                        }
+                        // ⭐ NOUVEAU: Mettre à jour les statuts des modèles individuels
+                        await updateOnnxModelsStatus();
+                        alert('✅ Serveur TTS disponible\n\nModèle chargé: ' + (data.model_loaded ? 'Oui' : 'Non'));
+                    } else {
+                        // Mettre à jour les statuts même si non prêt
+                        await updateOnnxModelsStatus();
+                        throw new Error('Modèle non chargé');
+                    }
+                } else {
+                    throw new Error('HTTP ' + response.status);
+                }
+            } catch (e) {
+                if (statusText) {
+                    statusText.textContent = '❌ Indisponible';
+                    statusText.style.background = 'rgba(239, 68, 68, 0.2)';
+                    statusText.style.color = '#dc2626';
+                }
+                updateOnnxModelsStatusError();
+                alert('❌ Serveur TTS indisponible\n\nErreur: ' + e.message + '\n\nVérifiez que le serveur TTS est démarré (port 11401)');
+            } finally {
+                if (testBtn) {
+                    testBtn.disabled = false;
+                    testBtn.textContent = '🔍 Tester connexion serveur TTS';
+                }
+            }
+        }
+        
+        // ⭐ NOUVEAU: Tester synthèse vocale
+        // ⭐ MODIFIÉ: Meilleure gestion erreurs et vérifications
+        async function testTtsSynthesis(text) {
+            const testBtn = document.getElementById('testTtsBtn');
+            const voiceSelect = document.getElementById('configOnnxTtsVoice');
+            const selectedVoice = voiceSelect ? voiceSelect.value : 'default';
+            const audioElement = document.getElementById('ttsTestAudio');
+            
+            if (!text || text.trim() === '') {
+                alert('❌ Veuillez entrer un texte à synthétiser');
+                return;
+            }
+            
+            if (testBtn) {
+                testBtn.disabled = true;
+                testBtn.textContent = '🔄 Synthèse en cours...';
+            }
+            
+            try {
+                console.log('🔊 Test TTS: "' + text.trim() + '" (voix: ' + selectedVoice + ')');
+                
+                const response = await fetch('http://127.0.0.1:11401/synthesize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        text: text.trim(),
+                        voice: selectedVoice
+                    })
+                });
+                
+                if (response.ok) {
+                    const audioBlob = await response.blob();
+                    
+                    // ⭐ NOUVEAU: Vérifier taille audio
+                    if (audioBlob.size < 1000) {
+                        throw new Error('Audio trop petit (' + audioBlob.size + ' bytes) - probablement une erreur de synthèse');
+                    }
+                    
+                    console.log('✅ Audio généré: ' + (audioBlob.size / 1024).toFixed(2) + ' KB');
+                    
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    
+                    if (audioElement) {
+                        audioElement.src = audioUrl;
+                        audioElement.style.display = 'block';
+                        audioElement.volume = 1.0; // Forcer volume max
+                        
+                        // ⭐ NOUVEAU: Meilleure gestion de la lecture audio
+                        const playPromise = audioElement.play();
+                        
+                        if (playPromise !== undefined) {
+                            playPromise
+                                .then(() => {
+                                    console.log('✅ Audio en cours de lecture');
+                                    if (testBtn) {
+                                        testBtn.textContent = '✅ Lecture en cours...';
+                                    }
+                                    
+                                    // Attendre fin lecture
+                                    audioElement.addEventListener('ended', function onEnded() {
+                                        audioElement.removeEventListener('ended', onEnded);
+                                        if (testBtn) {
+                                            testBtn.textContent = '✅ Synthèse réussie';
+                                            setTimeout(() => {
+                                                testBtn.textContent = '🔊 Tester TTS';
+                                            }, 2000);
+                                        }
+                                    }, { once: true });
+                                    
+                                    // Gérer erreurs pendant lecture
+                                    audioElement.addEventListener('error', function onError(e) {
+                                        audioElement.removeEventListener('error', onError);
+                                        console.error('❌ Erreur lecture audio:', e);
+                                        alert('❌ Erreur lecture audio\n\nVérifiez:\n- Volume système\n- Permissions audio\n- Format audio supporté');
+                                        if (testBtn) {
+                                            testBtn.textContent = '🔊 Tester TTS';
+                                        }
+                                    }, { once: true });
+                                })
+                                .catch(e => {
+                                    console.error('❌ Erreur démarrage lecture audio:', e);
+                                    let errorMsg = '❌ Erreur lecture audio\n\n' + e.message;
+                                    
+                                    if (e.name === 'NotAllowedError') {
+                                        errorMsg += '\n\n→ Permission audio refusée\n→ Cliquez sur la page pour autoriser la lecture audio';
+                                    } else if (e.name === 'NotSupportedError') {
+                                        errorMsg += '\n\n→ Format audio non supporté';
+                                    } else {
+                                        errorMsg += '\n\nVérifiez:\n- Volume système\n- Permissions audio';
+                                    }
+                                    
+                                    alert(errorMsg);
+                                    if (testBtn) {
+                                        testBtn.textContent = '🔊 Tester TTS';
+                                    }
+                                });
+                        } else {
+                            // Fallback pour navigateurs anciens
+                            if (testBtn) {
+                                testBtn.textContent = '✅ Synthèse réussie';
+                                setTimeout(() => {
+                                    testBtn.textContent = '🔊 Tester TTS';
+                                }, 2000);
+                            }
+                        }
+                    } else {
+                        throw new Error('Élément audio non trouvé dans le DOM');
+                    }
+                } else {
+                    const errorText = await response.text();
+                    let errorMsg = 'HTTP ' + response.status;
+                    
+                    if (response.status === 503) {
+                        errorMsg += ': Service TTS non disponible\n\n';
+                        errorMsg += '→ Modèles ONNX non chargés\n';
+                        errorMsg += '→ Vérifiez que les modèles sont dans: /storage/emulated/0/ChatAI-Files/models/tts/';
+                    } else if (response.status === 500) {
+                        errorMsg += ': Erreur synthèse vocale\n\n';
+                        errorMsg += '→ Vérifiez les logs Android (logcat)';
+                    } else {
+                        errorMsg += ': ' + errorText;
+                    }
+                    
+                    throw new Error(errorMsg);
+                }
+            } catch (e) {
+                console.error('❌ Erreur test TTS:', e);
+                
+                let errorMsg = '❌ Erreur synthèse vocale\n\n' + e.message;
+                
+                if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+                    errorMsg += '\n\n→ Serveur TTS non accessible\n';
+                    errorMsg += '→ Vérifiez que le serveur TTS est démarré (port 11401)';
+                }
+                
+                alert(errorMsg);
+            } finally {
+                if (testBtn) {
+                    testBtn.disabled = false;
+                    if (testBtn.textContent === '🔄 Synthèse en cours...') {
+                        testBtn.textContent = '🔊 Tester TTS';
+                    }
+                }
+            }
+        }
+        
+        // ⭐ NOUVEAU: Fonction pour lister les modèles disponibles sur le serveur Ollama local
+        async function listLocalModels() {
+            const urlField = document.getElementById('configLocalUrl');
+            const serverUrl = urlField.value.trim();
+            
+            const modelsResultDiv = document.getElementById('localModelsResult');
+            const modelsStatusDiv = document.getElementById('localModelsStatus');
+            const modelsListDiv = document.getElementById('localModelsList');
+            const listBtn = document.getElementById('listLocalModelsBtn');
+            
+            if (!serverUrl) {
+                modelsResultDiv.style.display = 'block';
+                modelsResultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                modelsResultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                modelsStatusDiv.innerHTML = '❌ URL du serveur manquante';
+                modelsStatusDiv.style.color = '#dc2626';
+                modelsListDiv.textContent = 'Veuillez entrer l\'URL de votre serveur Ollama (ex: http://10.43.62.249:11434/v1/chat/completions)';
+                return;
+            }
+            
+            // Extraire l'URL de base (sans /v1/chat/completions)
+            let baseUrl = serverUrl.replace(/\/v1\/chat\/completions\/?$/, '');
+            if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+                baseUrl = 'http://' + baseUrl;
+            }
+            // Retirer le trailing slash
+            baseUrl = baseUrl.replace(/\/$/, '');
+            
+            // Construire l'URL de l'API tags
+            const tagsUrl = baseUrl + '/api/tags';
+            
+            modelsResultDiv.style.display = 'block';
+            modelsResultDiv.style.background = 'rgba(139, 92, 246, 0.1)';
+            modelsResultDiv.style.borderColor = 'rgba(139, 92, 246, 0.3)';
+            modelsStatusDiv.innerHTML = '⏳ Récupération des modèles...';
+            modelsStatusDiv.style.color = '#7c3aed';
+            modelsListDiv.textContent = '';
+            listBtn.disabled = true;
+            listBtn.innerHTML = '⏳ Récupération...';
+            
+            const startTime = Date.now();
+            
+            try {
+                // Récupérer la liste des modèles disponibles
+                const tagsResponse = await fetch(tagsUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    // Timeout de 5 secondes
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                if (!tagsResponse.ok) {
+                    if (tagsResponse.status === 404) {
+                        throw new Error('API Ollama non trouvée. Vérifiez que le serveur Ollama est démarré.');
+                    } else if (tagsResponse.status === 0 || tagsResponse.status === 'failed') {
+                        throw new Error('Impossible de se connecter au serveur. Vérifiez l\'URL et que le serveur Ollama est démarré.');
+                    }
+                    throw new Error(`HTTP ${tagsResponse.status}`);
+                }
+                
+                const tagsData = await tagsResponse.json();
+                const availableModels = (tagsData.models || []).map(m => {
+                    // Retirer le suffixe :latest si présent
+                    const name = m.name || '';
+                    return name.replace(/:latest$/, '');
+                });
+                
+                // Trier les modèles par nom
+                availableModels.sort();
+                
+                const elapsedTime = Date.now() - startTime;
+                
+                // Sauvegarder la liste des modèles dans localStorage pour persistance
+                saveLocalModelsToStorage(availableModels);
+                
+                // Peupler le dropdown avec les modèles découverts
+                populateLocalModelDropdown(availableModels);
+                
+                // Afficher les modèles disponibles
+                modelsResultDiv.style.background = 'rgba(139, 92, 246, 0.1)';
+                modelsResultDiv.style.borderColor = 'rgba(139, 92, 246, 0.3)';
+                modelsStatusDiv.innerHTML = `✅ ${availableModels.length} modèle(s) trouvé(s) (${elapsedTime}ms)`;
+                modelsStatusDiv.style.color = '#059669';
+                
+                if (availableModels.length > 0) {
+                    modelsListDiv.innerHTML = '<div style="margin-top: 8px;"><strong>Modèles disponibles:</strong></div>' +
+                        '<div style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px;">' +
+                        availableModels.map(m => `<span style="padding: 2px 8px; background: rgba(139, 92, 246, 0.2); border-radius: 4px; font-size: 11px; cursor: pointer;" class="clickable-local-model" data-model="${m.replace(/"/g, '&quot;')}">${m}</span>`).join('') +
+                        '</div>';
+                    
+                    // Rendre les modèles cliquables
+                    modelsListDiv.querySelectorAll('.clickable-local-model').forEach(span => {
+                        span.addEventListener('click', function() {
+                            selectLocalModelFromList(this.getAttribute('data-model'));
+                        });
+                    });
+                } else {
+                    modelsListDiv.textContent = 'Aucun modèle trouvé. Installez un modèle avec: ollama pull nom-du-modele';
+                }
+                
+            } catch (error) {
+                console.error('Erreur lors de la récupération des modèles locaux:', error);
+                
+                let errorMessage = 'Erreur inconnue';
+                if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+                    errorMessage = 'Timeout: Le serveur ne répond pas. Vérifiez que le serveur Ollama est démarré et accessible.';
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    errorMessage = 'Impossible de se connecter au serveur. Vérifiez l\'URL (ex: http://10.43.62.249:11434/v1/chat/completions) et que le serveur Ollama est démarré.';
+                } else {
+                    errorMessage = error.message || 'Erreur lors de la récupération des modèles';
+                }
+                
+                modelsResultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                modelsResultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                modelsStatusDiv.innerHTML = '❌ Erreur';
+                modelsStatusDiv.style.color = '#dc2626';
+                modelsListDiv.textContent = errorMessage;
+                
+            } finally {
+                listBtn.disabled = false;
+                listBtn.innerHTML = '🔄 Récupérer les modèles';
+            }
+        }
+        
+        // ⭐ NOUVEAU: Fonction pour sauvegarder la liste des modèles locaux dans localStorage
+        function saveLocalModelsToStorage(models) {
+            try {
+                localStorage.setItem('ollama_local_models', JSON.stringify(models));
+                localStorage.setItem('ollama_local_models_timestamp', Date.now().toString());
+            } catch (e) {
+                console.warn('Impossible de sauvegarder les modèles locaux dans localStorage:', e);
+            }
+        }
+        
+        // ⭐ NOUVEAU: Fonction pour charger la liste des modèles locaux depuis localStorage
+        function loadLocalModelsFromStorage() {
+            try {
+                const modelsJson = localStorage.getItem('ollama_local_models');
+                const timestamp = localStorage.getItem('ollama_local_models_timestamp');
+                
+                if (modelsJson) {
+                    const models = JSON.parse(modelsJson);
+                    // Vérifier que la liste n'est pas trop ancienne (max 1 jour pour les modèles locaux)
+                    const maxAge = 24 * 60 * 60 * 1000; // 1 jour en millisecondes
+                    const age = timestamp ? Date.now() - parseInt(timestamp, 10) : Infinity;
+                    
+                    if (age < maxAge && Array.isArray(models) && models.length > 0) {
+                        return models;
+                    } else {
+                        // Liste trop ancienne, la supprimer
+                        localStorage.removeItem('ollama_local_models');
+                        localStorage.removeItem('ollama_local_models_timestamp');
+                    }
+                }
+            } catch (e) {
+                console.warn('Impossible de charger les modèles locaux depuis localStorage:', e);
+            }
+            return null;
+        }
+        
+        // ⭐ NOUVEAU: Fonction pour peupler le dropdown local avec les modèles découverts
+        function populateLocalModelDropdown(models) {
+            const dropdown = document.getElementById('configLocalModel');
+            if (!dropdown) return;
+            
+            // Sauvegarder la valeur actuelle si elle existe
+            const currentValue = dropdown.value;
+            
+            // Vider le dropdown (garder seulement "– Choisir –" et "Autre (personnalisé)")
+            while (dropdown.children.length > 0) {
+                dropdown.removeChild(dropdown.firstChild);
+            }
+            
+            // Ajouter "– Choisir –"
+            const chooseOption = document.createElement('option');
+            chooseOption.value = '';
+            chooseOption.textContent = '– Choisir –';
+            dropdown.appendChild(chooseOption);
+            
+            // Ajouter tous les modèles découverts
+            models.forEach(modelName => {
+                const option = document.createElement('option');
+                option.value = modelName;
+                option.textContent = modelName;
+                dropdown.appendChild(option);
+            });
+            
+            // Ajouter "Autre (personnalisé)"
+            const customOption = document.createElement('option');
+            customOption.value = 'custom';
+            customOption.textContent = 'Autre (personnalisé)';
+            dropdown.appendChild(customOption);
+            
+            // Restaurer la valeur si elle existe encore dans la liste
+            if (currentValue && models.includes(currentValue)) {
+                dropdown.value = currentValue;
+            } else if (currentValue === 'custom') {
+                dropdown.value = 'custom';
+            }
+        }
+        
+        // ⭐ NOUVEAU: Fonction pour valider l'URL du serveur Ollama local
+        function validateLocalServerUrl() {
+            const urlField = document.getElementById('configLocalUrl');
+            const validationDiv = document.getElementById('localUrlValidation');
+            if (!urlField || !validationDiv) return;
+            
+            const url = urlField.value.trim();
+            
+            // Réinitialiser le message
+            validationDiv.style.display = 'none';
+            validationDiv.innerHTML = '';
+            validationDiv.style.color = '';
+            
+            if (!url) {
+                return; // Pas de validation si vide
+            }
+            
+            // Détecter 127.0.0.1 ou localhost
+            if (url.includes('127.0.0.1') || url.includes('localhost')) {
+                validationDiv.style.display = 'block';
+                validationDiv.style.color = '#f87171';
+                validationDiv.innerHTML = '⚠️ <strong>127.0.0.1 ne fonctionnera pas</strong> depuis un device Android. Utilisez l\'IP de votre PC (ex: http://192.168.1.100:11434/v1/chat/completions)';
+                return;
+            }
+            
+            // Valider le format
+            const urlPattern = /^https?:\/\/[\d\.]+:\d+\/v1\/chat\/completions$/i;
+            if (!urlPattern.test(url)) {
+                validationDiv.style.display = 'block';
+                validationDiv.style.color = '#fbbf24';
+                validationDiv.innerHTML = '⚠️ Format: <code>http://VOTRE_IP:11434/v1/chat/completions</code>';
+            } else {
+                validationDiv.style.display = 'block';
+                validationDiv.style.color = '#10b981';
+                validationDiv.innerHTML = '✅ Format correct';
+            }
+        }
+        
+        // ⭐ NOUVEAU: Fonction pour tester la connexion au serveur Ollama local
+        async function testLocalServerConnection() {
+            const urlField = document.getElementById('configLocalUrl');
+            const serverUrl = urlField.value.trim();
+            const modelSelect = document.getElementById('configLocalModel');
+            const modelCustom = document.getElementById('configLocalModelCustom');
+            const model = (modelSelect && modelSelect.value && modelSelect.value !== 'custom') 
+                ? modelSelect.value 
+                : (modelCustom && modelCustom.value ? modelCustom.value : 'gemma3:270m');
+            
+            const resultDiv = document.getElementById('localServerTestResult');
+            const statusDiv = document.getElementById('localServerTestStatus');
+            const detailsDiv = document.getElementById('localServerTestDetails');
+            const testBtn = document.getElementById('testLocalServerBtn');
+            const statusDot = document.getElementById('localServerStatusDot');
+            const statusText = document.getElementById('localServerStatusText');
+            
+            if (!serverUrl) {
+                resultDiv.style.display = 'block';
+                resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                statusDiv.innerHTML = '❌ URL du serveur manquante';
+                statusDiv.style.color = '#dc2626';
+                detailsDiv.textContent = 'Veuillez entrer l\'URL de votre serveur Ollama';
+                updateLocalServerStatus('disconnected');
+                return;
+            }
+            
+            // Validation URL
+            if (serverUrl.includes('127.0.0.1') || serverUrl.includes('localhost')) {
+                resultDiv.style.display = 'block';
+                resultDiv.style.background = 'rgba(251, 191, 36, 0.1)';
+                resultDiv.style.borderColor = 'rgba(251, 191, 36, 0.3)';
+                statusDiv.innerHTML = '⚠️ URL incorrecte';
+                statusDiv.style.color = '#fbbf24';
+                detailsDiv.innerHTML = '127.0.0.1 ne fonctionne pas depuis un device Android.<br>Utilisez l\'IP de votre PC (ex: <code>http://192.168.1.100:11434/v1/chat/completions</code>)';
+                updateLocalServerStatus('disconnected');
+                return;
+            }
+            
+            // Afficher "Test en cours..."
+            resultDiv.style.display = 'block';
+            resultDiv.style.background = 'rgba(59, 130, 246, 0.1)';
+            resultDiv.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+            statusDiv.innerHTML = '⏳ Test de connexion en cours...';
+            statusDiv.style.color = '#1e40af';
+            detailsDiv.textContent = '';
+            testBtn.disabled = true;
+            testBtn.innerHTML = '⏳ Test en cours...';
+            updateLocalServerStatus('testing');
+            
+            const startTime = Date.now();
+            
+            try {
+                // Test 1: Vérifier que l'API répond
+                const tagsUrl = serverUrl.replace(/\/v1\/chat\/completions\/?$/, '') + '/api/tags';
+                const tagsResponse = await fetch(tagsUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                if (!tagsResponse.ok) {
+                    throw new Error(`HTTP ${tagsResponse.status}`);
+                }
+                
+                const tagsData = await tagsResponse.json();
+                const availableModels = (tagsData.models || []).map(m => m.name || '').filter(Boolean);
+                
+                // Test 2: Tester une requête chat
+                detailsDiv.textContent = '✅ API accessible\n⏳ Test de requête chat...';
+                
+                const chatResponse = await fetch(serverUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [
+                            { role: 'user', content: 'Hello' }
+                        ],
+                        max_tokens: 5
+                    }),
+                    signal: AbortSignal.timeout(10000)
+                });
+                
+                if (!chatResponse.ok) {
+                    const errorText = await chatResponse.text();
+                    throw new Error(`HTTP ${chatResponse.status}: ${errorText.substring(0, 100)}`);
+                }
+                
+                const chatData = await chatResponse.json();
+                const responseContent = chatData.choices?.[0]?.message?.content || '';
+                
+                const elapsedTime = Date.now() - startTime;
+                
+                // Succès!
+                resultDiv.style.background = 'rgba(16, 185, 129, 0.1)';
+                resultDiv.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                statusDiv.innerHTML = `✅ Connexion OK (${elapsedTime}ms)`;
+                statusDiv.style.color = '#059669';
+                detailsDiv.innerHTML = `Serveur accessible: <code>${serverUrl}</code><br>` +
+                    `Modèles disponibles: ${availableModels.length}<br>` +
+                    `Modèle testé: <strong>${model}</strong><br>` +
+                    `Réponse: "<strong>${responseContent}</strong>"`;
+                
+                updateLocalServerStatus('connected', serverUrl);
+                
+            } catch (error) {
+                const elapsedTime = Date.now() - startTime;
+                
+                resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                statusDiv.innerHTML = `❌ Erreur (${elapsedTime}ms)`;
+                statusDiv.style.color = '#dc2626';
+                
+                let errorMessage = 'Erreur inconnue';
+                if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+                    errorMessage = 'Timeout: Le serveur ne répond pas. Vérifiez que le serveur Ollama est démarré sur votre PC.';
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    errorMessage = 'Impossible de se connecter au serveur. Vérifiez l\'URL et que le serveur Ollama est démarré.';
+                } else if (error.message.includes('404')) {
+                    errorMessage = 'Endpoint non trouvé (404). Vérifiez que l\'URL se termine par /v1/chat/completions';
+                } else {
+                    errorMessage = error.message || 'Erreur lors du test de connexion';
+                }
+                
+                detailsDiv.textContent = errorMessage;
+                updateLocalServerStatus('disconnected');
+                
+            } finally {
+                testBtn.disabled = false;
+                testBtn.innerHTML = '🔍 Tester connexion serveur';
+            }
+        }
+        
+        // ⭐ NOUVEAU: Fonction pour mettre à jour le statut visuel du serveur
+        function updateLocalServerStatus(status, url = '') {
+            const statusDot = document.getElementById('localServerStatusDot');
+            const statusText = document.getElementById('localServerStatusText');
+            
+            if (!statusDot || !statusText) return;
+            
+            switch (status) {
+                case 'connected':
+                    statusDot.style.background = '#10b981'; // Vert
+                    statusText.textContent = url ? `Serveur accessible (${new URL(url).hostname})` : 'Serveur accessible';
+                    statusText.style.color = '#10b981';
+                    break;
+                case 'disconnected':
+                    statusDot.style.background = '#ef4444'; // Rouge
+                    statusText.textContent = 'Serveur inaccessible';
+                    statusText.style.color = '#ef4444';
+                    break;
+                case 'testing':
+                    statusDot.style.background = '#fbbf24'; // Jaune
+                    statusText.textContent = 'Test en cours...';
+                    statusText.style.color = '#fbbf24';
+                    break;
+                default:
+                    statusDot.style.background = '#94a3b8'; // Gris
+                    statusText.textContent = 'Non testé';
+                    statusText.style.color = '#94a3b8';
+            }
+        }
+        
+        // ⭐ NOUVEAU: Fonction pour charger les modèles locaux du device
+        async function loadLocalDeviceModels() {
+            const modelsListDiv = document.getElementById('localDeviceModelsList');
+            if (!modelsListDiv) return;
+            
+            modelsListDiv.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 20px;">⏳ Chargement des modèles...</div>';
+            
+            try {
+                // Appel Android pour scanner les modèles
+                if (window.AndroidApp && window.AndroidApp.scanLocalDeviceModels) {
+                    const modelsJson = window.AndroidApp.scanLocalDeviceModels();
+                    const models = JSON.parse(modelsJson || '[]');
+                    
+                    if (models.length === 0) {
+                        modelsListDiv.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 20px;">Aucun modèle GGUF trouvé sur le device.<br>Localisation: <code>/storage/emulated/0/ChatAI-Files/models/</code></div>';
+                        return;
+                    }
+                    
+                    // Grouper par catégorie
+                    const groupedByCategory = {};
+                    models.forEach(m => {
+                        const cat = m.category || 'Autre';
+                        if (!groupedByCategory[cat]) {
+                            groupedByCategory[cat] = [];
+                        }
+                        groupedByCategory[cat].push(m);
+                    });
+                    
+                    // Afficher les modèles groupés par catégorie
+                    modelsListDiv.innerHTML = Object.keys(groupedByCategory).sort().map(category => {
+                        const categoryModels = groupedByCategory[category];
+                        const totalSize = categoryModels.reduce((sum, m) => sum + m.size, 0);
+                        const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(1);
+                        
+                        return `
+                            <div style="margin-bottom: 12px;">
+                                <div style="font-size: 11px; font-weight: 600; color: #3b82f6; margin-bottom: 6px; padding: 4px 0; border-bottom: 1px solid rgba(59, 130, 246, 0.2);">
+                                    ${category} (${categoryModels.length} modèle${categoryModels.length > 1 ? 's' : ''}, ${totalSizeMB} MB)
+                                </div>
+                                ${categoryModels.map(m => {
+                                    const size = (m.size / (1024 * 1024)).toFixed(1); // MB
+                                    const typeBadge = m.type ? `<span style="font-size: 9px; padding: 2px 6px; background: rgba(59, 130, 246, 0.2); border-radius: 3px; color: #3b82f6; margin-left: 6px;">${m.type}</span>` : '';
+                                    return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; margin-left: 12px; margin-bottom: 3px; background: rgba(148, 163, 184, 0.05); border-radius: 4px;">
+                                        <span style="font-size: 11px; font-weight: 500; display: flex; align-items: center;">
+                                            ${m.name}
+                                            ${typeBadge}
+                                        </span>
+                                        <span style="font-size: 10px; color: #94a3b8;">${size} MB</span>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    // Fallback: Afficher message si API non disponible
+                    modelsListDiv.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 20px;">API Android non disponible. Scanner manuel requis.</div>';
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement des modèles device:', error);
+                modelsListDiv.innerHTML = `<div style="font-size: 11px; color: #f87171; text-align: center; padding: 20px;">❌ Erreur: ${error.message}</div>`;
+            }
+        }
+        
+        // ⭐ NOUVEAU: Fonction pour sélectionner un modèle local depuis la liste
+        function selectLocalModelFromList(modelName) {
+            const dropdown = document.getElementById('configLocalModel');
+            const customInput = document.getElementById('configLocalModelCustom');
+            
+            if (!dropdown) return;
+            
+            // Déséchapper le nom du modèle (si nécessaire)
+            const unescapedModelName = modelName.replace(/\\'/g, "'").replace(/&quot;/g, '"');
+            
+            // Vérifier si le modèle est dans le dropdown
+            const option = Array.from(dropdown.options).find(opt => opt.value === unescapedModelName);
+            
+            if (option) {
+                // Sélectionner dans le dropdown
+                dropdown.value = unescapedModelName;
+                
+                // Masquer l'input personnalisé si nécessaire
+                if (customInput && !customInput.classList.contains('hidden')) {
+                    customInput.classList.add('hidden');
+                    customInput.value = '';
+                }
+                
+                // Déclencher l'événement change pour mettre à jour l'UI
+                dropdown.dispatchEvent(new Event('change'));
+            } else {
+                // Modèle non dans le dropdown - utiliser l'input personnalisé
+                dropdown.value = 'custom';
+                
+                if (customInput) {
+                    customInput.value = unescapedModelName;
+                    customInput.classList.remove('hidden');
+                    customInput.focus();
+                }
+                
+                // Déclencher l'événement change pour mettre à jour l'UI
+                dropdown.dispatchEvent(new Event('change'));
+            }
+            
+            // Mettre à jour le style dans la liste (re-sélection)
+            const modelsListDiv = document.getElementById('localModelsList');
+            if (modelsListDiv) {
+                const allSpans = modelsListDiv.querySelectorAll('.clickable-local-model');
+                allSpans.forEach(span => {
+                    const spanModel = span.getAttribute('data-model');
+                    const unescapedSpanModel = spanModel ? spanModel.replace(/\\'/g, "'").replace(/&quot;/g, '"') : '';
+                    if (unescapedSpanModel === unescapedModelName) {
+                        span.style.background = 'rgba(139, 92, 246, 0.5)';
+                        span.style.fontWeight = 'bold';
+                    } else {
+                        span.style.background = 'rgba(139, 92, 246, 0.2)';
+                        span.style.fontWeight = 'normal';
+                    }
+                });
+            }
+        }
+        
         async function testOllamaCloudConnection() {
             const apiKeyField = document.getElementById('configCloudApiKey');
             let apiKey = apiKeyField.value.trim();

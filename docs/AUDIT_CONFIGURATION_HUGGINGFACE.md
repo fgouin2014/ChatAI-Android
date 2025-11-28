@@ -165,3 +165,4 @@ async function testHuggingFaceConnection(apiKey) {
 - [ ] (Optionnel) Rendre le lien d'aide dynamique
 
 
+

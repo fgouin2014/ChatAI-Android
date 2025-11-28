@@ -56,6 +56,11 @@ class KittTTSManager(
     
     private val mainHandler = Handler(Looper.getMainLooper())
     
+    // ⭐ NOUVEAU: TTS Server Manager (priorité) - Serveur Python HTTP
+    private var ttsServerManager: TTSServerManager? = null
+    private var useTTSServer = false  // Préférence: TTS Server si disponible
+    
+    // Android TTS natif (fallback)
     private var textToSpeech: TextToSpeech? = null
     var isTTSReady = false
         private set
@@ -73,12 +78,39 @@ class KittTTSManager(
     
     /**
      * Initialiser TextToSpeech
-     * ⚠️ COPIÉ À 100% DE V1 - NE PAS MODIFIER
+     * ⭐ MODIFIÉ: Ajout initialisation TTSServerManager
      */
     fun initialize() {
         if (textToSpeech == null) {
             textToSpeech = TextToSpeech(context, this)
             android.util.Log.d(TAG, "TTS initialisé au chargement")
+        }
+        
+        // ⭐ NOUVEAU: Initialiser TTSServerManager (priorité sur Android TTS)
+        if (ttsServerManager == null) {
+            ttsServerManager = TTSServerManager(context, object : TTSServerManager.TTSListener {
+                override fun onTTSReady() {
+                    useTTSServer = true
+                    android.util.Log.i(TAG, "✅ TTS Server prêt, utilisation activée")
+                }
+                
+                override fun onTTSStart(utteranceId: String?) {
+                    listener.onTTSStart(utteranceId)
+                }
+                
+                override fun onTTSDone(utteranceId: String?) {
+                    listener.onTTSDone(utteranceId)
+                }
+                
+                override fun onTTSError(utteranceId: String?) {
+                    android.util.Log.w(TAG, "TTS Server erreur, fallback Android TTS")
+                    useTTSServer = false
+                    listener.onTTSError(utteranceId)
+                }
+            })
+            // Initialiser et vérifier disponibilité serveur
+            ttsServerManager?.initialize()
+            android.util.Log.d(TAG, "TTSServerManager initialisé (vérification serveur en cours...)")
         }
     }
     
@@ -95,14 +127,15 @@ class KittTTSManager(
      */
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            val result = textToSpeech?.setLanguage(Locale.CANADA_FRENCH)
-            
-            if (result == TextToSpeech.LANG_MISSING_DATA || 
-                result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                android.util.Log.e(TAG, "❌ Langue française non supportée")
-                isTTSReady = false
-            } else {
-                isTTSReady = true
+            try {
+                val result = textToSpeech?.setLanguage(Locale.CANADA_FRENCH)
+                
+                if (result == TextToSpeech.LANG_MISSING_DATA || 
+                    result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    android.util.Log.e(TAG, "❌ Langue française non supportée")
+                    isTTSReady = false
+                } else {
+                    isTTSReady = true
                 
                 // Configuration par défaut KITT
                 textToSpeech?.setPitch(ttsPitch)
@@ -131,6 +164,15 @@ class KittTTSManager(
                 
                 // TTS initialisé avec succès
                 listener.onTTSReady()
+                }
+            } catch (e: android.os.DeadObjectException) {
+                // Le service TTS Android s'est déconnecté (peut arriver au redémarrage)
+                android.util.Log.w(TAG, "⚠️ Service TTS déconnecté (DeadObjectException), utilisation du serveur TTS uniquement")
+                isTTSReady = false
+                // Ne pas bloquer l'application, le serveur TTS ONNX peut toujours fonctionner
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "❌ Erreur configuration TTS: ${e.message}", e)
+                isTTSReady = false
             }
         } else {
             android.util.Log.e(TAG, "❌ TTS initialization failed")
@@ -311,25 +353,39 @@ class KittTTSManager(
     
     /**
      * Parler un texte avec TTS
+     * ⭐ MODIFIÉ: Utilise TTS Server en priorité, fallback Android TTS
      * ⚠️ MODIFIÉ V4.6.1 - Nettoyage Markdown ajouté
      */
     fun speak(text: String, utteranceId: String = "kitt_speech") {
+        // Nettoyer le formatage Markdown avant TTS
+        val cleanText = cleanMarkdownForTTS(text)
+        
+        // ⭐ NOUVEAU: Essayer TTS Server en premier
+        if (useTTSServer && ttsServerManager?.isTTSReady() == true) {
+            try {
+                android.util.Log.d(TAG, "🔊 TTS Server: '$cleanText'")
+                ttsServerManager?.speak(cleanText, utteranceId)
+                return
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "TTS Server erreur, fallback Android: ${e.message}")
+                useTTSServer = false
+            }
+        }
+        
+        // Fallback: Android TTS natif
         if (textToSpeech == null || isTTSSpeaking) {
-            android.util.Log.w(TAG, "⚠️ TTS not ready or already speaking")
+            android.util.Log.w(TAG, "⚠️ Android TTS not ready or already speaking")
             return
         }
         
         try {
-            // Nettoyer le formatage Markdown avant TTS
-            val cleanText = cleanMarkdownForTTS(text)
-            
             val params = Bundle()
             params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
             
             textToSpeech?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
-            android.util.Log.d(TAG, "🔊 Speaking: '$cleanText' (utteranceId: $utteranceId)")
+            android.util.Log.d(TAG, "🔊 Android TTS: '$cleanText' (utteranceId: $utteranceId)")
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "❌ TTS Error: ${e.message}")
+            android.util.Log.e(TAG, "❌ Android TTS Error: ${e.message}")
             listener.onTTSError(utteranceId)
         }
     }
@@ -407,9 +463,14 @@ class KittTTSManager(
     
     /**
      * Arrêter la parole en cours
-     * ⚠️ COPIÉ À 100% DE V1 - NE PAS MODIFIER
+     * ⭐ MODIFIÉ: Support TTS Server
      */
     fun stop() {
+        // Arrêter TTS Server si actif
+        if (useTTSServer) {
+            ttsServerManager?.stop()
+        }
+        // Arrêter Android TTS
         textToSpeech?.stop()
         isTTSSpeaking = false
         android.util.Log.i(TAG, "🛑 TTS stopped")
@@ -457,14 +518,19 @@ class KittTTSManager(
     
     /**
      * Détruire le TTS (libérer ressources)
-     * ⚠️ COPIÉ À 100% DE V1 - NE PAS MODIFIER
+     * ⭐ MODIFIÉ: Support TTS Server
      */
     fun destroy() {
+        // Libérer TTS Server
+        ttsServerManager?.shutdown()
+        ttsServerManager = null
+        
+        // Libérer Android TTS
         textToSpeech?.stop()
         textToSpeech?.shutdown()
         textToSpeech = null
         isTTSReady = false
         isTTSSpeaking = false
-        android.util.Log.i(TAG, "🛑 KittTTSManager destroyed")
+        android.util.Log.i(TAG, "🛑 KittTTSManager destroyed (TTS Server + Android)")
     }
 }

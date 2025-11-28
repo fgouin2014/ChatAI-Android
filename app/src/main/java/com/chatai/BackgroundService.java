@@ -50,6 +50,7 @@ public class BackgroundService extends Service {
     private FileServer fileServer;
     private RealtimeAIService aiService;
     private WebServer webServer;
+    private TTSServer ttsServer;
     
     // Hotword Detection (Porcupine)
     private com.chatai.hotword.HotwordDetectionManager hotwordManager;
@@ -665,6 +666,7 @@ public class BackgroundService extends Service {
             wsServer = new WebSocketServer(this);
             fileServer = new FileServer(this);
             webServer = new WebServer(this);
+            ttsServer = new TTSServer(this);
             
             // Configurer les références entre serveurs
             httpServer.setFileServer(fileServer);
@@ -676,6 +678,7 @@ public class BackgroundService extends Service {
             wsServer.start();
             fileServer.start();
             webServer.start();
+            ttsServer.start();
             
             // Démarrer Hotword Detection (Porcupine)
             hotwordManager = new com.chatai.hotword.HotwordDetectionManager(this);
@@ -729,6 +732,9 @@ public class BackgroundService extends Service {
             }
             if (webServer != null) {
                 webServer.stop();
+            }
+            if (ttsServer != null) {
+                ttsServer.stop();
             }
             if (aiService != null) {
                 // aiService.shutdown(); // Méthode non disponible
