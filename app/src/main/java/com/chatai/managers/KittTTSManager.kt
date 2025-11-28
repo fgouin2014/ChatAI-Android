@@ -78,7 +78,8 @@ class KittTTSManager(
     
     /**
      * Initialiser TextToSpeech
-     * ⭐ MODIFIÉ: Ajout initialisation TTSServerManager
+     * ⭐ MODIFIÉ: ONNX TTS Server DÉSACTIVÉ temporairement jusqu'à résolution des problèmes
+     * Utilisation Android TTS par défaut
      */
     fun initialize() {
         if (textToSpeech == null) {
@@ -86,6 +87,12 @@ class KittTTSManager(
             android.util.Log.d(TAG, "TTS initialisé au chargement")
         }
         
+        // ⭐ DÉSACTIVÉ: ONNX TTS Server temporairement désactivé jusqu'à résolution des problèmes
+        // Force Android TTS par défaut
+        useTTSServer = false
+        android.util.Log.i(TAG, "⚠️ ONNX TTS Server désactivé - Utilisation Android TTS par défaut")
+        
+        /* TEMPORAIREMENT DÉSACTIVÉ - ONNX TTS Server
         // ⭐ NOUVEAU: Initialiser TTSServerManager (priorité sur Android TTS)
         if (ttsServerManager == null) {
             ttsServerManager = TTSServerManager(context, object : TTSServerManager.TTSListener {
@@ -112,6 +119,7 @@ class KittTTSManager(
             ttsServerManager?.initialize()
             android.util.Log.d(TAG, "TTSServerManager initialisé (vérification serveur en cours...)")
         }
+        */
     }
     
     /**
@@ -353,14 +361,16 @@ class KittTTSManager(
     
     /**
      * Parler un texte avec TTS
-     * ⭐ MODIFIÉ: Utilise TTS Server en priorité, fallback Android TTS
+     * ⭐ MODIFIÉ: Android TTS par défaut (ONNX TTS Server désactivé temporairement)
      * ⚠️ MODIFIÉ V4.6.1 - Nettoyage Markdown ajouté
-     * ⭐ MODIFIÉ: Essaie toujours ONNX TTS Server même si Android TTS n'est pas prêt
      */
     fun speak(text: String, utteranceId: String = "kitt_speech") {
         // Nettoyer le formatage Markdown avant TTS
         val cleanText = cleanMarkdownForTTS(text)
         
+        // ⭐ DÉSACTIVÉ: ONNX TTS Server temporairement désactivé
+        // Utilisation directe d'Android TTS par défaut
+        /* TEMPORAIREMENT DÉSACTIVÉ - ONNX TTS Server
         // ⭐ NOUVEAU: Essayer TTS Server en premier (même si Android TTS n'est pas prêt)
         if (useTTSServer && ttsServerManager?.isTTSReady() == true) {
             try {
@@ -372,17 +382,16 @@ class KittTTSManager(
                 useTTSServer = false
             }
         }
+        */
         
-        // Fallback: Android TTS natif (seulement si pas déjà en train de parler)
+        // Android TTS natif (par défaut jusqu'à résolution ONNX)
         if (isTTSSpeaking) {
             android.util.Log.w(TAG, "⚠️ TTS already speaking")
             return
         }
         
-        // ⭐ MODIFIÉ: Essayer Android TTS même si textToSpeech n'est pas encore initialisé
-        // (il peut s'initialiser en arrière-plan)
         if (textToSpeech == null) {
-            android.util.Log.w(TAG, "⚠️ Android TTS not ready, mais ONNX TTS Server non disponible non plus")
+            android.util.Log.w(TAG, "⚠️ Android TTS not ready")
             listener.onTTSError(utteranceId)
             return
         }
