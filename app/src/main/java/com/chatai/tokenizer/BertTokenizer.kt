@@ -281,23 +281,34 @@ class BertTokenizer {
     fun decode(tokenIds: LongArray): String {
         val vocabReverse = this.vocabReverse ?: return ""
         
-        val tokens = tokenIds.mapNotNull { id ->
-            vocabReverse[id.toInt()]
+        val tokens = mutableListOf<String>()
+        for (id in tokenIds) {
+            val token = vocabReverse[id.toInt()]
+            if (token != null) {
+                tokens.add(token)
+            }
         }
         
         // Retirer [CLS], [SEP], [PAD]
-        val filtered = tokens.filter { 
-            it !in listOf(CLS_TOKEN, SEP_TOKEN, PAD_TOKEN, UNK_TOKEN, MASK_TOKEN)
+        val specialTokens = setOf(CLS_TOKEN, SEP_TOKEN, PAD_TOKEN, UNK_TOKEN, MASK_TOKEN)
+        val filtered = tokens.filter { token ->
+            token !in specialTokens
         }
         
         // Reconstruire le texte (retirer préfixes "##")
-        return filtered.joinToString(" ") { token ->
-            if (token.startsWith("##")) {
-                token.substring(2)
+        val result = StringBuilder()
+        for (i in filtered.indices) {
+            val token = filtered[i]
+            if (i > 0) {
+                result.append(" ")
+            }
+            if (token.startsWith("##", ignoreCase = false)) {
+                result.append(token.substring(2))
             } else {
-                token
+                result.append(token)
             }
         }
+        return result.toString()
     }
     
     /**
