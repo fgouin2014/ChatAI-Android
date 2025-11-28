@@ -355,12 +355,13 @@ class KittTTSManager(
      * Parler un texte avec TTS
      * ⭐ MODIFIÉ: Utilise TTS Server en priorité, fallback Android TTS
      * ⚠️ MODIFIÉ V4.6.1 - Nettoyage Markdown ajouté
+     * ⭐ MODIFIÉ: Essaie toujours ONNX TTS Server même si Android TTS n'est pas prêt
      */
     fun speak(text: String, utteranceId: String = "kitt_speech") {
         // Nettoyer le formatage Markdown avant TTS
         val cleanText = cleanMarkdownForTTS(text)
         
-        // ⭐ NOUVEAU: Essayer TTS Server en premier
+        // ⭐ NOUVEAU: Essayer TTS Server en premier (même si Android TTS n'est pas prêt)
         if (useTTSServer && ttsServerManager?.isTTSReady() == true) {
             try {
                 android.util.Log.d(TAG, "🔊 TTS Server: '$cleanText'")
@@ -372,9 +373,17 @@ class KittTTSManager(
             }
         }
         
-        // Fallback: Android TTS natif
-        if (textToSpeech == null || isTTSSpeaking) {
-            android.util.Log.w(TAG, "⚠️ Android TTS not ready or already speaking")
+        // Fallback: Android TTS natif (seulement si pas déjà en train de parler)
+        if (isTTSSpeaking) {
+            android.util.Log.w(TAG, "⚠️ TTS already speaking")
+            return
+        }
+        
+        // ⭐ MODIFIÉ: Essayer Android TTS même si textToSpeech n'est pas encore initialisé
+        // (il peut s'initialiser en arrière-plan)
+        if (textToSpeech == null) {
+            android.util.Log.w(TAG, "⚠️ Android TTS not ready, mais ONNX TTS Server non disponible non plus")
+            listener.onTTSError(utteranceId)
             return
         }
         
@@ -445,11 +454,14 @@ class KittTTSManager(
     
     /**
      * Parler une réponse IA
-     * ⚠️ COPIÉ À 100% DE V1 - NE PAS MODIFIER
+     * ⭐ MODIFIÉ: Ne bloque plus si Android TTS n'est pas prêt
+     * car speak() gère déjà le fallback (ONNX TTS Server → Android TTS)
      */
     fun speakAIResponse(response: String) {
-        if (textToSpeech == null || isTTSSpeaking) {
-            android.util.Log.w(TAG, "⚠️ TTS not ready or already speaking")
+        // ⭐ MODIFIÉ: Ne vérifier que si déjà en train de parler
+        // speak() gère déjà le fallback ONNX → Android
+        if (isTTSSpeaking) {
+            android.util.Log.w(TAG, "⚠️ TTS already speaking")
             return
         }
         

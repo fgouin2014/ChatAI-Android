@@ -1712,20 +1712,15 @@ public class WebAppInterface {
                         return;
                     }
                     
-                    // Vérifier que le TTS est prêt
-                    if (!ttsManager.isTTSReady()) {
-                        Log.w(TAG, "TTS global pas encore prêt");
-                        Toast.makeText(mContext, "TTS en cours d'initialisation...", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    
                     // Vérifier que le TTS n'est pas déjà en train de parler
                     if (ttsManager.isTTSSpeaking()) {
                         Log.w(TAG, "TTS déjà en train de parler, arrêt de la parole précédente");
                         ttsManager.stop();
                     }
                     
-                    // Lire le texte avec le TTS Android (KITT)
+                    // ⭐ MODIFIÉ: Appeler speakAIResponse() même si isTTSReady() est false
+                    // car KittTTSManager.speak() gère déjà le fallback (ONNX TTS Server → Android TTS)
+                    // Si ONNX TTS Server est prêt, il sera utilisé. Sinon, Android TTS sera utilisé si disponible.
                     ttsManager.speakAIResponse(text);
                     Log.i(TAG, "✅ Texte envoyé au TTS Android: " + (text.length() > 50 ? text.substring(0, 50) + "..." : text));
                     
