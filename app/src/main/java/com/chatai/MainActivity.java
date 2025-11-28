@@ -429,6 +429,12 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
             // Injecter les serveurs dans l'interface web
             WebAppInterface.setServers(httpServer, webSocketServer, aiService, fileServer);
             
+            // ⭐ NOUVEAU: Initialiser VisionService pour analyse d'images
+            if (webInterface != null) {
+                webInterface.initializeVisionService();
+                Log.i(TAG, "VisionService initialisé");
+            }
+            
             Log.i(TAG, "Tous les serveurs sont opérationnels");
             
         } catch (Exception e) {

@@ -2143,4 +2143,95 @@ public class WebAppInterface {
             return "Error: " + e.getMessage();
         }
     }
+    
+    // ⭐ NOUVEAU: Vision Service pour analyse d'images
+    private com.chatai.services.VisionService visionService;
+    
+    /**
+     * Initialiser le Vision Service (appelé depuis MainActivity)
+     */
+    public void initializeVisionService() {
+        if (visionService == null) {
+            visionService = new com.chatai.services.VisionService(mContext);
+            Log.d(TAG, "VisionService initialisé");
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Analyser une image et générer une description
+     * @param imageBase64 Image en base64 (sans préfixe data:image/...)
+     * @return Description de l'image ou message d'erreur
+     */
+    @JavascriptInterface
+    public void analyzeImage(String imageBase64) {
+        Log.i(TAG, "analyzeImage appelé (imageBase64 length: " + (imageBase64 != null ? imageBase64.length() : 0) + ")");
+        
+        try {
+            // Initialiser le service si nécessaire
+            if (visionService == null) {
+                initializeVisionService();
+            }
+            
+            // Vérifier que le service est prêt
+            if (visionService == null) {
+                Log.w(TAG, "VisionService non disponible");
+                sendVisionAnalysisResult("Erreur: Service Vision non disponible");
+                return;
+            }
+            
+            // Nettoyer le base64 (retirer préfixe data:image/... si présent)
+            String cleanBase64 = imageBase64;
+            if (imageBase64.contains(",")) {
+                cleanBase64 = imageBase64.substring(imageBase64.indexOf(",") + 1);
+            }
+            
+            // Analyser l'image de manière asynchrone (pour ne pas bloquer le thread UI)
+            new Thread(() -> {
+                try {
+                    // ⭐ Utiliser la méthode synchrone wrapper de VisionService
+                    String description = visionService.analyzeImageSync(cleanBase64);
+                    
+                    if (description != null && !description.isEmpty()) {
+                        sendVisionAnalysisResult(description);
+                    } else {
+                        sendVisionAnalysisResult("Désolé, je n'ai pas pu analyser cette image pour le moment.");
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Erreur analyse image: " + e.getMessage(), e);
+                    sendVisionAnalysisResult("Erreur lors de l'analyse: " + e.getMessage());
+                }
+            }).start();
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur analyzeImage: " + e.getMessage(), e);
+            sendVisionAnalysisResult("Erreur: " + e.getMessage());
+        }
+    }
+    
+    
+    /**
+     * ⭐ Helper: Envoyer le résultat de l'analyse à JavaScript
+     */
+    private void sendVisionAnalysisResult(String description) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                if (mContext instanceof MainActivity) {
+                    MainActivity activity = (MainActivity) mContext;
+                    WebView webView = activity.getWebView();
+                    
+                    if (webView != null) {
+                        String jsCode = String.format(
+                            "if (window.secureChatApp && window.secureChatApp.onVisionAnalysisResult) { " +
+                            "window.secureChatApp.onVisionAnalysisResult('%s'); }",
+                            escapeForJavaScript(description)
+                        );
+                        webView.evaluateJavascript(jsCode, null);
+                        Log.d(TAG, "Résultat analyse vision envoyé à JavaScript");
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Erreur envoi résultat vision: " + e.getMessage(), e);
+            }
+        });
+    }
 }

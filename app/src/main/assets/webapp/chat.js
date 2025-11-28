@@ -1796,12 +1796,22 @@ class SecureMobileAIChat {
     }
 
     /**
-     * Analyse d'image (simulation)
+     * Analyse d'image via ONNX Vision ou Ollama
+     * ⭐ MODIFIÉ: Utilise OnnxVisionManager si disponible, sinon fallback
      */
     async analyzeImage(imageBase64) {
         this.showTypingIndicator();
         
         try {
+            // ⭐ NOUVEAU: Utiliser la fonction Android si disponible
+            if (this.androidInterface && this.androidInterface.analyzeImage) {
+                // Appeler la fonction Android (asynchrone, callback via onVisionAnalysisResult)
+                this.androidInterface.analyzeImage(imageBase64);
+                // Le résultat sera reçu via onVisionAnalysisResult()
+                return;
+            }
+            
+            // Fallback: Simulation (si Android non disponible)
             await new Promise(resolve => setTimeout(resolve, 2000));
             
             const responses = [
@@ -1817,6 +1827,19 @@ class SecureMobileAIChat {
             
         } catch (error) {
             this.hideTypingIndicator();
+            this.showSecureMessage('ai', "Désolé, je n'ai pas pu analyser cette image pour le moment 😅");
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Callback pour recevoir le résultat de l'analyse vision depuis Android
+     * @param description Description de l'image générée par OnnxVisionManager
+     */
+    onVisionAnalysisResult(description) {
+        this.hideTypingIndicator();
+        if (description) {
+            this.showSecureMessage('ai', description);
+        } else {
             this.showSecureMessage('ai', "Désolé, je n'ai pas pu analyser cette image pour le moment 😅");
         }
     }
