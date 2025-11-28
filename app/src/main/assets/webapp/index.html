@@ -113,14 +113,20 @@
                     <div class="panel-section">
                         <h3>⚙️ Mode général</h3>
                         <div class="form-grid">
-                            <label>Mode actif
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Mode actif</span>
                                 <select id="configModeSelect">
                                     <option value="cloud">☁️ Cloud</option>
-                                    <option value="local">💻 Local</option>
+                                    <option value="local">💻 Local (Device)</option>
                                 </select>
-                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Choisir le mode à utiliser (Cloud ou Local)</small>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    <strong>☁️ Cloud:</strong> Utilise les services cloud (Ollama Cloud, OpenAI, Hugging Face, etc.) via Internet.<br>
+                                    <strong>💻 Local (Device):</strong> Utilise les modèles installés directement sur votre téléphone Android (GGUF, ONNX).<br>
+                                    <span style="color: #f87171;">⚠️ Note:</span> "Local" signifie ici "sur le device Android", pas "serveur Ollama sur PC". Pour un serveur Ollama sur PC, configurez-le dans l'onglet <strong>Local</strong>.
+                                </small>
                             </label>
-                            <label>Modèle Cloud par défaut
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle Cloud par défaut</span>
                                 <select id="configSelectedModel">
                                     <option value="">– Choisir –</option>
                                     <option value="qwen3">Qwen3</option>
@@ -133,7 +139,10 @@
                                     <option value="custom">Autre (personnalisé)</option>
                                 </select>
                                 <input type="text" id="configSelectedModelCustom" class="custom-input hidden" placeholder="Nom du modèle personnalisé">
-                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Modèle Cloud par défaut (utilisé si aucun modèle spécifié dans tab Cloud). Ignoré en mode Local (gemma fixé).</small>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Modèle Cloud utilisé par défaut si aucun modèle spécifique n'est configuré dans l'onglet <strong>Cloud</strong>.<br>
+                                    <span style="color: #f87171;">⚠️ Ignoré en mode Local (Device)</span> - En mode Local, le modèle sur le device est utilisé (voir onglet <strong>Local</strong>).
+                                </small>
                             </label>
                         </div>
                         <div class="config-actions-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
@@ -402,35 +411,12 @@
                     
                     <!-- Tab Content: Audio -->
                     <div class="config-tab-content" data-content="audio">
-                    <!-- Web Search & Thinking -->
-                    <div class="panel-section">
-                        <h4>🔍 Web Search & Pensée</h4>
-                        <div class="form-grid">
-                            <label style="grid-column: 1 / -1;">
-                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Provider (laisser vide pour désactiver)</span>
-                                <input type="text" id="configWebSearchProvider" placeholder="ollama">
-                            </label>
-                            <label style="grid-column: 1 / -1;">
-                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Thinking trace</span>
-                                <select id="configThinkingEnabled">
-                                    <option value="">Désactivé</option>
-                                    <option value="auto">Activé (auto)</option>
-                                </select>
-                            </label>
-                        </div>
-                        <div class="config-actions-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
-                            <div class="action-section">
-                                <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">💾 Sauvegarde</div>
-                                <div class="button-grid" style="display: grid; grid-template-columns: 1fr; gap: 8px;">
-                                    <button class="panel-button" id="saveWebThinkingBtn">💾 Sauvegarder</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Vision -->
+                    <!-- Audio/STT uniquement - Web Search & Thinking déplacé vers onglet Avancé -->
                     <div class="panel-section">
                         <h4>👁️ Vision</h4>
+                        <p style="font-size: 12px; color: #64748b; margin-bottom: 16px; padding: 10px; background: rgba(148, 163, 184, 0.1); border-radius: 6px;">
+                            Configuration pour l'analyse d'images (vision) par l'IA. Permet à l'IA de comprendre et décrire des images.
+                        </p>
                         <div class="form-grid">
                             <label style="grid-column: 1 / -1;">
                                 <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle vision</span>
@@ -443,6 +429,12 @@
                                     <option value="custom">Autre (personnalisé)</option>
                                 </select>
                                 <input type="text" id="configVisionModelCustom" class="custom-input hidden" placeholder="Modèle vision personnalisé">
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Modèle utilisé pour analyser les images envoyées à l'IA.<br>
+                                    <strong>Désactivé:</strong> L'IA ne pourra pas analyser les images.<br>
+                                    <strong>LLaVA 13B:</strong> Modèle open-source populaire pour la vision.<br>
+                                    <strong>GPT-4o Mini Vision:</strong> Modèle OpenAI optimisé pour la vision.
+                                </small>
                             </label>
                         </div>
                         <div class="config-actions-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
@@ -466,8 +458,11 @@
                                         <select id="configAudioEngine">
                                             <option value="disabled">Disable</option>
                                             <option value="whisper_server" selected>Whisper Server (local HTTP)</option>
-                                            <!-- ⭐ SIMPLIFIÉ : Si "Disable", Google Speech utilise automatiquement Intent standard (comme le clavier Google) via sttStartWhisper() -->
                                         </select>
+                                        <small style="font-size: 10px; color: var(--text-secondary); display: block; margin-top: 4px;">
+                                            <strong>Whisper Server:</strong> Utilise le serveur Whisper local sur le device (recommandé).<br>
+                                            <strong>Disable:</strong> Désactive la transcription vocale.
+                                        </small>
                                     </div>
                                     <div class="engine-whisper-only">
                                         <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle audio</span>
@@ -482,22 +477,37 @@
                                             <option value="custom">Autre (personnalisé)</option>
                                         </select>
                                         <input type="text" id="configAudioModelCustom" class="custom-input hidden" placeholder="Modèle audio personnalisé">
+                                        <small style="font-size: 10px; color: var(--text-secondary); display: block; margin-top: 4px;">
+                                            Modèle Whisper pour la transcription vocale. Plus le modèle est grand, meilleure est la précision mais plus lent.
+                                        </small>
                                     </div>
                                     <div class="engine-whisper-only">
                                         <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Endpoint Whisper Server</span>
                                         <input type="text" id="configAudioEndpoint" placeholder="http://127.0.0.1:11400/inference">
+                                        <small style="font-size: 10px; color: var(--text-secondary); display: block; margin-top: 4px;">
+                                            URL du serveur Whisper local. Par défaut: <code>http://127.0.0.1:11400/inference</code>
+                                        </small>
                                     </div>
                                     <div class="engine-whisper-only">
                                         <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Timeout (ms)</span>
                                         <input type="number" id="configAudioTimeout" placeholder="8000">
+                                        <small style="font-size: 10px; color: var(--text-secondary); display: block; margin-top: 4px;">
+                                            Délai maximum d'attente pour la transcription (en millisecondes). Recommandé: 8000ms (8 secondes).
+                                        </small>
                                     </div>
                                     <div class="engine-whisper-only">
                                         <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Silence (dB)</span>
                                         <input type="number" step="0.1" id="configAudioSilenceDb" placeholder="-45">
+                                        <small style="font-size: 10px; color: var(--text-secondary); display: block; margin-top: 4px;">
+                                            Seuil de détection du silence en décibels. Plus bas = plus sensible. Recommandé: -45 dB.
+                                        </small>
                                     </div>
                                     <div class="engine-whisper-only">
                                         <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Silence (ms)</span>
                                         <input type="number" id="configAudioSilenceMs" placeholder="1200">
+                                        <small style="font-size: 10px; color: var(--text-secondary); display: block; margin-top: 4px;">
+                                            Durée de silence nécessaire pour arrêter l'enregistrement (en millisecondes). Recommandé: 1200ms (1.2 secondes).
+                                        </small>
                                     </div>
                                     <div>
                                         <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Délai après hotword (ms)</span>
@@ -796,21 +806,44 @@
                     <div class="config-tab-content" data-content="advanced">
                     <div class="panel-section">
                         <h4>🔧 Prompts & Contraintes</h4>
+                        <p style="font-size: 12px; color: #64748b; margin-bottom: 16px; padding: 10px; background: rgba(148, 163, 184, 0.1); border-radius: 6px;">
+                            Configuration des prompts système (personnalités) et des limites de tokens pour les réponses de l'IA.
+                        </p>
                         <div class="form-grid">
-                            <label>Prompt KITT
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Prompt KITT</span>
                                 <textarea id="configPromptKitt" rows="2"></textarea>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Prompt système pour la personnalité KITT (Knight Industries Two Thousand). Définit le comportement et le style de réponse.
+                                </small>
                             </label>
-                            <label>Prompt GLaDOS
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Prompt GLaDOS</span>
                                 <textarea id="configPromptGlados" rows="2"></textarea>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Prompt système pour la personnalité GLaDOS (Genetic Lifeform and Disk Operating System). Définit le comportement et le style de réponse.
+                                </small>
                             </label>
-                            <label>Prompt KARR
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Prompt KARR</span>
                                 <textarea id="configPromptKarr" rows="2"></textarea>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Prompt système pour la personnalité KARR (Knight Automated Roving Robot). Définit le comportement et le style de réponse.
+                                </small>
                             </label>
-                            <label>Max context tokens
+                            <label>
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Max context tokens</span>
                                 <input type="number" id="configMaxContext" placeholder="8192">
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Nombre maximum de tokens dans le contexte (historique + prompt). Plus élevé = plus de mémoire mais plus lent. Recommandé: 8192.
+                                </small>
                             </label>
-                            <label>Max réponse tokens
+                            <label>
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Max réponse tokens</span>
                                 <input type="number" id="configMaxResponse" placeholder="2048">
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Nombre maximum de tokens dans la réponse de l'IA. Limite la longueur des réponses. Recommandé: 2048.
+                                </small>
                             </label>
                         </div>
                         <div class="config-actions-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
@@ -819,6 +852,43 @@
                                 <div class="button-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
                                     <button class="panel-button" id="savePromptsBtn">💾 Sauvegarder prompts</button>
                                     <button class="panel-button" id="saveConstraintsBtn">💾 Sauvegarder contraintes</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Web Search & Thinking -->
+                    <div class="panel-section">
+                        <h4>🔍 Web Search & Pensée</h4>
+                        <p style="font-size: 12px; color: #64748b; margin-bottom: 16px; padding: 10px; background: rgba(148, 163, 184, 0.1); border-radius: 6px;">
+                            Configuration pour la recherche web et le mode "thinking" (raisonnement pas à pas) de l'IA.
+                        </p>
+                        <div class="form-grid">
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Provider Web Search</span>
+                                <input type="text" id="configWebSearchProvider" placeholder="ollama">
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Provider à utiliser pour la recherche web (ex: "ollama", "perplexity").<br>
+                                    <strong>Laisser vide pour désactiver</strong> la recherche web.
+                                </small>
+                            </label>
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Thinking trace</span>
+                                <select id="configThinkingEnabled">
+                                    <option value="">Désactivé</option>
+                                    <option value="auto">Activé (auto)</option>
+                                </select>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Active le mode "thinking" (raisonnement pas à pas) pour les modèles qui le supportent (ex: DeepSeek R1).<br>
+                                    L'IA affichera son processus de raisonnement avant la réponse finale.
+                                </small>
+                            </label>
+                        </div>
+                        <div class="config-actions-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
+                            <div class="action-section">
+                                <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">💾 Sauvegarde</div>
+                                <div class="button-grid" style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+                                    <button class="panel-button" id="saveWebThinkingBtn">💾 Sauvegarder</button>
                                 </div>
                             </div>
                         </div>
