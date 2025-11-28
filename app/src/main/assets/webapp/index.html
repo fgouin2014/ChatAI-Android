@@ -651,91 +651,133 @@
                                     <option value="onnx_server" selected>ONNX TTS Server (port 11401) ⭐ Recommandé</option>
                                     <option value="android">Android TTS (fallback)</option>
                                 </select>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    <strong>ONNX TTS:</strong> Synthèse vocale locale haute qualité (SpeechT5).<br>
+                                    <strong>Android TTS:</strong> Moteur système Android (fallback si ONNX indisponible).
+                                </small>
                             </label>
                         </div>
                         
-                        <!-- Statut serveur TTS -->
-                        <div class="form-grid" style="margin-top: 12px; padding: 12px; background: rgba(148, 163, 184, 0.1); border-radius: 8px;">
-                            <div style="grid-column: 1 / -1;">
-                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                    <span style="font-size: 13px; font-weight: 500;">Statut serveur TTS</span>
-                                    <span id="ttsServerStatusText" style="font-size: 12px; padding: 4px 8px; border-radius: 4px; background: rgba(148, 163, 184, 0.2);">Vérification...</span>
+                        <!-- ⭐ SECTION 1: ONNX TTS (Recommandé) -->
+                        <div id="onnxTtsSection" style="margin-top: 20px; padding: 16px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.3);">
+                            <h5 style="font-size: 14px; margin: 0 0 12px 0; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                                <span>⭐ ONNX TTS Server</span>
+                                <span style="font-size: 11px; color: #64748b; font-weight: normal;">(Recommandé - Synthèse locale haute qualité)</span>
+                            </h5>
+                            
+                            <!-- Statut serveur TTS -->
+                            <div class="form-grid" style="margin-top: 12px; padding: 12px; background: rgba(148, 163, 184, 0.1); border-radius: 8px;">
+                                <div style="grid-column: 1 / -1;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                        <span style="font-size: 13px; font-weight: 500;">Statut serveur TTS</span>
+                                        <span id="ttsServerStatusText" style="font-size: 12px; padding: 4px 8px; border-radius: 4px; background: rgba(148, 163, 184, 0.2);">Vérification...</span>
+                                    </div>
+                                    <button id="testTtsServerBtn" class="panel-button" style="width: 100%; margin-top: 8px;">🔍 Tester connexion serveur TTS</button>
+                                    <small style="font-size: 11px; color: #64748b; margin-top: 6px; display: block;">
+                                        Le serveur TTS ONNX tourne sur <code>127.0.0.1:11401</code> (local sur le device).
+                                    </small>
                                 </div>
-                                <button id="testTtsServerBtn" class="panel-button" style="width: 100%; margin-top: 8px;">🔍 Tester connexion serveur TTS</button>
+                            </div>
+                            
+                            <!-- Configuration ONNX TTS -->
+                            <div id="onnxTtsConfig" class="form-grid" style="margin-top: 16px; padding: 12px; background: rgba(148, 163, 184, 0.05); border-radius: 8px;">
+                                <div style="grid-column: 1 / -1;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                        <h6 style="font-size: 13px; margin: 0; color: var(--text-primary);">Modèles ONNX chargés</h6>
+                                        <button id="checkTtsFilesBtn" class="panel-button secondary" style="padding: 4px 12px; font-size: 11px;">🔍 Vérifier fichiers</button>
+                                    </div>
+                                    
+                                    <!-- Statuts des modèles chargés -->
+                                    <div id="onnxModelsStatus" style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
+                                        <div>Encoder: <span id="encoderStatus" style="color: var(--text-primary);">-</span></div>
+                                        <div>Decoder: <span id="decoderStatus" style="color: var(--text-primary);">-</span></div>
+                                        <div>Vocoder: <span id="vocoderStatus" style="color: var(--text-primary);">-</span></div>
+                                    </div>
+                                    
+                                    <!-- Liste des fichiers requis -->
+                                    <div id="ttsFilesStatus" style="font-size: 11px; color: var(--text-secondary); line-height: 1.8; display: none;">
+                                        <div style="font-weight: 500; margin-bottom: 6px; color: var(--text-primary);">Fichiers requis:</div>
+                                        <div id="ttsFilesList" style="max-height: 200px; overflow-y: auto;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Voix ONNX -->
+                            <div class="form-grid" style="margin-top: 16px;">
+                                <label style="grid-column: 1 / -1;">
+                                    <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Voix ONNX</span>
+                                    <select id="configOnnxTtsVoice">
+                                        <option value="default">Défaut (neutre)</option>
+                                        <option value="male">Masculin (homme)</option>
+                                        <option value="female">Féminin (femme)</option>
+                                    </select>
+                                    <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                        Choisissez la caractéristique vocale pour la synthèse ONNX.
+                                    </small>
+                                </label>
                             </div>
                         </div>
                         
-                        <!-- Configuration ONNX TTS -->
-                        <div id="onnxTtsConfig" class="form-grid" style="margin-top: 16px; padding: 12px; background: rgba(148, 163, 184, 0.05); border-radius: 8px;">
-                            <div style="grid-column: 1 / -1;">
-                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                    <h5 style="font-size: 14px; margin: 0; color: var(--text-primary);">Modèles ONNX</h5>
-                                    <button id="checkTtsFilesBtn" class="panel-button secondary" style="padding: 4px 12px; font-size: 11px;">🔍 Vérifier fichiers</button>
-                                </div>
-                                
-                                <!-- Statuts des modèles chargés -->
-                                <div id="onnxModelsStatus" style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
-                                    <div>Encoder: <span id="encoderStatus" style="color: var(--text-primary);">-</span></div>
-                                    <div>Decoder: <span id="decoderStatus" style="color: var(--text-primary);">-</span></div>
-                                    <div>Vocoder: <span id="vocoderStatus" style="color: var(--text-primary);">-</span></div>
-                                </div>
-                                
-                                <!-- Liste des fichiers requis -->
-                                <div id="ttsFilesStatus" style="font-size: 11px; color: var(--text-secondary); line-height: 1.8; display: none;">
-                                    <div style="font-weight: 500; margin-bottom: 6px; color: var(--text-primary);">Fichiers requis:</div>
-                                    <div id="ttsFilesList" style="max-height: 200px; overflow-y: auto;"></div>
-                                </div>
+                        <!-- ⭐ SECTION 2: Android TTS (Fallback) -->
+                        <div id="androidTtsSection" style="margin-top: 20px; padding: 16px; background: rgba(148, 163, 184, 0.05); border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.2); display: none;">
+                            <h5 style="font-size: 14px; margin: 0 0 12px 0; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                                <span>📱 Android TTS</span>
+                                <span style="font-size: 11px; color: #64748b; font-weight: normal;">(Fallback - Moteur système Android)</span>
+                            </h5>
+                            
+                            <p style="font-size: 12px; color: #64748b; margin-bottom: 16px; padding: 10px; background: rgba(148, 163, 184, 0.1); border-radius: 6px;">
+                                ⚠️ <strong>Legacy:</strong> Configuration pour le moteur TTS système Android. Utilisé uniquement si ONNX TTS n'est pas disponible.
+                            </p>
+                            
+                            <!-- Configuration legacy (Android TTS) -->
+                            <div class="form-grid">
+                                <label>
+                                    Mode
+                                    <input type="text" id="configTtsMode" placeholder="local">
+                                    <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                        Mode de fonctionnement (généralement "local").
+                                    </small>
+                                </label>
+                                <label>
+                                    Voix
+                                    <select id="configTtsVoice">
+                                        <option value="">– Choisir –</option>
+                                        <option value="kitt">KITT</option>
+                                        <option value="glados">GLaDOS</option>
+                                        <option value="karr">KARR</option>
+                                        <option value="sarah">Sarah</option>
+                                        <option value="jarvis">Jarvis</option>
+                                        <option value="custom">Autre (personnalisé)</option>
+                                    </select>
+                                    <input type="text" id="configTtsVoiceCustom" class="custom-input hidden" placeholder="Voix personnalisée">
+                                    <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                        Personnalité vocale pour Android TTS (KITT, GLaDOS, etc.).
+                                    </small>
+                                </label>
                             </div>
                         </div>
                         
-                        <!-- Voix ONNX -->
-                        <div class="form-grid" style="margin-top: 16px;">
-                            <label style="grid-column: 1 / -1;">
-                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Voix ONNX</span>
-                                <select id="configOnnxTtsVoice">
-                                    <option value="default">Défaut (neutre)</option>
-                                    <option value="male">Masculin (homme)</option>
-                                    <option value="female">Féminin (femme)</option>
-                                </select>
-                            </label>
-                        </div>
-                        
-                        <!-- Test TTS -->
-                        <div class="form-grid" style="margin-top: 16px;">
+                        <!-- Test TTS (Commun aux deux moteurs) -->
+                        <div class="form-grid" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
                             <label style="grid-column: 1 / -1;">
                                 <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Test synthèse vocale</span>
                                 <input type="text" id="ttsTestText" placeholder="Bonjour, ceci est un test" value="Bonjour, ceci est un test de synthèse vocale">
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Testez la synthèse vocale avec le moteur sélectionné.
+                                </small>
                             </label>
                             <button id="testTtsBtn" class="panel-button" style="grid-column: 1 / -1; margin-top: 8px;">🔊 Tester TTS</button>
                             <audio id="ttsTestAudio" controls style="grid-column: 1 / -1; margin-top: 8px; display: none; width: 100%;"></audio>
                         </div>
                         
-                        <!-- Configuration legacy (Android TTS) -->
-                        <div class="form-grid" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
-                            <label>Mode
-                                <input type="text" id="configTtsMode" placeholder="local">
-                            </label>
-                            <label>Voix
-                                <select id="configTtsVoice">
-                                    <option value="">– Choisir –</option>
-                                    <option value="kitt">KITT</option>
-                                    <option value="glados">GLaDOS</option>
-                                    <option value="karr">KARR</option>
-                                    <option value="sarah">Sarah</option>
-                                    <option value="jarvis">Jarvis</option>
-                                    <option value="custom">Autre (personnalisé)</option>
-                                </select>
-                                <input type="text" id="configTtsVoiceCustom" class="custom-input hidden" placeholder="Voix personnalisée">
-                            </label>
-                        </div>
-                        
-                        <div class="form-checkbox" style="margin-top: 10px; margin-bottom: 10px;">
+                        <!-- Configuration globale -->
+                        <div class="form-checkbox" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
                             <label style="display: flex; align-items: center; gap: 8px;">
                                 <input type="checkbox" id="configTtsAutoPlay" style="width: auto; margin: 0;">
                                 <span>Lecture automatique des réponses (TTS)</span>
                             </label>
                             <span style="font-size: 12px; color: var(--text-secondary); margin-left: 24px; display: block; margin-top: 4px;">
-                                Les réponses de l'IA seront automatiquement lues à voix haute
+                                Les réponses de l'IA seront automatiquement lues à voix haute avec le moteur TTS sélectionné.
                             </span>
                         </div>
                         
@@ -1732,6 +1774,31 @@
                       localModelCustomInput.value = '';
                   }
               });
+          }
+          
+          // Gérer l'affichage/masquage des sections TTS selon le moteur sélectionné
+          const ttsEngineSelect = document.getElementById('configTtsEngine');
+          const onnxTtsSection = document.getElementById('onnxTtsSection');
+          const androidTtsSection = document.getElementById('androidTtsSection');
+          
+          function updateTtsEngineUI() {
+              if (!ttsEngineSelect || !onnxTtsSection || !androidTtsSection) return;
+              
+              const selectedEngine = ttsEngineSelect.value;
+              
+              if (selectedEngine === 'onnx_server') {
+                  onnxTtsSection.style.display = 'block';
+                  androidTtsSection.style.display = 'none';
+              } else if (selectedEngine === 'android') {
+                  onnxTtsSection.style.display = 'none';
+                  androidTtsSection.style.display = 'block';
+              }
+          }
+          
+          if (ttsEngineSelect) {
+              ttsEngineSelect.addEventListener('change', updateTtsEngineUI);
+              // Initialiser au chargement
+              updateTtsEngineUI();
           }
           
           // Bouton pour récupérer les modèles locaux

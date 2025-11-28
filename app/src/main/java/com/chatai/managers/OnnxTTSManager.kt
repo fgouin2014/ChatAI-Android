@@ -435,45 +435,165 @@ class OnnxTTSManager(
             val encoderAttentionMaskTensor = OnnxTensor.createTensor(ortEnv, attentionMaskArray)
             
             try {
-                decoderInputs["encoder_hidden_states"] = encoderOutput
-                decoderInputs["speaker_embeddings"] = speakerEmbeddings
-                decoderInputs["output_sequence"] = outputSequenceTensor
-                decoderInputs["encoder_attention_mask"] = encoderAttentionMaskTensor
-                // ⚠️ PROBLÈME: SpeechT5 decoder est autoregressif - il faut itérer pour générer plus de frames
-                // Actuellement, on génère seulement 2 frames (32ms d'audio), ce qui est inaudible
-                // Solution: Itérer le decoder jusqu'à générer assez de frames (typiquement 200-500 frames pour une phrase)
+                // ⭐ BOUCLE AUTOREGRESSIVE: Le decoder SpeechT5 génère une frame à la fois
+                // ⚠️ TEMPORAIRE: Limiter drastiquement pour éviter crash mémoire
+                // TODO: Augmenter progressivement une fois stable
+                val maxFrames = 50 // ⚠️ LIMITE TEMPORAIRE: 50 frames max (800ms d'audio)
+                val minFrames = 10 // Minimum pour test
+                val targetFrames = (sequenceLength * 2).coerceIn(minFrames, maxFrames) // Cible réduite: ~2 frames par token
                 
-                Log.d(TAG, "Tentative decoder avec 'encoder_hidden_states' + 'speaker_embeddings' + 'output_sequence' + 'encoder_attention_mask' (seq_len=$sequenceLength)")
-                Log.w(TAG, "⚠️ ATTENTION: Decoder appelé UNE SEULE FOIS - générera seulement 2 frames (32ms)")
-                Log.w(TAG, "⚠️ SOLUTION REQUISE: Implémenter boucle autoregressive pour générer plus de frames")
+                Log.d(TAG, "Démarrage boucle autoregressive (LIMITÉE): target=$targetFrames frames (min=$minFrames, max=$maxFrames)")
+                Log.w(TAG, "⚠️ LIMITE TEMPORAIRE: Seulement $maxFrames frames max pour éviter crash mémoire")
                 
-                val decoderResult = decoder.run(decoderInputs)
-                Log.d(TAG, "✅ Decoder réussi avec 'encoder_hidden_states'")
-                val melSpectrogram = try {
-                    val resultAsMap = decoderResult as? Map<String, OnnxValue>
-                    resultAsMap?.values?.firstOrNull() as? OnnxTensor
-                        ?: decoderResult.get(0) as? OnnxTensor
-                } catch (e: Exception) {
-                    Log.e(TAG, "Erreur extraction decoder output: ${e.message}")
-                    null
-                } ?: run {
-                    Log.e(TAG, "Decoder output n'est pas un OnnxTensor")
+                val accumulatedFrames = mutableListOf<FloatArray>() // Liste pour accumuler les frames
+                var currentOutputSequence = outputSequenceTensor // Tensor actuel pour output_sequence
+                var iteration = 0
+                var framesGenerated = 0
+                
+                while (framesGenerated < targetFrames && iteration < maxFrames) {
+                    iteration++
+                    
+                    // Préparer les inputs pour cette itération
+                    decoderInputs.clear()
+                    decoderInputs["encoder_hidden_states"] = encoderOutput
+                    decoderInputs["speaker_embeddings"] = speakerEmbeddings
+                    decoderInputs["output_sequence"] = currentOutputSequence
+                    decoderInputs["encoder_attention_mask"] = encoderAttentionMaskTensor
+                    
+                    // Appeler le decoder
+                    val decoderResult = decoder.run(decoderInputs)
+                    
+                    // ⚠️ CRITIQUE: Extraire TOUTES les données AVANT de fermer quoi que ce soit
+                    // Extraire la nouvelle frame générée
+                    val newFrameTensor: OnnxTensor? = try {
+                        val resultAsMap = decoderResult as? Map<String, OnnxValue>
+                        resultAsMap?.values?.firstOrNull() as? OnnxTensor
+                            ?: decoderResult.get(0) as? OnnxTensor
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Erreur extraction decoder output itération $iteration: ${e.message}")
+                        decoderResult.close()
+                        null
+                    }
+                    
+                    if (newFrameTensor == null) {
+                        Log.e(TAG, "Decoder output n'est pas un OnnxTensor à l'itération $iteration")
+                        decoderResult.close()
+                        break
+                    }
+                    
+                    // Extraire les données de la nouvelle frame IMMÉDIATEMENT
+                    val frameShape = newFrameTensor.info.shape
+                    if (frameShape.size < 3) {
+                        Log.e(TAG, "Shape invalide pour frame à l'itération $iteration: ${frameShape.contentToString()}")
+                        newFrameTensor.close()
+                        decoderResult.close()
+                        break
+                    }
+                    
+                    // La frame a shape [batch, seq_len, feature_dim]
+                    val batchSize = frameShape[0].toInt()
+                    val seqLen = frameShape[1].toInt()
+                    val featDim = frameShape[2].toInt()
+                    
+                    // ⚠️ CRITIQUE: Extraire les données AVANT de fermer le tensor
+                    val frameBuffer = newFrameTensor.floatBuffer
+                    val frameDataSize = frameBuffer.remaining()
+                    val frameData = FloatArray(frameDataSize)
+                    frameBuffer.get(frameData)
+                    
+                    // ⚠️ FERMER IMMÉDIATEMENT après extraction (ne pas attendre)
+                    newFrameTensor.close()
+                    decoderResult.close()
+                    
+                    // Maintenant qu'on a les données, on peut les traiter
+                    // Extraire chaque frame de la séquence générée (généralement 1-2 frames par itération)
+                    for (s in 0 until seqLen) {
+                        val frameStart = s * featDim
+                        val frameEnd = frameStart + featDim
+                        if (frameEnd <= frameData.size) {
+                            val singleFrame = frameData.sliceArray(frameStart until frameEnd)
+                            accumulatedFrames.add(singleFrame)
+                            framesGenerated++
+                        }
+                    }
+                    
+                    // Mettre à jour output_sequence pour la prochaine itération
+                    // ⚠️ STRATÉGIE: Utiliser seulement la dernière frame (pas de concaténation)
+                    // pour éviter de créer des tensors trop grands
+                    if (seqLen > 0 && framesGenerated > 0) {
+                        // Fermer l'ancien tensor AVANT d'en créer un nouveau
+                        if (currentOutputSequence != outputSequenceTensor) {
+                            try {
+                                currentOutputSequence.close()
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Erreur fermeture currentOutputSequence (ignorée): ${e.message}")
+                            }
+                        }
+                        
+                        // Utiliser la dernière frame générée comme nouvelle output_sequence
+                        val lastFrame = accumulatedFrames.last()
+                        val newOutputSequenceArray = arrayOf(arrayOf(lastFrame))
+                        try {
+                            currentOutputSequence = OnnxTensor.createTensor(ortEnv, newOutputSequenceArray)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Erreur création nouveau currentOutputSequence: ${e.message}")
+                            break
+                        }
+                    }
+                    
+                    // Log de progression tous les 50 frames
+                    if (framesGenerated % 50 == 0 || framesGenerated >= targetFrames) {
+                        Log.d(TAG, "Progression autoregressive: $framesGenerated/$targetFrames frames (itération $iteration)")
+                    }
+                }
+                
+                Log.d(TAG, "✅ Boucle autoregressive terminée: $framesGenerated frames générées en $iteration itérations")
+                
+                if (accumulatedFrames.isEmpty()) {
+                    Log.e(TAG, "Aucune frame générée par la boucle autoregressive")
+                    if (currentOutputSequence != outputSequenceTensor) {
+                        currentOutputSequence.close()
+                    }
                     encoderOutput.close()
                     outputSequenceTensor.close()
                     encoderAttentionMaskTensor.close()
-                    decoderResult.close()
                     return null
                 }
+                
+                // Concaténer toutes les frames en un mel spectrogram complet
+                val totalFrames = accumulatedFrames.size
+                val melSpectrogramData = FloatArray(totalFrames * featureDim)
+                for (i in accumulatedFrames.indices) {
+                    System.arraycopy(accumulatedFrames[i], 0, melSpectrogramData, i * featureDim, featureDim)
+                }
+                
+                // Créer le tensor mel spectrogram final avec shape [1, totalFrames, featureDim]
+                val melSpectrogramArray = Array(1) { batch ->
+                    Array(totalFrames) { frame ->
+                        FloatArray(featureDim) { feat ->
+                            melSpectrogramData[batch * totalFrames * featureDim + frame * featureDim + feat]
+                        }
+                    }
+                }
+                val melSpectrogram = OnnxTensor.createTensor(ortEnv, melSpectrogramArray)
+                
+                // Nettoyer les ressources temporaires
+                if (currentOutputSequence != outputSequenceTensor) {
+                    currentOutputSequence.close()
+                }
+                outputSequenceTensor.close()
+                encoderAttentionMaskTensor.close() // Plus nécessaire après la boucle autoregressive
                 
                 // ⭐ ÉTAPE 3: Vocoder (mel spectrogram → waveform)
                 Log.d(TAG, "Étape 3/3: Vocoder...")
                 
-                // ⚠️ CORRECTION: Le vocoder attend "spectrogram" avec rank 2 [seq_len, feature_dim]
-                // Le decoder produit probablement rank 3 [batch, seq_len, feature_dim]
+                // Le vocoder attend "spectrogram" avec rank 2 [seq_len, feature_dim]
+                // Le decoder produit rank 3 [batch, seq_len, feature_dim]
                 val melSpectrogramShape = melSpectrogram.info.shape
                 Log.d(TAG, "Mel spectrogram shape: ${melSpectrogramShape.contentToString()}")
-                Log.w(TAG, "⚠️ PROBLÈME: Seulement ${melSpectrogramShape[1]} frames générées (${melSpectrogramShape[1] * 16}ms à 16kHz)")
-                Log.w(TAG, "⚠️ Pour une phrase de ${sequenceLength} tokens, on devrait avoir 200-500 frames (1.6-4 secondes)")
+                val totalFramesGenerated = melSpectrogramShape[1].toInt()
+                val estimatedDurationMs = (totalFramesGenerated * 16) // ~16ms par frame à 16kHz
+                Log.d(TAG, "✅ ${totalFramesGenerated} frames générées (${estimatedDurationMs}ms ≈ ${estimatedDurationMs / 1000.0}s d'audio)")
                 
                 val spectrogramForVocoder = if (melSpectrogramShape.size == 3) {
                     // Reshape de [batch, seq_len, feature_dim] → [seq_len, feature_dim]
@@ -593,17 +713,21 @@ class OnnxTTSManager(
                     }
                     melSpectrogram.close()
                     encoderOutput.close()
-                    decoderResult.close()
-                    outputSequenceTensor.close()
+                    encoderResult.close()
                     encoderAttentionMaskTensor.close()
                     return null
                 }
             } catch (decoderError: Exception) {
-                Log.e(TAG, "❌ Erreur decoder avec 'encoder_hidden_states' + 'output_sequence' + 'encoder_attention_mask': ${decoderError.message}", decoderError)
+                Log.e(TAG, "❌ Erreur decoder (boucle autoregressive): ${decoderError.message}", decoderError)
                 encoderOutput.close()
                 encoderResult.close()
-                outputSequenceTensor.close()
                 encoderAttentionMaskTensor.close()
+                // Nettoyer outputSequenceTensor si nécessaire
+                try {
+                    outputSequenceTensor.close()
+                } catch (e: Exception) {
+                    // Ignorer si déjà fermé
+                }
                 return null
             }
             
