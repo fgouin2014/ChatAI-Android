@@ -3,6 +3,7 @@ package com.chatai.managers
 import android.content.Context
 import android.util.Log
 import ai.onnxruntime.*
+import com.chatai.tokenizer.BertTokenizer
 import java.io.File
 
 /**
@@ -18,9 +19,9 @@ import java.io.File
  * 
  * ARCHITECTURE:
  * 1. Charger modèle ONNX depuis device
- * 2. Preprocessing texte (tokenisation)
+ * 2. Preprocessing texte (tokenisation BERT WordPiece)
  * 3. Inference ONNX (génération embeddings)
- * 4. Normalisation L2 (optionnel)
+ * 4. Pooling (mean) et normalisation L2
  * 
  * FALLBACK:
  * Si ONNX indisponible → Ollama/HuggingFace
@@ -41,6 +42,9 @@ class OnnxEmbeddingManager(private val context: Context) {
     private var ortEnv: OrtEnvironment? = null
     private var session: OrtSession? = null
     private var isInitialized = false
+    
+    // ⭐ NOUVEAU: Tokenizer BERT pour preprocessing
+    private val tokenizer = BertTokenizer()
     
     /**
      * Initialiser le modèle ONNX
@@ -85,6 +89,14 @@ class OnnxEmbeddingManager(private val context: Context) {
             Log.d(TAG, "  Inputs: ${inputNames.joinToString()}")
             Log.d(TAG, "  Outputs: ${outputNames.joinToString()}")
             
+            // ⭐ NOUVEAU: Initialiser le tokenizer BERT
+            val tokenizerInitialized = tokenizer.initialize()
+            if (tokenizerInitialized) {
+                Log.i(TAG, "✅ Tokenizer BERT initialisé (${tokenizer.getVocabSize()} tokens)")
+            } else {
+                Log.w(TAG, "⚠️ Tokenizer BERT non initialisé, embeddings peuvent être incorrects")
+            }
+            
             isInitialized = true
             Log.i(TAG, "✅ ONNX Embeddings prêt (${EMBEDDING_DIMENSIONS} dimensions)")
             
@@ -124,51 +136,29 @@ class OnnxEmbeddingManager(private val context: Context) {
             val session = this.session ?: return null
             val ortEnv = this.ortEnv ?: return null
             
-            // ⚠️ TODO: Tokenisation du texte
-            // Pour l'instant, on utilise un tokenizer simple
-            // Le modèle sentence-transformers attend des input_ids tokenisés
-            // Input: input_ids [batch, sequence_length] (int64)
-            // Output: embeddings [batch, sequence_length, hidden_size] ou [batch, hidden_size]
+            // ⭐ NOUVEAU: Utiliser BertTokenizer pour tokenisation WordPiece
+            if (!tokenizer.isInitialized()) {
+                Log.w(TAG, "Tokenizer non initialisé, tentative réinitialisation...")
+                if (!tokenizer.initialize()) {
+                    Log.e(TAG, "Impossible d'initialiser le tokenizer")
+                    return null
+                }
+            }
             
-            // ⭐ TEMPORAIRE: Utiliser un tokenizer simple (à améliorer)
-            // Le modèle all-MiniLM-L6-v2 utilise un tokenizer BERT-like
-            // Pour l'instant, on crée un input_ids basique
-            // TODO: Implémenter tokenizer complet avec vocab.json
-            
-            // Tokenisation simple (à remplacer par tokenizer complet)
-            val tokens = text.lowercase()
-                .split(Regex("\\s+"))
-                .filter { it.isNotBlank() }
-                .take(128) // Limite de tokens
-            
-            if (tokens.isEmpty()) {
-                Log.w(TAG, "Aucun token après tokenisation")
+            // Tokeniser le texte avec BERT WordPiece
+            val inputIds = tokenizer.encode(text)
+            if (inputIds.isEmpty()) {
+                Log.w(TAG, "Tokenisation échouée (aucun token généré)")
                 return null
             }
             
-            // ⚠️ TEMPORAIRE: Créer des input_ids factices (à remplacer par vrai tokenizer)
-            // Le modèle attend des IDs de tokens réels du vocabulaire
-            val inputIds = tokens.mapIndexed { index, _ -> 
-                // ⚠️ PLACEHOLDER: Utiliser index comme token ID (INCORRECT, à remplacer)
-                // Le vrai tokenizer devrait utiliser vocab.json pour mapper texte → token IDs
-                (index + 1).toLong() // +1 pour éviter 0 (padding token)
-            }.toLongArray()
-            
-            // Limiter à 128 tokens (longueur max typique pour all-MiniLM-L6-v2)
-            val maxLength = 128
-            val paddedInputIds = if (inputIds.size > maxLength) {
-                inputIds.take(maxLength).toLongArray()
-            } else {
-                val padded = LongArray(maxLength) { 0L } // 0 = padding
-                inputIds.copyInto(padded, 0, 0, inputIds.size)
-                padded
-            }
+            Log.d(TAG, "Texte tokenisé: ${inputIds.size} tokens")
             
             // Créer tensor ONNX: shape [1, sequence_length]
-            val inputArray = arrayOf(paddedInputIds)
+            val inputArray = arrayOf(inputIds)
             val inputTensor = OnnxTensor.createTensor(ortEnv, inputArray)
             
-            Log.d(TAG, "Input ONNX: shape [1, ${paddedInputIds.size}]")
+            Log.d(TAG, "Input ONNX: shape [1, ${inputIds.size}]")
             
             // Exécuter inference
             val inputs = mapOf("input_ids" to inputTensor)
