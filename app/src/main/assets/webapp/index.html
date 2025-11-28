@@ -283,10 +283,13 @@
                     
                     <!-- ⭐ SECTION 1: SERVEUR OLLAMA (PC) -->
                     <div class="panel-section">
-                        <h4>🖥️ Serveur Ollama (PC)</h4>
+                        <h4>🖥️ Serveur Ollama (PC) - Optionnel</h4>
                         <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
-                            Le serveur Ollama doit tourner sur votre PC. Trouvez l'IP de votre PC avec <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">ipconfig</code> (Windows) ou <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">ifconfig</code> (Linux/Mac).
-                            <br><strong style="color: #f87171;">⚠️ N'utilisez pas 127.0.0.1</strong> - Utilisez l'IP de votre PC sur le réseau local.
+                            <strong>💡 Utilisation:</strong> Utilisez la puissance de votre PC pour exécuter des modèles Ollama plus grands et plus performants que sur le device Android.<br>
+                            <strong>📋 Prérequis:</strong> Le serveur Ollama doit être installé et démarré sur votre PC (Windows/Mac/Linux).<br>
+                            <strong>🌐 Réseau:</strong> Votre PC et votre device Android doivent être sur le même réseau WiFi.<br>
+                            <strong>🔍 Trouver l'IP:</strong> Utilisez <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">ipconfig</code> (Windows) ou <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">ifconfig</code> (Linux/Mac).<br>
+                            <strong style="color: #f87171;">⚠️ N'utilisez pas 127.0.0.1</strong> - Utilisez l'IP de votre PC sur le réseau local (ex: 192.168.1.100).
                         </p>
                         
                         <div class="form-grid">
@@ -353,10 +356,12 @@
                     
                     <!-- ⭐ SECTION 2: MODÈLES LOCAUX (DEVICE) -->
                     <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid rgba(148, 163, 184, 0.3);">
-                        <h4>📱 Modèles Locaux (Device)</h4>
+                        <h4>📱 Modèles Locaux (Device) - Par défaut</h4>
                         <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
-                            Fichiers GGUF stockés directement sur votre device Android.
-                            <br>Localisation: <code>/storage/emulated/0/ChatAI-Files/models/</code>
+                            <strong>💡 Utilisation:</strong> Modèles GGUF installés directement sur votre device Android. Fonctionne sans connexion réseau ni PC requis.<br>
+                            <strong>📁 Localisation:</strong> <code>/storage/emulated/0/ChatAI-Files/models/</code><br>
+                            <strong>✅ Avantages:</strong> Fonctionne partout, pas besoin de PC, pas de dépendance réseau.<br>
+                            <strong>⚠️ Limitations:</strong> Modèles généralement plus petits et moins performants que sur PC (contraintes de mémoire/CPU du device).
                         </p>
                         
                         <div class="form-grid">
