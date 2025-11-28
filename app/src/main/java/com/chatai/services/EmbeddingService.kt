@@ -3,6 +3,7 @@ package com.chatai.services
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.chatai.managers.OnnxEmbeddingManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.*
@@ -14,14 +15,16 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
- * Service pour générer des embeddings via Ollama
- * Utilise nomic-embed-text pour convertir du texte en vecteurs numériques
+ * Service pour générer des embeddings via Ollama, HuggingFace ou ONNX local
+ * Utilise nomic-embed-text (Ollama), all-MiniLM-L6-v2 (HuggingFace/ONNX) pour convertir du texte en vecteurs numériques
  * 
  * Référence: https://github.com/ollama/ollama/blob/main/docs/api.md#generate-embeddings
  * 
  * ⭐ SELON NOS RULES:
- * - Support Ollama local (toujours disponible)
+ * - Support ONNX local (priorité, 100% offline)
+ * - Support Ollama local (fallback)
  * - ⭐ FUTURE-PROOF: Support Ollama Cloud si /api/embeddings est disponible (détection automatique)
+ * - Support HuggingFace Cloud (fallback)
  * - Format compatible avec ConversationEntity.embeddingsJson
  * - Gestion d'erreurs non-bloquante (continue même si embedding échoue)
  */
@@ -42,6 +45,10 @@ class EmbeddingService(private val context: Context) {
         private const val EMBEDDING_DIMENSIONS = 768
     }
     
+    // ⭐ NOUVEAU: Manager ONNX pour embeddings locaux
+    private var onnxEmbeddingManager: OnnxEmbeddingManager? = null
+    private var onnxInitialized = false
+    
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
     
@@ -55,16 +62,58 @@ class EmbeddingService(private val context: Context) {
         .callTimeout(60, TimeUnit.SECONDS)
         .build()
     
+    init {
+        // ⭐ NOUVEAU: Initialiser ONNX Embedding Manager au démarrage
+        initializeOnnxEmbedding()
+    }
+    
+    /**
+     * Initialiser le manager ONNX pour embeddings locaux
+     */
+    private fun initializeOnnxEmbedding() {
+        try {
+            if (onnxEmbeddingManager == null) {
+                onnxEmbeddingManager = OnnxEmbeddingManager(context)
+            }
+            
+            if (!onnxInitialized) {
+                onnxInitialized = onnxEmbeddingManager!!.initialize()
+                if (onnxInitialized) {
+                    Log.i(TAG, "✅ ONNX Embeddings initialisé (384 dimensions)")
+                } else {
+                    Log.w(TAG, "⚠️ ONNX Embeddings non disponible, fallback Ollama/HuggingFace")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur initialisation ONNX Embeddings: ${e.message}", e)
+            onnxInitialized = false
+        }
+    }
+    
     /**
      * Génère un embedding pour un texte donné
+     * ⭐ MODIFIÉ: Essaie ONNX local en premier, puis fallback Ollama/HuggingFace
      * @param text Texte à convertir en embedding
-     * @return Tableau de floats (768 dimensions pour nomic-embed-text) ou null en cas d'erreur
+     * @return Tableau de floats (384 dimensions pour ONNX, 768 pour Ollama) ou null en cas d'erreur
      */
     suspend fun embed(text: String): FloatArray? = withContext(Dispatchers.IO) {
         try {
             if (text.isBlank()) {
                 Log.w(TAG, "Text is blank, returning null")
                 return@withContext null
+            }
+            
+            // ⭐ NOUVEAU: Essayer ONNX local en premier (100% offline)
+            if (onnxInitialized && onnxEmbeddingManager?.isReady() == true) {
+                try {
+                    val embedding = onnxEmbeddingManager!!.embed(text)
+                    if (embedding != null) {
+                        Log.d(TAG, "✅ Embedding généré via ONNX local (${embedding.size} dimensions)")
+                        return@withContext embedding
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Erreur ONNX embedding, fallback: ${e.message}")
+                }
             }
             
             val useCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
