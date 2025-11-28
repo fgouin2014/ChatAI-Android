@@ -672,19 +672,17 @@
                             <label style="grid-column: 1 / -1;">
                                 <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Moteur TTS</span>
                                 <select id="configTtsEngine">
-                                    <option value="onnx_server" selected>ONNX TTS Server (port 11401) ⭐ Recommandé</option>
-                                    <option value="android">Android TTS (fallback)</option>
+                                    <option value="android" selected>Android TTS (fallback)</option>
                                 </select>
                                 <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
                                     <strong>Moteur:</strong> Implémentation technique pour la synthèse vocale (Text-to-Speech).<br>
-                                    <strong>ONNX TTS:</strong> Synthèse vocale locale haute qualité (SpeechT5).<br>
-                                    <strong>Android TTS:</strong> Moteur système Android (fallback si ONNX indisponible).
+                                    <strong>Android TTS:</strong> Moteur système Android (ONNX TTS Server temporairement désactivé).
                                 </small>
                             </label>
                         </div>
                         
-                        <!-- ⭐ SECTION 1: ONNX TTS (Recommandé) -->
-                        <div id="onnxTtsSection" style="margin-top: 20px; padding: 16px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.3);">
+                        <!-- ⭐ SECTION 1: ONNX TTS (Recommandé) - TEMPORAIREMENT DÉSACTIVÉ -->
+                        <div id="onnxTtsSection" style="margin-top: 20px; padding: 16px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.3); display: none;">
                             <h5 style="font-size: 14px; margin: 0 0 12px 0; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
                                 <span>⭐ ONNX TTS Server</span>
                                 <span style="font-size: 11px; color: #64748b; font-weight: normal;">(Recommandé - Synthèse locale haute qualité)</span>
@@ -743,8 +741,8 @@
                             </div>
                         </div>
                         
-                        <!-- ⭐ SECTION 2: Android TTS (Fallback) -->
-                        <div id="androidTtsSection" style="margin-top: 20px; padding: 16px; background: rgba(148, 163, 184, 0.05); border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.2); display: none;">
+                        <!-- ⭐ SECTION 2: Android TTS (Fallback) - ACTIF PAR DÉFAUT -->
+                        <div id="androidTtsSection" style="margin-top: 20px; padding: 16px; background: rgba(148, 163, 184, 0.05); border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.2); display: block;">
                             <h5 style="font-size: 14px; margin: 0 0 12px 0; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
                                 <span>📱 Android TTS</span>
                                 <span style="font-size: 11px; color: #64748b; font-weight: normal;">(Fallback - Moteur système Android)</span>
@@ -1869,15 +1867,10 @@
           function updateTtsEngineUI() {
               if (!ttsEngineSelect || !onnxTtsSection || !androidTtsSection) return;
               
-              const selectedEngine = ttsEngineSelect.value;
-              
-              if (selectedEngine === 'onnx_server') {
-                  onnxTtsSection.style.display = 'block';
-                  androidTtsSection.style.display = 'none';
-              } else if (selectedEngine === 'android') {
-                  onnxTtsSection.style.display = 'none';
-                  androidTtsSection.style.display = 'block';
-              }
+              // ⭐ MODIFIÉ: Android TTS est la seule option disponible (ONNX désactivé temporairement)
+              // Toujours afficher Android TTS, masquer ONNX
+              onnxTtsSection.style.display = 'none';
+              androidTtsSection.style.display = 'block';
           }
           
           if (ttsEngineSelect) {
