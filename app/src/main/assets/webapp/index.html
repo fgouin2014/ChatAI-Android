@@ -2011,8 +2011,8 @@
               }, 5000);
               
               try {
-                  if (window.Android && window.Android.scanLocalDeviceModels) {
-                      const modelsJson = window.Android.scanLocalDeviceModels();
+                  if (window.AndroidApp && window.AndroidApp.scanLocalDeviceModels) {
+                      const modelsJson = window.AndroidApp.scanLocalDeviceModels();
                       clearTimeout(timeoutId); // Annuler le timeout si succès
                       
                       const models = JSON.parse(modelsJson);
@@ -2082,8 +2082,8 @@
               }, 5000);
               
               try {
-                  if (window.Android && window.Android.scanLocalDeviceModels) {
-                      const modelsJson = window.Android.scanLocalDeviceModels();
+                  if (window.AndroidApp && window.AndroidApp.scanLocalDeviceModels) {
+                      const modelsJson = window.AndroidApp.scanLocalDeviceModels();
                       clearTimeout(timeoutId); // Annuler le timeout si succès
                       
                       const models = JSON.parse(modelsJson);
@@ -2154,8 +2154,8 @@
               }, 5000);
               
               try {
-                  if (window.Android && window.Android.scanLocalDeviceModels) {
-                      const modelsJson = window.Android.scanLocalDeviceModels();
+                  if (window.AndroidApp && window.AndroidApp.scanLocalDeviceModels) {
+                      const modelsJson = window.AndroidApp.scanLocalDeviceModels();
                       clearTimeout(timeoutId); // Annuler le timeout si succès
                       
                       const models = JSON.parse(modelsJson);
