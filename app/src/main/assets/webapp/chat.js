@@ -230,6 +230,23 @@ class SecureMobileAIChat {
         this.addListener(this.langBtn, 'click', () => this.toggleLanguageSelector());
         this.addListener(this.kittBtn, 'click', () => this.openKittInterface());
         
+        // ⭐ NOUVEAU: Boutons ONNX
+        const imageUploadBtn = document.getElementById('imageUploadBtn');
+        if (imageUploadBtn) {
+            this.addListener(imageUploadBtn, 'click', () => this.uploadAndAnalyzeImage());
+        }
+        
+        const translateBtn = document.getElementById('translateBtn');
+        if (translateBtn) {
+            this.addListener(translateBtn, 'click', () => this.translateText());
+        }
+        
+        // ⭐ NOUVEAU: Input file pour upload d'images
+        const imageFileInput = document.getElementById('imageFileInput');
+        if (imageFileInput) {
+            this.addListener(imageFileInput, 'change', (e) => this.handleImageUpload(e));
+        }
+        
         // Événements de saisie
         this.addListener(this.messageInput, 'input', () => {
             this.adjustTextareaHeight();
@@ -1843,6 +1860,108 @@ class SecureMobileAIChat {
             this.showSecureMessage('ai', "Désolé, je n'ai pas pu analyser cette image pour le moment 😅");
         }
     }
+    
+    /**
+     * ⭐ NOUVEAU: Callback pour recevoir le résultat de la traduction depuis Android
+     * @param translatedText Texte traduit par OnnxTranslationManager
+     */
+    onTranslationResult(translatedText) {
+        this.hideTypingIndicator();
+        if (translatedText) {
+            // Afficher le texte traduit dans le chat
+            this.showSecureMessage('ai', `🌐 Traduction: ${translatedText}`);
+        } else {
+            this.showSecureMessage('ai', "Désolé, je n'ai pas pu traduire le texte pour le moment 😅");
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Traduire le texte sélectionné ou le dernier message
+     */
+    translateText() {
+        // Récupérer le texte à traduire (sélection ou dernier message)
+        let textToTranslate = '';
+        
+        // Vérifier si du texte est sélectionné dans le textarea
+        const messageInput = document.getElementById('messageInput');
+        if (messageInput && messageInput.selectionStart !== messageInput.selectionEnd) {
+            textToTranslate = messageInput.value.substring(messageInput.selectionStart, messageInput.selectionEnd);
+        } else if (messageInput && messageInput.value.trim()) {
+            // Sinon, utiliser le texte dans le textarea
+            textToTranslate = messageInput.value.trim();
+        } else {
+            // Sinon, utiliser le dernier message de l'utilisateur
+            const userMessages = this.chatMessages.querySelectorAll('.message.user');
+            if (userMessages.length > 0) {
+                const lastUserMessage = userMessages[userMessages.length - 1];
+                textToTranslate = lastUserMessage.textContent.trim();
+            }
+        }
+        
+        if (!textToTranslate) {
+            this.showSecureMessage('ai', "⚠️ Aucun texte à traduire. Sélectionnez du texte ou tapez un message.");
+            return;
+        }
+        
+        // Vérifier que l'interface Android est disponible
+        if (!this.androidInterface || !this.androidInterface.translateText) {
+            this.showSecureMessage('ai', "⚠️ Service de traduction non disponible.");
+            return;
+        }
+        
+        this.showTypingIndicator();
+        this.showSecureMessage('user', `🌐 Traduction de: "${textToTranslate.substring(0, 50)}${textToTranslate.length > 50 ? '...' : ''}"`);
+        
+        // Appeler la fonction Android (asynchrone, callback via onTranslationResult)
+        this.androidInterface.translateText(textToTranslate);
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Uploader et analyser une image
+     */
+    uploadAndAnalyzeImage() {
+        const imageFileInput = document.getElementById('imageFileInput');
+        if (!imageFileInput) {
+            this.showSecureMessage('ai', "⚠️ Fonctionnalité d'upload d'image non disponible.");
+            return;
+        }
+        
+        // Déclencher le sélecteur de fichier
+        imageFileInput.click();
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Gérer l'upload d'image et lancer l'analyse
+     */
+    handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (!file) {
+            return;
+        }
+        
+        // Vérifier que c'est une image
+        if (!file.type.startsWith('image/')) {
+            this.showSecureMessage('ai', "⚠️ Veuillez sélectionner une image.");
+            return;
+        }
+        
+        // Lire le fichier en base64
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const imageBase64 = e.target.result;
+            // Afficher l'image dans le chat
+            this.showSecureMessage('user', `<img src="${imageBase64}" style="max-width: 100%; border-radius: 8px; margin: 8px 0;" alt="Image uploadée">`);
+            // Lancer l'analyse
+            this.analyzeImage(imageBase64);
+        };
+        reader.onerror = () => {
+            this.showSecureMessage('ai', "⚠️ Erreur lors de la lecture de l'image.");
+        };
+        reader.readAsDataURL(file);
+        
+        // Réinitialiser l'input pour permettre de sélectionner le même fichier
+        event.target.value = '';
+    }
 
     /**
      * Ouverture de l'interface KITT
@@ -2361,6 +2480,20 @@ window.receiveImageFromAndroid = function(imageBase64, fileName) {
 window.receiveFileFromAndroid = function(fileName, fileContent, fileType) {
     if (window.secureChatApp) {
         window.secureChatApp.receiveFileFromAndroid(fileName, fileContent, fileType);
+    }
+};
+
+// ⭐ NOUVEAU: Callback global pour recevoir les résultats d'analyse vision depuis Android
+window.onVisionAnalysisResult = function(description) {
+    if (window.secureChatApp && window.secureChatApp.onVisionAnalysisResult) {
+        window.secureChatApp.onVisionAnalysisResult(description);
+    }
+};
+
+// ⭐ NOUVEAU: Callback global pour recevoir les résultats de traduction depuis Android
+window.onTranslationResult = function(translatedText) {
+    if (window.secureChatApp && window.secureChatApp.onTranslationResult) {
+        window.secureChatApp.onTranslationResult(translatedText);
     }
 };
 
