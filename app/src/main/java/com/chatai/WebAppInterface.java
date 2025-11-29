@@ -2147,6 +2147,9 @@ public class WebAppInterface {
     // ⭐ NOUVEAU: Vision Service pour analyse d'images
     private com.chatai.services.VisionService visionService;
     
+    // ⭐ NOUVEAU: Translation Service pour traduction de texte
+    private com.chatai.services.TranslationService translationService;
+    
     /**
      * Initialiser le Vision Service (appelé depuis MainActivity)
      */
@@ -2154,6 +2157,16 @@ public class WebAppInterface {
         if (visionService == null) {
             visionService = new com.chatai.services.VisionService(mContext);
             Log.d(TAG, "VisionService initialisé");
+        }
+    }
+    
+    /**
+     * Initialiser le Translation Service (appelé depuis MainActivity)
+     */
+    public void initializeTranslationService() {
+        if (translationService == null) {
+            translationService = new com.chatai.services.TranslationService(mContext);
+            Log.d(TAG, "TranslationService initialisé");
         }
     }
     
@@ -2233,6 +2246,84 @@ public class WebAppInterface {
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Erreur envoi résultat vision: " + e.getMessage(), e);
+            }
+        });
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Traduire un texte du français vers l'anglais
+     * @param text Texte source en français
+     */
+    @JavascriptInterface
+    public void translateText(String text) {
+        Log.i(TAG, "translateText appelé (text length: " + (text != null ? text.length() : 0) + ")");
+        
+        try {
+            // Initialiser le service si nécessaire
+            if (translationService == null) {
+                initializeTranslationService();
+            }
+            
+            // Vérifier que le service est prêt
+            if (translationService == null) {
+                Log.w(TAG, "TranslationService non disponible");
+                sendTranslationResult("Erreur: Service Translation non disponible");
+                return;
+            }
+            
+            // Nettoyer le texte
+            final String cleanText = (text != null) ? text.trim() : "";
+            
+            if (cleanText.isEmpty()) {
+                sendTranslationResult("Erreur: Texte vide");
+                return;
+            }
+            
+            // Traduire le texte de manière asynchrone (pour ne pas bloquer le thread UI)
+            new Thread(() -> {
+                try {
+                    // ⭐ Utiliser la méthode synchrone wrapper de TranslationService
+                    String translated = translationService.translateSync(cleanText);
+                    
+                    if (translated != null && !translated.isEmpty()) {
+                        sendTranslationResult(translated);
+                    } else {
+                        sendTranslationResult("Erreur: Impossible de traduire le texte.");
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Erreur traduction: " + e.getMessage(), e);
+                    sendTranslationResult("Erreur lors de la traduction: " + e.getMessage());
+                }
+            }).start();
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur translateText: " + e.getMessage(), e);
+            sendTranslationResult("Erreur: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * ⭐ Helper: Envoyer le résultat de la traduction à JavaScript
+     */
+    private void sendTranslationResult(String translatedText) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                if (mContext instanceof MainActivity) {
+                    MainActivity activity = (MainActivity) mContext;
+                    WebView webView = activity.getWebView();
+                    
+                    if (webView != null) {
+                        String jsCode = String.format(
+                            "if (window.secureChatApp && window.secureChatApp.onTranslationResult) { " +
+                            "window.secureChatApp.onTranslationResult('%s'); }",
+                            escapeForJavaScript(translatedText)
+                        );
+                        webView.evaluateJavascript(jsCode, null);
+                        Log.d(TAG, "Résultat traduction envoyé à JavaScript");
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Erreur envoi résultat traduction: " + e.getMessage(), e);
             }
         });
     }

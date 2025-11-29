@@ -433,6 +433,10 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
             if (webInterface != null) {
                 webInterface.initializeVisionService();
                 Log.i(TAG, "VisionService initialisé");
+                
+                // ⭐ NOUVEAU: Initialiser TranslationService pour traduction de texte
+                webInterface.initializeTranslationService();
+                Log.i(TAG, "TranslationService initialisé");
             }
             
             Log.i(TAG, "Tous les serveurs sont opérationnels");
