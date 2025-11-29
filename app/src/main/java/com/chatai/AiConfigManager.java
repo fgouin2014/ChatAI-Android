@@ -97,28 +97,22 @@ public final class AiConfigManager {
                     KeyringManager keyring = KeyringManager.getInstance(context);
                     String keyringApiKey = keyring.getApiKey(provider);
                     
-                    Log.d(TAG, "📖 readConfigJson: provider=" + provider + ", hasApiKey=" + hasApiKey + 
-                        ", fileApiKey=" + (fileApiKey == null ? "null" : (fileApiKey.isEmpty() ? "\"\"" : fileApiKey.length() + " chars")) +
-                        ", keyringApiKey=" + (keyringApiKey == null ? "null" : keyringApiKey.length() + " chars"));
-                    
                     // Enrichir si apiKey est absent du fichier OU si apiKey est vide mais qu'une clé existe dans KeyringManager
                     // (ce dernier cas peut arriver si le fichier a été écrit avec apiKey="" par erreur lors d'un changement de provider)
                     if (!hasApiKey || (fileApiKey != null && fileApiKey.trim().isEmpty() && keyringApiKey != null && !keyringApiKey.trim().isEmpty())) {
                         if (keyringApiKey != null && !keyringApiKey.trim().isEmpty()) {
                             cloud.put("apiKey", keyringApiKey.trim());
-                            Log.i(TAG, "📖 ENRICHISSEMENT JSON: apiKey ajouté depuis Keyring pour " + provider + " (" + keyringApiKey.length() + " chars)");
+                            Log.d(TAG, "📖 ENRICHISSEMENT JSON: apiKey ajouté depuis Keyring pour " + provider + " (" + keyringApiKey.length() + " chars)");
                         } else {
                             // S'assurer que apiKey est présent même si vide
                             if (!hasApiKey) {
                                 cloud.put("apiKey", "");
-                                Log.d(TAG, "📖 ENRICHISSEMENT JSON: apiKey = \"\" pour " + provider + " (aucune clé dans Keyring)");
                             }
                         }
                         // Reconstruire le JSON avec apiKey
                         json = toPrettyString(jsonObj);
-                    } else {
-                        Log.v(TAG, "📖 readConfigJson: apiKey déjà présent dans fichier, pas d'enrichissement nécessaire");
                     }
+                    // Sinon apiKey déjà présent, pas d'enrichissement nécessaire (pas de log pour réduire bruit)
                 }
                 // ⭐ FIX AUDIT: Ne pas supprimer apiKey vide - elle doit toujours être présente
                 // pour rendre l'intention explicite (vide = suppression, absent = non modifié)
@@ -362,59 +356,43 @@ public final class AiConfigManager {
         String aiMode = json.optString("mode", "cloud");
         boolean useCloud = "cloud".equalsIgnoreCase(aiMode);
         editor.putBoolean("use_ollama_cloud", useCloud);
-        Log.d(TAG, "Mode configuré: " + aiMode + " → use_ollama_cloud=" + useCloud);
+        // Ne pas logger pour réduire le bruit (trop répétitif)
 
         JSONObject cloud = json.optJSONObject("cloud");
         if (cloud != null) {
             putStringIfPresent(editor, "cloud_provider", cloud, "provider");
             String provider = cloud.optString("provider", "ollama");
-            Log.i(TAG, "🔑 applyJsonToPreferences: provider=" + provider);
             
             // ⭐ FIX CRITIQUE: Sauvegarder la clé API selon le provider
             // Toujours vérifier apiKey dans le JSON, même si vide ("" = suppression explicite)
             KeyringManager keyring = KeyringManager.getInstance(context);
             boolean hasApiKey = cloud.has("apiKey");
-            Log.i(TAG, "🔑 applyJsonToPreferences: cloud.has('apiKey')=" + hasApiKey);
             
             if (hasApiKey) {
                 // La clé est présente dans le JSON (modifiée, vide, ou explicitement supprimée)
                 String apiKey = cloud.optString("apiKey", null);
-                Log.i(TAG, "🔑 applyJsonToPreferences: apiKey=" + (apiKey == null ? "null" : (apiKey.isEmpty() ? "VIDE" : apiKey.length() + " chars")));
                 
                 if (apiKey != null && !apiKey.trim().isEmpty()) {
                     // ⭐ NOUVELLE CLÉ: Sauvegarder dans KeyringManager
                     String existingKey = keyring.getApiKey(provider);
-                    Log.i(TAG, "🔑 applyJsonToPreferences: Clé existante=" + (existingKey == null ? "null" : existingKey.length() + " chars"));
                     if (existingKey == null || !existingKey.equals(apiKey.trim())) {
                         Log.i(TAG, "💾 SAUVEGARDE clé " + provider + " depuis ai_config.json (" + apiKey.length() + " chars)");
                         keyring.setApiKey(provider, apiKey.trim());
                         Log.i(TAG, "✅ Clé " + provider + " sauvegardée dans KeyringManager");
-                    } else {
-                        Log.v(TAG, "Clé " + provider + " identique, pas de sauvegarde nécessaire");
                     }
+                    // Sinon clé identique, ne pas logger pour réduire le bruit
                 } else {
                     // ⭐ CHAMP VIDE: apiKey = "" ou null = suppression explicite
                     String existingKey = keyring.getApiKey(provider);
-                    Log.i(TAG, "🔑 applyJsonToPreferences: Clé existante pour suppression=" + (existingKey == null ? "null" : existingKey.length() + " chars"));
                     if (existingKey != null && !existingKey.trim().isEmpty()) {
-                        Log.i(TAG, "🗑️ SUPPRESSION clé " + provider + " (champ vide dans JSON, clé existante trouvée)");
+                        Log.i(TAG, "🗑️ SUPPRESSION clé " + provider + " (champ vide dans JSON)");
                         keyring.clearApiKey(provider);
                         Log.i(TAG, "✅ Clé " + provider + " supprimée de KeyringManager");
-                    } else {
-                        Log.d(TAG, "Clé " + provider + " déjà vide, pas de suppression nécessaire");
                     }
-                }
-            } else {
-                // ⭐ apiKey ABSENT du JSON = webapp ne l'a pas modifiée
-                // CONSERVER la clé existante dans KeyringManager
-                String existingKey = keyring.getApiKey(provider);
-                Log.i(TAG, "🔑 applyJsonToPreferences: apiKey ABSENT, clé existante=" + (existingKey == null ? "null" : existingKey.length() + " chars"));
-                if (existingKey != null) {
-                    Log.d(TAG, "Clé " + provider + " non modifiée dans JSON, conservation clé existante (" + existingKey.length() + " chars)");
-                } else {
-                    Log.d(TAG, "Clé " + provider + " non modifiée dans JSON, aucune clé existante");
+                    // Sinon déjà vide, ne pas logger
                 }
             }
+            // Sinon apiKey ABSENT du JSON = webapp ne l'a pas modifiée, conserver la clé existante (pas de log)
             putStringIfPresent(editor, "cloud_selected_model", cloud, "selectedModel");
             putStringIfPresent(editor, "ollama_cloud_model", cloud, "selectedModel");
         }
@@ -426,7 +404,7 @@ public final class AiConfigManager {
             // Modèle local : utiliser la valeur du JSON (configurable par l'utilisateur)
             putStringIfPresent(editor, "local_model_name", localServer, "model");
             String modelName = localServer.optString("model", "gemma3-270m.gguf");
-            Log.d(TAG, "Local server config: url=" + localServer.optString("url") + ", model=" + modelName + " (configurable)");
+            // Ne pas logger pour réduire le bruit (trop répétitif)
         }
         
         // ⭐ NOUVEAU: Traiter RAG (Recherche sémantique)
@@ -434,10 +412,7 @@ public final class AiConfigManager {
         if (rag != null) {
             putBooleanIfPresent(editor, "rag_enabled", rag, "enabled");
             putStringIfPresent(editor, "embedding_model", rag, "embeddingModel");
-            Log.d(TAG, "RAG config: enabled=" + rag.optBoolean("enabled", true) + ", embeddingModel=" + rag.optString("embeddingModel", "nomic-embed-text"));
-        } else {
-            // Si RAG n'existe pas dans JSON, activer par défaut (comportement par défaut)
-            Log.d(TAG, "RAG config non présente dans JSON - utilisation des valeurs par défaut (enabled=true, embeddingModel=nomic-embed-text)");
+            // Ne pas logger pour réduire le bruit (trop répétitif)
         }
 
         JSONObject webSearch = json.optJSONObject("webSearch");

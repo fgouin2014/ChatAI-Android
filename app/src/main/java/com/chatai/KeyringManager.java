@@ -202,13 +202,12 @@ public class KeyringManager {
             }
             
             String encrypted = prefs.getString(keyName, null);
-            Log.d(TAG, "🔑 getApiKey: provider=" + provider + ", keyName=" + keyName + ", encrypted=" + (encrypted == null ? "null" : encrypted.length() + " chars"));
             if (encrypted == null) {
                 return null;
             }
             
             String decrypted = decrypt(encrypted);
-            Log.d(TAG, "🔑 getApiKey: Décrypté=" + (decrypted == null ? "null" : decrypted.length() + " chars"));
+            // Ne pas logger getApiKey pour réduire le bruit (trop répétitif, appelé très souvent)
             return decrypted;
         } catch (Exception e) {
             Log.e(TAG, "❌ Erreur récupération clé " + provider, e);
