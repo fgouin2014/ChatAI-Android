@@ -2002,9 +2002,19 @@
               // Afficher "Chargement..."
               select.innerHTML = '<option value="">⏳ Scanner en cours...</option>';
               
+              // ⭐ TIMEOUT: Réinitialiser après 5 secondes si le scan échoue
+              const timeoutId = setTimeout(() => {
+                  if (select.innerHTML.includes('⏳ Scanner en cours...')) {
+                      select.innerHTML = '<option value="">– Scanner les modèles –</option>';
+                      console.warn('Timeout lors du scan des modèles Embeddings ONNX');
+                  }
+              }, 5000);
+              
               try {
                   if (window.Android && window.Android.scanLocalDeviceModels) {
                       const modelsJson = window.Android.scanLocalDeviceModels();
+                      clearTimeout(timeoutId); // Annuler le timeout si succès
+                      
                       const models = JSON.parse(modelsJson);
                       
                       // Filtrer les modèles ONNX d'embeddings
@@ -2017,22 +2027,24 @@
                       select.innerHTML = '<option value="">– Choisir un modèle –</option>';
                       
                       if (embeddingModels.length === 0) {
-                          select.innerHTML += '<option value="" disabled>Aucun modèle ONNX trouvé</option>';
+                          select.innerHTML += '<option value="" disabled>Aucun modèle Embeddings ONNX trouvé</option>';
                       } else {
                           embeddingModels.forEach(model => {
-                              const sizeMB = (model.size / (1024 * 1024)).toFixed(2);
                               const option = document.createElement('option');
-                              option.value = model.path;
+                              option.value = model.path || model.name;
+                              const sizeMB = model.size ? (model.size / (1024 * 1024)).toFixed(2) : '?';
                               option.textContent = `${model.name} (${sizeMB} MB)`;
                               select.appendChild(option);
                           });
                       }
                   } else {
-                      select.innerHTML = '<option value="">❌ API non disponible</option>';
+                      clearTimeout(timeoutId);
+                      select.innerHTML = '<option value="">❌ Android interface non disponible</option>';
                   }
-              } catch (e) {
-                  console.error('Erreur scan modèles ONNX embeddings:', e);
-                  select.innerHTML = '<option value="">❌ Erreur scan</option>';
+              } catch (error) {
+                  clearTimeout(timeoutId);
+                  console.error('Erreur scan modèles Embeddings ONNX:', error);
+                  select.innerHTML = '<option value="">❌ Erreur lors du scan</option>';
               }
           }
           
@@ -2061,9 +2073,19 @@
               
               select.innerHTML = '<option value="">⏳ Scanner en cours...</option>';
               
+              // ⭐ TIMEOUT: Réinitialiser après 5 secondes si le scan échoue
+              const timeoutId = setTimeout(() => {
+                  if (select.innerHTML.includes('⏳ Scanner en cours...')) {
+                      select.innerHTML = '<option value="">– Scanner les modèles –</option>';
+                      console.warn('Timeout lors du scan des modèles Vision ONNX');
+                  }
+              }, 5000);
+              
               try {
                   if (window.Android && window.Android.scanLocalDeviceModels) {
                       const modelsJson = window.Android.scanLocalDeviceModels();
+                      clearTimeout(timeoutId); // Annuler le timeout si succès
+                      
                       const models = JSON.parse(modelsJson);
                       
                       // Filtrer les modèles ONNX Vision
@@ -2098,8 +2120,12 @@
                               badge.style.color = '#f59e0b';
                           }
                       }
+                  } else {
+                      clearTimeout(timeoutId);
+                      select.innerHTML = '<option value="">❌ Android interface non disponible</option>';
                   }
               } catch (error) {
+                  clearTimeout(timeoutId);
                   console.error('Erreur scan modèles Vision ONNX:', error);
                   select.innerHTML = '<option value="">❌ Erreur lors du scan</option>';
               }
@@ -2108,8 +2134,8 @@
           const refreshOnnxVisionBtn = document.getElementById('refreshOnnxVisionBtn');
           if (refreshOnnxVisionBtn) {
               refreshOnnxVisionBtn.addEventListener('click', scanOnnxVisionModels);
-              // Scanner automatiquement au chargement
-              scanOnnxVisionModels();
+              // ⭐ MODIFIÉ: Ne pas scanner automatiquement au chargement, attendre l'action de l'utilisateur
+              // scanOnnxVisionModels();
           }
           
           // ⭐ NOUVEAU: Scanner les modèles ONNX Translation
@@ -2119,9 +2145,19 @@
               
               select.innerHTML = '<option value="">⏳ Scanner en cours...</option>';
               
+              // ⭐ TIMEOUT: Réinitialiser après 5 secondes si le scan échoue
+              const timeoutId = setTimeout(() => {
+                  if (select.innerHTML.includes('⏳ Scanner en cours...')) {
+                      select.innerHTML = '<option value="">– Scanner les modèles –</option>';
+                      console.warn('Timeout lors du scan des modèles Translation ONNX');
+                  }
+              }, 5000);
+              
               try {
                   if (window.Android && window.Android.scanLocalDeviceModels) {
                       const modelsJson = window.Android.scanLocalDeviceModels();
+                      clearTimeout(timeoutId); // Annuler le timeout si succès
+                      
                       const models = JSON.parse(modelsJson);
                       
                       // Filtrer les modèles ONNX Translation
@@ -2156,8 +2192,12 @@
                               badge.style.color = '#f59e0b';
                           }
                       }
+                  } else {
+                      clearTimeout(timeoutId);
+                      select.innerHTML = '<option value="">❌ Android interface non disponible</option>';
                   }
               } catch (error) {
+                  clearTimeout(timeoutId);
                   console.error('Erreur scan modèles Translation ONNX:', error);
                   select.innerHTML = '<option value="">❌ Erreur lors du scan</option>';
               }
@@ -2166,8 +2206,8 @@
           const refreshOnnxTranslationBtn = document.getElementById('refreshOnnxTranslationBtn');
           if (refreshOnnxTranslationBtn) {
               refreshOnnxTranslationBtn.addEventListener('click', scanOnnxTranslationModels);
-              // Scanner automatiquement au chargement
-              scanOnnxTranslationModels();
+              // ⭐ MODIFIÉ: Ne pas scanner automatiquement au chargement, attendre l'action de l'utilisateur
+              // scanOnnxTranslationModels();
           }
           
           // Validation de l'URL en temps réel
