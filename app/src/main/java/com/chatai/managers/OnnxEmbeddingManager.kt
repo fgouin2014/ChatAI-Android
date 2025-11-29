@@ -77,13 +77,27 @@ class OnnxEmbeddingManager(private val context: Context) {
             val sessionOptions = OrtSession.SessionOptions()
             sessionOptions.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             
+            // Vérifier ortEnv avant utilisation (éviter crash avec !!)
+            val env = ortEnv
+            if (env == null) {
+                Log.e(TAG, "OrtEnvironment est null")
+                return false
+            }
+            
             // Charger le modèle
             Log.d(TAG, "Chargement modèle ONNX...")
-            session = ortEnv!!.createSession(MODEL_PATH, sessionOptions)
+            session = env.createSession(MODEL_PATH, sessionOptions)
+            
+            // Vérifier la session avant utilisation
+            val sess = session
+            if (sess == null) {
+                Log.e(TAG, "Session est null après chargement")
+                return false
+            }
             
             // Vérifier les inputs/outputs du modèle
-            val inputNames = session!!.inputNames
-            val outputNames = session!!.outputNames
+            val inputNames = sess.inputNames
+            val outputNames = sess.outputNames
             
             Log.d(TAG, "Modèle chargé:")
             Log.d(TAG, "  Inputs: ${inputNames.joinToString()}")

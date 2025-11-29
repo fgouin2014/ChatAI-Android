@@ -96,18 +96,37 @@ class OnnxVisionManager(private val context: Context) {
             val sessionOptions = OrtSession.SessionOptions()
             sessionOptions.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             
+            // Vérifier ortEnv avant utilisation (éviter crash avec !!)
+            val env = ortEnv
+            if (env == null) {
+                Log.e(TAG, "OrtEnvironment est null")
+                return false
+            }
+            
             // Charger les modèles
             Log.d(TAG, "Chargement vision_model.onnx...")
-            visionSession = ortEnv!!.createSession(VISION_MODEL_PATH, sessionOptions)
+            visionSession = env.createSession(VISION_MODEL_PATH, sessionOptions)
             
             Log.d(TAG, "Chargement text_model.onnx...")
-            textSession = ortEnv!!.createSession(TEXT_MODEL_PATH, sessionOptions)
+            textSession = env.createSession(TEXT_MODEL_PATH, sessionOptions)
+            
+            // Vérifier les sessions avant utilisation
+            val vision = visionSession
+            if (vision == null) {
+                Log.e(TAG, "Vision session est null après chargement")
+                return false
+            }
+            val text = textSession
+            if (text == null) {
+                Log.e(TAG, "Text session est null après chargement")
+                return false
+            }
             
             // Vérifier les inputs/outputs
-            val visionInputs = visionSession!!.inputNames
-            val visionOutputs = visionSession!!.outputNames
-            val textInputs = textSession!!.inputNames
-            val textOutputs = textSession!!.outputNames
+            val visionInputs = vision.inputNames
+            val visionOutputs = vision.outputNames
+            val textInputs = text.inputNames
+            val textOutputs = text.outputNames
             
             Log.d(TAG, "Vision Model:")
             Log.d(TAG, "  Inputs: ${visionInputs.joinToString()}")

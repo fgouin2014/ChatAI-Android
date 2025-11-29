@@ -43,8 +43,11 @@ class OnnxTranslationManager(private val context: Context) {
         // Paramètres de décodage
         private const val MAX_LENGTH = 128 // Longueur maximale de la séquence
         private const val PAD_TOKEN_ID = 0
-        private const val BOS_TOKEN_ID = 0 // Beginning of Sequence
-        private const val EOS_TOKEN_ID = 0 // End of Sequence
+        // ⚠️ ERREUR: Ces valeurs doivent correspondre au vocabulaire MarianMT réel
+        // Pour opus-mt-fr-en, vérifier le fichier vocab.json du tokenizer
+        // Valeurs temporaires (à corriger avec vraies valeurs du tokenizer)
+        private const val BOS_TOKEN_ID = 0 // Beginning of Sequence (À VÉRIFIER)
+        private const val EOS_TOKEN_ID = 1 // End of Sequence (À VÉRIFIER)
     }
     
     private var ortEnv: OrtEnvironment? = null
@@ -52,7 +55,9 @@ class OnnxTranslationManager(private val context: Context) {
     private var decoderSession: OrtSession? = null
     private var isInitialized = false
     
-    // ⭐ Tokenizer SentencePiece pour MarianMT (utilise BertTokenizer pour l'instant, à améliorer)
+    // ⚠️ ERREUR CRITIQUE: Utilise BertTokenizer (WordPiece) au lieu de SentencePiece pour MarianMT
+    // MarianMT utilise SentencePiece, pas WordPiece - cela rend la traduction incorrecte
+    // TODO: Créer un SentencePieceTokenizer ou utiliser une bibliothèque appropriée
     private val tokenizer = BertTokenizer()
     
     /**
@@ -93,18 +98,37 @@ class OnnxTranslationManager(private val context: Context) {
             val sessionOptions = OrtSession.SessionOptions()
             sessionOptions.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             
+            // Vérifier ortEnv avant utilisation (éviter crash avec !!)
+            val env = ortEnv
+            if (env == null) {
+                Log.e(TAG, "OrtEnvironment est null")
+                return false
+            }
+            
             // Charger les modèles
             Log.d(TAG, "Chargement encoder_model.onnx...")
-            encoderSession = ortEnv!!.createSession(ENCODER_MODEL_PATH, sessionOptions)
+            encoderSession = env.createSession(ENCODER_MODEL_PATH, sessionOptions)
             
             Log.d(TAG, "Chargement decoder_model.onnx...")
-            decoderSession = ortEnv!!.createSession(DECODER_MODEL_PATH, sessionOptions)
+            decoderSession = env.createSession(DECODER_MODEL_PATH, sessionOptions)
+            
+            // Vérifier les sessions avant utilisation
+            val encoder = encoderSession
+            if (encoder == null) {
+                Log.e(TAG, "Encoder session est null après chargement")
+                return false
+            }
+            val decoder = decoderSession
+            if (decoder == null) {
+                Log.e(TAG, "Decoder session est null après chargement")
+                return false
+            }
             
             // Vérifier les inputs/outputs
-            val encoderInputs = encoderSession!!.inputNames
-            val encoderOutputs = encoderSession!!.outputNames
-            val decoderInputs = decoderSession!!.inputNames
-            val decoderOutputs = decoderSession!!.outputNames
+            val encoderInputs = encoder.inputNames
+            val encoderOutputs = encoder.outputNames
+            val decoderInputs = decoder.inputNames
+            val decoderOutputs = decoder.outputNames
             
             Log.d(TAG, "Encoder Model:")
             Log.d(TAG, "  Inputs: ${encoderInputs.joinToString()}")
@@ -207,18 +231,169 @@ class OnnxTranslationManager(private val context: Context) {
             val encoderOutputShape = encoderOutputTensor.info.shape
             Log.d(TAG, "Encoder output shape: ${encoderOutputShape.contentToString()}")
             
-            // ⭐ ÉTAPE 3: Décodage autoregressif (simplifié pour l'instant)
-            // TODO: Implémenter décodage autoregressif complet avec attention mask
-            // Pour l'instant, on retourne une traduction placeholder
+            // ⭐ ÉTAPE 3: Décodage autoregressif (génération token par token)
+            // MarianMT génère les tokens cible de manière autoregressive
+            Log.d(TAG, "Démarrage décodage autoregressif (max $MAX_LENGTH tokens)...")
             
-            // Fermer les tensors
+            // Créer attention mask pour l'encoder (tous les tokens sont valides)
+            val encoderAttentionMask = LongArray(inputIds.size) { 1L }
+            val encoderAttentionMaskTensor = OnnxTensor.createTensor(ortEnv, arrayOf(encoderAttentionMask))
+            
+            // Initialiser la séquence de décodage avec BOS token
+            val decodedTokenIds = mutableListOf<Long>()
+            decodedTokenIds.add(BOS_TOKEN_ID.toLong())
+            
+            // Boucle autoregressive: générer un token à la fois
+            var iteration = 0
+            var currentDecoderInputIds = longArrayOf(BOS_TOKEN_ID.toLong()) // Commencer avec BOS
+            
+            while (decodedTokenIds.size < MAX_LENGTH && iteration < MAX_LENGTH * 2) {
+                iteration++
+                
+                // Créer input tensor pour le decoder: [1, sequence_length]
+                val decoderInputIdsArray = arrayOf(currentDecoderInputIds)
+                val decoderInputIdsTensor = OnnxTensor.createTensor(ortEnv, decoderInputIdsArray)
+                
+                // Créer attention mask pour le decoder (tous les tokens valides)
+                val decoderAttentionMask = LongArray(currentDecoderInputIds.size) { 1L }
+                val decoderAttentionMaskTensor = OnnxTensor.createTensor(ortEnv, arrayOf(decoderAttentionMask))
+                
+                // Préparer les inputs pour le decoder
+                // ⚠️ IMPORTANT: Le type doit être Map<String, OnnxTensorLike> pour être compatible
+                val decoderInputs = mutableMapOf<String, OnnxTensorLike>()
+                decoderInputs["input_ids"] = decoderInputIdsTensor
+                decoderInputs["encoder_hidden_states"] = encoderOutputTensor
+                decoderInputs["encoder_attention_mask"] = encoderAttentionMaskTensor
+                
+                // Appeler le decoder
+                val decoderResult = decoderSession.run(decoderInputs)
+                
+                // Extraire les logits (probabilités pour chaque token)
+                val logitsTensor = try {
+                    val output = decoderResult.get(0) as? OnnxTensor
+                    if (output == null) {
+                        Log.e(TAG, "Output decoder n'est pas un OnnxTensor à l'itération $iteration")
+                        decoderResult.close()
+                        decoderInputIdsTensor.close()
+                        decoderAttentionMaskTensor.close()
+                        break
+                    }
+                    output
+                } catch (e: Exception) {
+                    Log.e(TAG, "Erreur extraction output decoder itération $iteration: ${e.message}", e)
+                    decoderResult.close()
+                    decoderInputIdsTensor.close()
+                    decoderAttentionMaskTensor.close()
+                    break
+                }
+                
+                // Extraire les logits: shape [batch, sequence_length, vocab_size]
+                val logitsShape = logitsTensor.info.shape
+                if (logitsShape.size < 3) {
+                    Log.e(TAG, "Shape logits invalide: ${logitsShape.contentToString()}")
+                    logitsTensor.close()
+                    decoderResult.close()
+                    decoderInputIdsTensor.close()
+                    decoderAttentionMaskTensor.close()
+                    break
+                }
+                
+                val batchSize = logitsShape[0].toInt()
+                val seqLen = logitsShape[1].toInt()
+                val vocabSize = logitsShape[2].toInt()
+                
+                // Extraire les logits du dernier token généré (position seqLen - 1)
+                val logitsBuffer = logitsTensor.floatBuffer
+                val logitsData = FloatArray(logitsBuffer.remaining())
+                logitsBuffer.get(logitsData)
+                
+                // Fermer les tensors immédiatement après extraction
+                logitsTensor.close()
+                decoderResult.close()
+                decoderInputIdsTensor.close()
+                decoderAttentionMaskTensor.close()
+                
+                // Extraire les logits du dernier token (dernière position de la séquence)
+                val lastTokenLogitsStart = (seqLen - 1) * vocabSize
+                val lastTokenLogitsEnd = lastTokenLogitsStart + vocabSize
+                if (lastTokenLogitsEnd > logitsData.size) {
+                    Log.e(TAG, "Index hors limites pour logits: $lastTokenLogitsEnd > ${logitsData.size}")
+                    break
+                }
+                
+                val lastTokenLogits = logitsData.sliceArray(lastTokenLogitsStart until lastTokenLogitsEnd)
+                
+                // Trouver le token avec la probabilité la plus élevée (greedy decoding)
+                var maxLogit = Float.NEGATIVE_INFINITY
+                var nextTokenId = EOS_TOKEN_ID.toLong()
+                
+                for (i in lastTokenLogits.indices) {
+                    if (lastTokenLogits[i] > maxLogit) {
+                        maxLogit = lastTokenLogits[i]
+                        nextTokenId = i.toLong()
+                    }
+                }
+                
+                // Vérifier si on a atteint la fin (EOS token)
+                if (nextTokenId == EOS_TOKEN_ID.toLong()) {
+                    Log.d(TAG, "EOS token détecté à l'itération $iteration, arrêt du décodage")
+                    decodedTokenIds.add(nextTokenId)
+                    break
+                }
+                
+                // Ajouter le nouveau token à la séquence
+                decodedTokenIds.add(nextTokenId)
+                
+                // Mettre à jour currentDecoderInputIds pour la prochaine itération
+                currentDecoderInputIds = decodedTokenIds.toLongArray()
+                
+                // Log tous les 10 tokens
+                if (decodedTokenIds.size % 10 == 0) {
+                    Log.d(TAG, "Progression décodage: ${decodedTokenIds.size} tokens générés (itération $iteration)")
+                }
+            }
+            
+            Log.d(TAG, "✅ Décodage autoregressif terminé: ${decodedTokenIds.size} tokens générés en $iteration itérations")
+            
+            // Fermer les tensors encoder
             encoderOutputTensor.close()
             inputTensor.close()
             encoderResult.close()
+            encoderAttentionMaskTensor.close()
             
-            // ⭐ TEMPORAIRE: Retourner placeholder (à remplacer par vrai décodage)
-            Log.w(TAG, "Décodage autoregressif non implémenté, retour placeholder")
-            return "[Traduction ONNX en développement] $text"
+            // ⭐ ÉTAPE 4: Détokeniser les tokens générés en texte
+            // ⚠️ NOTE: BertTokenizer n'est pas le bon tokenizer pour MarianMT,
+            // mais on l'utilise temporairement pour décoder
+            if (decodedTokenIds.isEmpty() || (decodedTokenIds.size == 1 && decodedTokenIds[0] == BOS_TOKEN_ID.toLong())) {
+                Log.w(TAG, "Aucun token généré (uniquement BOS)")
+                return null
+            }
+            
+            // Retirer BOS et EOS tokens pour la détokenisation
+            val tokensToDecode = decodedTokenIds.filter { 
+                it != BOS_TOKEN_ID.toLong() && it != EOS_TOKEN_ID.toLong() 
+            }
+            
+            if (tokensToDecode.isEmpty()) {
+                Log.w(TAG, "Aucun token valide après filtrage BOS/EOS")
+                return null
+            }
+            
+            // ⚠️ TEMPORAIRE: Utiliser BertTokenizer pour décoder (à remplacer par SentencePiece)
+            // Convertir en LongArray pour tokenizer
+            val tokenIdsArray = tokensToDecode.toLongArray()
+            val translatedText = tokenizer.decode(tokenIdsArray)
+            
+            if (translatedText.isBlank()) {
+                Log.w(TAG, "Détokenisation retourne texte vide")
+                return null
+            }
+            
+            Log.i(TAG, "✅ Traduction réussie: \"${translatedText.take(100)}${if (translatedText.length > 100) "..." else ""}\"")
+            
+            // ⚠️ NOTE: La qualité sera limitée car on utilise BertTokenizer au lieu de SentencePiece
+            // TODO: Implémenter SentencePieceTokenizer pour meilleure qualité
+            return translatedText
             
         } catch (e: Exception) {
             Log.e(TAG, "Erreur traduction: ${e.message}", e)

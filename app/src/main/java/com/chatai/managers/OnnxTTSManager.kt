@@ -105,15 +105,22 @@ class OnnxTTSManager(
             val sessionOptions = OrtSession.SessionOptions()
             sessionOptions.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             
+            // Vérifier ortEnv avant utilisation (éviter crash avec !!)
+            val env = ortEnv
+            if (env == null) {
+                Log.e(TAG, "OrtEnvironment est null")
+                return
+            }
+            
             // Charger les 3 modèles
             Log.d(TAG, "Chargement encoder_model.onnx...")
-            encoderSession = ortEnv!!.createSession(ENCODER_MODEL, sessionOptions)
+            encoderSession = env.createSession(ENCODER_MODEL, sessionOptions)
             
             Log.d(TAG, "Chargement decoder_model.onnx...")
-            decoderSession = ortEnv!!.createSession(DECODER_MODEL, sessionOptions)
+            decoderSession = env.createSession(DECODER_MODEL, sessionOptions)
             
             Log.d(TAG, "Chargement decoder_postnet_and_vocoder.onnx...")
-            vocoderSession = ortEnv!!.createSession(VOCODER_MODEL, sessionOptions)
+            vocoderSession = env.createSession(VOCODER_MODEL, sessionOptions)
             
             // ⭐ NOUVEAU: Initialiser le tokenizer
             val tokenizerInitialized = tokenizer.initialize()
