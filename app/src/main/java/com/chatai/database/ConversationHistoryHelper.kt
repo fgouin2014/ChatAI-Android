@@ -227,6 +227,7 @@ object ConversationHistoryHelper {
     /**
      * Sauvegarde un message webapp dans Room DB (Java-friendly)
      * ⭐ NOUVEAU: Phase 1.1 - Synchronisation Webapp ↔ Room DB
+     * ⭐ MODIFIÉ: Génère et sauvegarde les embeddings pour RAG
      */
     fun saveWebappConversation(
         context: Context,
@@ -263,6 +264,24 @@ object ConversationHistoryHelper {
                 
                 val dbRowId = dao.insert(conversation)
                 Log.i(TAG, "✅ Conversation webapp sauvegardée (DB row ID: $dbRowId)")
+                
+                // ⭐ NOUVEAU: Générer et sauvegarder les embeddings pour RAG (non-bloquant)
+                try {
+                    val embeddingService = com.chatai.services.EmbeddingService(context)
+                    val embedding = embeddingService.embedConversation(userMessage, aiResponse)
+                    
+                    if (embedding != null) {
+                        val embeddingJson = embeddingService.embeddingToJson(embedding)
+                        dao.updateEmbeddings(dbRowId, embeddingJson)
+                        Log.d(TAG, "✅ Embedding généré et sauvegardé pour RAG (${embedding.size} dimensions)")
+                    } else {
+                        Log.w(TAG, "⚠️ Impossible de générer l'embedding pour cette conversation")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Erreur génération embedding (non-bloquant): ${e.message}")
+                    // ⭐ SELON NOS RULES: Ne pas bloquer si embedding échoue, conversation déjà sauvegardée
+                }
+                
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur sauvegarde conversation webapp", e)

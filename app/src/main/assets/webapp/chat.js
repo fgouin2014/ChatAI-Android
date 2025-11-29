@@ -230,15 +230,10 @@ class SecureMobileAIChat {
         this.addListener(this.langBtn, 'click', () => this.toggleLanguageSelector());
         this.addListener(this.kittBtn, 'click', () => this.openKittInterface());
         
-        // ⭐ NOUVEAU: Boutons ONNX
+        // ⭐ NOUVEAU: Bouton Vision ONNX
         const imageUploadBtn = document.getElementById('imageUploadBtn');
         if (imageUploadBtn) {
             this.addListener(imageUploadBtn, 'click', () => this.uploadAndAnalyzeImage());
-        }
-        
-        const translateBtn = document.getElementById('translateBtn');
-        if (translateBtn) {
-            this.addListener(translateBtn, 'click', () => this.translateText());
         }
         
         // ⭐ NOUVEAU: Input file pour upload d'images
@@ -1862,61 +1857,6 @@ class SecureMobileAIChat {
     }
     
     /**
-     * ⭐ NOUVEAU: Callback pour recevoir le résultat de la traduction depuis Android
-     * @param translatedText Texte traduit par OnnxTranslationManager
-     */
-    onTranslationResult(translatedText) {
-        this.hideTypingIndicator();
-        if (translatedText) {
-            // Afficher le texte traduit dans le chat
-            this.showSecureMessage('ai', `🌐 Traduction: ${translatedText}`);
-        } else {
-            this.showSecureMessage('ai', "Désolé, je n'ai pas pu traduire le texte pour le moment 😅");
-        }
-    }
-    
-    /**
-     * ⭐ NOUVEAU: Traduire le texte sélectionné ou le dernier message
-     */
-    translateText() {
-        // Récupérer le texte à traduire (sélection ou dernier message)
-        let textToTranslate = '';
-        
-        // Vérifier si du texte est sélectionné dans le textarea
-        const messageInput = document.getElementById('messageInput');
-        if (messageInput && messageInput.selectionStart !== messageInput.selectionEnd) {
-            textToTranslate = messageInput.value.substring(messageInput.selectionStart, messageInput.selectionEnd);
-        } else if (messageInput && messageInput.value.trim()) {
-            // Sinon, utiliser le texte dans le textarea
-            textToTranslate = messageInput.value.trim();
-        } else {
-            // Sinon, utiliser le dernier message de l'utilisateur
-            const userMessages = this.chatMessages.querySelectorAll('.message.user');
-            if (userMessages.length > 0) {
-                const lastUserMessage = userMessages[userMessages.length - 1];
-                textToTranslate = lastUserMessage.textContent.trim();
-            }
-        }
-        
-        if (!textToTranslate) {
-            this.showSecureMessage('ai', "⚠️ Aucun texte à traduire. Sélectionnez du texte ou tapez un message.");
-            return;
-        }
-        
-        // Vérifier que l'interface Android est disponible
-        if (!this.androidInterface || !this.androidInterface.translateText) {
-            this.showSecureMessage('ai', "⚠️ Service de traduction non disponible.");
-            return;
-        }
-        
-        this.showTypingIndicator();
-        this.showSecureMessage('user', `🌐 Traduction de: "${textToTranslate.substring(0, 50)}${textToTranslate.length > 50 ? '...' : ''}"`);
-        
-        // Appeler la fonction Android (asynchrone, callback via onTranslationResult)
-        this.androidInterface.translateText(textToTranslate);
-    }
-    
-    /**
      * ⭐ NOUVEAU: Uploader et analyser une image
      */
     uploadAndAnalyzeImage() {
@@ -2487,13 +2427,6 @@ window.receiveFileFromAndroid = function(fileName, fileContent, fileType) {
 window.onVisionAnalysisResult = function(description) {
     if (window.secureChatApp && window.secureChatApp.onVisionAnalysisResult) {
         window.secureChatApp.onVisionAnalysisResult(description);
-    }
-};
-
-// ⭐ NOUVEAU: Callback global pour recevoir les résultats de traduction depuis Android
-window.onTranslationResult = function(translatedText) {
-    if (window.secureChatApp && window.secureChatApp.onTranslationResult) {
-        window.secureChatApp.onTranslationResult(translatedText);
     }
 };
 
