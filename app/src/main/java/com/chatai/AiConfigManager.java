@@ -172,9 +172,7 @@ public final class AiConfigManager {
         // pour rendre l'intention explicite (vide = suppression, absent = non modifié)
         // Le nettoyage de apiKey vide a été supprimé pour permettre la distinction
         // entre "apiKey absent" (non modifié) et "apiKey = ''" (suppression explicite)
-        Log.i(TAG, "📝 writeConfigJson: Appel applyJsonToPreferences");
         applyJsonToPreferences(context, json);
-        Log.i(TAG, "📝 writeConfigJson: Écriture fichier");
         writeJsonToFile(json);
         Log.i(TAG, "✅ writeConfigJson: Terminé");
         return toPrettyString(json);
