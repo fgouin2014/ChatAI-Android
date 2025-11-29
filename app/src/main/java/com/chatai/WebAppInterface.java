@@ -1452,19 +1452,23 @@ public class WebAppInterface {
                                     String category = "Autre";
                                     String parentPath = file.getParent();
                                     if (parentPath != null) {
-                                        if (parentPath.contains("/tts/") || parentPath.contains("\\tts\\")) {
+                                        // Normaliser le chemin pour comparaison (lowercase, remplacer backslash)
+                                        String normalizedPath = parentPath.toLowerCase().replace("\\", "/");
+                                        
+                                        // Vérifier les catégories (avec ou sans slash final)
+                                        if (normalizedPath.contains("/tts") || normalizedPath.endsWith("tts")) {
                                             category = "TTS";
-                                        } else if (parentPath.contains("/embeddings/") || parentPath.contains("\\embeddings\\")) {
+                                        } else if (normalizedPath.contains("/embeddings") || normalizedPath.endsWith("embeddings")) {
                                             category = "Embeddings";
-                                        } else if (parentPath.contains("/vision/") || parentPath.contains("\\vision\\")) {
+                                        } else if (normalizedPath.contains("/vision") || normalizedPath.endsWith("vision")) {
                                             category = "Vision";
-                                        } else if (parentPath.contains("/classification/") || parentPath.contains("\\classification\\")) {
+                                        } else if (normalizedPath.contains("/classification") || normalizedPath.endsWith("classification")) {
                                             category = "Classification";
-                                        } else if (parentPath.contains("/translation/") || parentPath.contains("\\translation\\")) {
+                                        } else if (normalizedPath.contains("/translation") || normalizedPath.endsWith("translation")) {
                                             category = "Traduction";
-                                        } else if (parentPath.contains("/whisper/") || parentPath.contains("\\whisper\\")) {
+                                        } else if (normalizedPath.contains("/whisper") || normalizedPath.endsWith("whisper")) {
                                             category = "STT (Whisper)";
-                                        } else if (parentPath.endsWith("/models") || parentPath.endsWith("\\models")) {
+                                        } else if (normalizedPath.endsWith("/models") || normalizedPath.endsWith("models")) {
                                             category = "LLM (Ollama)";
                                         }
                                     }
