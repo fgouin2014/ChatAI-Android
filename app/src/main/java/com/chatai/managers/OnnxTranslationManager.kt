@@ -3,7 +3,7 @@ package com.chatai.managers
 import android.content.Context
 import android.util.Log
 import ai.onnxruntime.*
-import com.chatai.tokenizer.BertTokenizer
+import com.chatai.tokenizer.SentencePieceTokenizer
 import java.io.File
 
 /**
@@ -42,12 +42,8 @@ class OnnxTranslationManager(private val context: Context) {
         
         // Paramètres de décodage
         private const val MAX_LENGTH = 128 // Longueur maximale de la séquence
-        private const val PAD_TOKEN_ID = 0
-        // ⚠️ ERREUR: Ces valeurs doivent correspondre au vocabulaire MarianMT réel
-        // Pour opus-mt-fr-en, vérifier le fichier vocab.json du tokenizer
-        // Valeurs temporaires (à corriger avec vraies valeurs du tokenizer)
-        private const val BOS_TOKEN_ID = 0 // Beginning of Sequence (À VÉRIFIER)
-        private const val EOS_TOKEN_ID = 1 // End of Sequence (À VÉRIFIER)
+        // ⚠️ NOTE: BOS/EOS/PAD IDs sont maintenant détectés automatiquement depuis le vocabulaire
+        // via SentencePieceTokenizer.getBosTokenId(), getEosTokenId(), getPadTokenId()
     }
     
     private var ortEnv: OrtEnvironment? = null
@@ -55,10 +51,15 @@ class OnnxTranslationManager(private val context: Context) {
     private var decoderSession: OrtSession? = null
     private var isInitialized = false
     
-    // ⚠️ ERREUR CRITIQUE: Utilise BertTokenizer (WordPiece) au lieu de SentencePiece pour MarianMT
-    // MarianMT utilise SentencePiece, pas WordPiece - cela rend la traduction incorrecte
-    // TODO: Créer un SentencePieceTokenizer ou utiliser une bibliothèque appropriée
-    private val tokenizer = BertTokenizer()
+    // ✅ CORRIGÉ: Utilise SentencePieceTokenizer pour MarianMT
+    // SentencePieceTokenizer charge le vocabulaire réel MarianMT et détecte automatiquement
+    // les tokens spéciaux (BOS, EOS, PAD, UNK)
+    private val tokenizer = SentencePieceTokenizer()
+    
+    // IDs des tokens spéciaux (détectés depuis le vocabulaire)
+    private var bosTokenId: Int = 2  // Valeur par défaut (sera remplacée après init)
+    private var eosTokenId: Int = 3  // Valeur par défaut (sera remplacée après init)
+    private var padTokenId: Int = 0  // Valeur par défaut (sera remplacée après init)
     
     /**
      * Initialiser les modèles ONNX MarianMT (encoder + decoder)
@@ -137,12 +138,19 @@ class OnnxTranslationManager(private val context: Context) {
             Log.d(TAG, "  Inputs: ${decoderInputs.joinToString()}")
             Log.d(TAG, "  Outputs: ${decoderOutputs.joinToString()}")
             
-            // ⭐ Initialiser le tokenizer (utilise BERT pour l'instant, à améliorer avec SentencePiece)
+            // ⭐ Initialiser le tokenizer SentencePiece
             val tokenizerInitialized = tokenizer.initialize()
             if (tokenizerInitialized) {
-                Log.i(TAG, "✅ Tokenizer initialisé (${tokenizer.getVocabSize()} tokens)")
+                // Récupérer les IDs des tokens spéciaux depuis le tokenizer
+                bosTokenId = tokenizer.getBosTokenId()
+                eosTokenId = tokenizer.getEosTokenId()
+                padTokenId = tokenizer.getPadTokenId()
+                
+                Log.i(TAG, "✅ Tokenizer SentencePiece initialisé (${tokenizer.getVocabSize()} tokens)")
+                Log.d(TAG, "Tokens spéciaux détectés: BOS=$bosTokenId, EOS=$eosTokenId, PAD=$padTokenId")
             } else {
-                Log.w(TAG, "⚠️ Tokenizer non initialisé, traduction peut être incorrecte")
+                Log.w(TAG, "⚠️ Tokenizer SentencePiece non initialisé, traduction peut être incorrecte")
+                Log.w(TAG, "⚠️ Vérifier que vocab.json existe dans $BASE_PATH")
             }
             
             isInitialized = true
@@ -239,13 +247,13 @@ class OnnxTranslationManager(private val context: Context) {
             val encoderAttentionMask = LongArray(inputIds.size) { 1L }
             val encoderAttentionMaskTensor = OnnxTensor.createTensor(ortEnv, arrayOf(encoderAttentionMask))
             
-            // Initialiser la séquence de décodage avec BOS token
+            // Initialiser la séquence de décodage avec BOS token (détecté depuis vocabulaire)
             val decodedTokenIds = mutableListOf<Long>()
-            decodedTokenIds.add(BOS_TOKEN_ID.toLong())
+            decodedTokenIds.add(bosTokenId.toLong())
             
             // Boucle autoregressive: générer un token à la fois
             var iteration = 0
-            var currentDecoderInputIds = longArrayOf(BOS_TOKEN_ID.toLong()) // Commencer avec BOS
+            var currentDecoderInputIds = longArrayOf(bosTokenId.toLong()) // Commencer avec BOS
             
             while (decodedTokenIds.size < MAX_LENGTH && iteration < MAX_LENGTH * 2) {
                 iteration++
@@ -325,7 +333,7 @@ class OnnxTranslationManager(private val context: Context) {
                 
                 // Trouver le token avec la probabilité la plus élevée (greedy decoding)
                 var maxLogit = Float.NEGATIVE_INFINITY
-                var nextTokenId = EOS_TOKEN_ID.toLong()
+                var nextTokenId = eosTokenId.toLong() // Valeur par défaut = EOS
                 
                 for (i in lastTokenLogits.indices) {
                     if (lastTokenLogits[i] > maxLogit) {
@@ -334,9 +342,9 @@ class OnnxTranslationManager(private val context: Context) {
                     }
                 }
                 
-                // Vérifier si on a atteint la fin (EOS token)
-                if (nextTokenId == EOS_TOKEN_ID.toLong()) {
-                    Log.d(TAG, "EOS token détecté à l'itération $iteration, arrêt du décodage")
+                // Vérifier si on a atteint la fin (EOS token détecté depuis vocabulaire)
+                if (nextTokenId == eosTokenId.toLong()) {
+                    Log.d(TAG, "EOS token ($eosTokenId) détecté à l'itération $iteration, arrêt du décodage")
                     decodedTokenIds.add(nextTokenId)
                     break
                 }
@@ -361,17 +369,15 @@ class OnnxTranslationManager(private val context: Context) {
             encoderResult.close()
             encoderAttentionMaskTensor.close()
             
-            // ⭐ ÉTAPE 4: Détokeniser les tokens générés en texte
-            // ⚠️ NOTE: BertTokenizer n'est pas le bon tokenizer pour MarianMT,
-            // mais on l'utilise temporairement pour décoder
-            if (decodedTokenIds.isEmpty() || (decodedTokenIds.size == 1 && decodedTokenIds[0] == BOS_TOKEN_ID.toLong())) {
+            // ⭐ ÉTAPE 4: Détokeniser les tokens générés en texte avec SentencePieceTokenizer
+            if (decodedTokenIds.isEmpty() || (decodedTokenIds.size == 1 && decodedTokenIds[0] == bosTokenId.toLong())) {
                 Log.w(TAG, "Aucun token généré (uniquement BOS)")
                 return null
             }
             
             // Retirer BOS et EOS tokens pour la détokenisation
             val tokensToDecode = decodedTokenIds.filter { 
-                it != BOS_TOKEN_ID.toLong() && it != EOS_TOKEN_ID.toLong() 
+                it != bosTokenId.toLong() && it != eosTokenId.toLong() 
             }
             
             if (tokensToDecode.isEmpty()) {
@@ -379,8 +385,7 @@ class OnnxTranslationManager(private val context: Context) {
                 return null
             }
             
-            // ⚠️ TEMPORAIRE: Utiliser BertTokenizer pour décoder (à remplacer par SentencePiece)
-            // Convertir en LongArray pour tokenizer
+            // ✅ Utiliser SentencePieceTokenizer pour décoder
             val tokenIdsArray = tokensToDecode.toLongArray()
             val translatedText = tokenizer.decode(tokenIdsArray)
             
@@ -391,8 +396,6 @@ class OnnxTranslationManager(private val context: Context) {
             
             Log.i(TAG, "✅ Traduction réussie: \"${translatedText.take(100)}${if (translatedText.length > 100) "..." else ""}\"")
             
-            // ⚠️ NOTE: La qualité sera limitée car on utilise BertTokenizer au lieu de SentencePiece
-            // TODO: Implémenter SentencePieceTokenizer pour meilleure qualité
             return translatedText
             
         } catch (e: Exception) {

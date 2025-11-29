@@ -4,38 +4,34 @@
 
 ---
 
-## 1. ❌ ERREUR CRITIQUE: Tokenizer incorrect pour MarianMT
+## 1. ✅ CORRIGÉ: Tokenizer incorrect pour MarianMT
 
-**Fichier:** `OnnxTranslationManager.kt` ligne 56
+**Fichier:** `OnnxTranslationManager.kt` 
 
-**Problème:** Utilise `BertTokenizer` (WordPiece) au lieu de SentencePiece pour MarianMT.
+**Problème:** Utilisait `BertTokenizer` (WordPiece) au lieu de SentencePiece pour MarianMT.
 
-```kotlin
-// ❌ INCORRECT:
-private val tokenizer = BertTokenizer()
-```
+**Solution appliquée:** ✅ Créé `SentencePieceTokenizer.kt`:
+- Charge le vocabulaire réel MarianMT depuis `vocab.json`
+- Détecte automatiquement les tokens spéciaux (BOS, EOS, PAD, UNK)
+- Implémente encodage/décodage basé sur le vocabulaire
+- Intégré dans `OnnxTranslationManager` à la place de `BertTokenizer`
 
-**Impact:** La traduction ne fonctionnera jamais correctement car MarianMT utilise SentencePiece, pas WordPiece.
-
-**Solution:** Créer un tokenizer SentencePiece ou utiliser une bibliothèque appropriée.
+**Statut:** ✅ **CORRIGÉ** - Le SentencePieceTokenizer est implémenté et utilisé. Note: Version simplifiée basée sur vocab.json. Pour une implémentation complète SentencePiece, il faudrait parser le fichier `.spm`.
 
 ---
 
-## 2. ❌ ERREUR CRITIQUE: Tokens BOS/EOS incorrects
+## 2. ✅ CORRIGÉ: Tokens BOS/EOS incorrects
 
-**Fichier:** `OnnxTranslationManager.kt` lignes 46-47
+**Fichier:** `OnnxTranslationManager.kt`
 
-**Problème:** `BOS_TOKEN_ID` et `EOS_TOKEN_ID` sont tous deux mis à 0.
+**Problème:** `BOS_TOKEN_ID` et `EOS_TOKEN_ID` étaient hardcodés à des valeurs incorrectes.
 
-```kotlin
-// ❌ INCORRECT:
-private const val BOS_TOKEN_ID = 0 // Beginning of Sequence
-private const val EOS_TOKEN_ID = 0 // End of Sequence
-```
+**Solution appliquée:** ✅ Détection automatique depuis le vocabulaire:
+- `SentencePieceTokenizer` détecte automatiquement les IDs des tokens spéciaux depuis `vocab.json`
+- Les valeurs BOS/EOS/PAD sont maintenant dynamiques selon le vocabulaire réel
+- Plus besoin de constantes hardcodées
 
-**Impact:** Impossible de distinguer le début de la fin d'une séquence. Les valeurs doivent être différentes selon le vocabulaire MarianMT (généralement BOS=0, EOS=1 ou similaire).
-
-**Solution:** Utiliser les vraies valeurs du tokenizer MarianMT.
+**Statut:** ✅ **CORRIGÉ** - Les tokens spéciaux sont maintenant détectés automatiquement depuis le vocabulaire MarianMT.
 
 ---
 
