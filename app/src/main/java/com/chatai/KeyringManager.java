@@ -156,16 +156,13 @@ public class KeyringManager {
      * Sauvegarde une clé API pour un provider
      */
     public void setApiKey(String provider, String apiKey) {
-        Log.i(TAG, "🔑 setApiKey: provider=" + provider + ", apiKey=" + (apiKey == null ? "null" : (apiKey.trim().isEmpty() ? "VIDE" : apiKey.length() + " chars")));
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            Log.i(TAG, "🔑 setApiKey: Clé vide, appel clearApiKey");
             clearApiKey(provider);
             return;
         }
         
         try {
             String keyName = getKeyName(provider);
-            Log.i(TAG, "🔑 setApiKey: keyName=" + keyName);
             if (keyName == null) {
                 Log.e(TAG, "❌ setApiKey: Provider inconnu: " + provider);
                 return;
@@ -173,17 +170,16 @@ public class KeyringManager {
             
             String trimmedKey = apiKey.trim();
             
-            // Vérifier si identique
+            // Vérifier si identique (ne pas logger si identique pour réduire le bruit)
             String existing = getApiKey(provider);
-            Log.i(TAG, "🔑 setApiKey: Clé existante=" + (existing == null ? "null" : existing.length() + " chars"));
             if (existing != null && existing.equals(trimmedKey)) {
-                Log.v(TAG, "Clé " + provider + " identique, pas de sauvegarde");
-                return;
+                return; // Clé identique, pas de changement
             }
             
+            // Seulement logger si la clé change réellement
             String encrypted = encrypt(trimmedKey);
             prefs.edit().putString(keyName, encrypted).apply();
-            Log.i(TAG, "✅ Clé " + provider + " sauvegardée dans SharedPreferences (" + trimmedKey.length() + " chars, encrypted=" + encrypted.length() + " chars)");
+            Log.i(TAG, "✅ Clé " + provider + " sauvegardée (" + trimmedKey.length() + " chars)");
         } catch (Exception e) {
             Log.e(TAG, "❌ Erreur sauvegarde clé " + provider, e);
             throw new RuntimeException("Erreur sauvegarde clé " + provider, e);
