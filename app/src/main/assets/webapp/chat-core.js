@@ -144,6 +144,10 @@
             // Config DOM - RAG (dans tab Local)
             this.configRAGEnabled = document.getElementById('configRAGEnabled');
             this.configEmbeddingModel = document.getElementById('configEmbeddingModel');
+            this.configEmbeddingSource = document.getElementById('configEmbeddingSource');
+            this.configOnnxEmbeddingModel = document.getElementById('configOnnxEmbeddingModel');
+            this.configOnnxVisionModel = document.getElementById('configOnnxVisionModel');
+            this.configOnnxTranslationModel = document.getElementById('configOnnxTranslationModel');
             
             // Config DOM - Thinking & WebSearch
             this.configWebSearchProvider = document.getElementById('configWebSearchProvider');

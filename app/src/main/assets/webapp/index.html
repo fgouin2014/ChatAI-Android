@@ -447,6 +447,54 @@
                         </div>
                     </div>
                     
+                    <!-- ⭐ SECTION 4: MODÈLES ONNX (Vision) -->
+                    <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
+                        <h4>👁️ Vision ONNX (CLIP) <span id="visionOnnxStatusBadge" style="font-size: 12px; font-weight: normal; margin-left: 8px;"></span></h4>
+                        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(168, 85, 247, 0.1); border-radius: 6px;">
+                            <strong>💡 Vision ONNX:</strong> Analyse d'images via CLIP (100% offline).<br>
+                            <strong>📁 Fichiers requis:</strong> <code>vision_model.onnx</code> et <code>text_model.onnx</code>
+                        </p>
+                        <div class="form-grid">
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle Vision ONNX</span>
+                                <select id="configOnnxVisionModel">
+                                    <option value="">– Scanner les modèles –</option>
+                                </select>
+                                <button id="refreshOnnxVisionBtn" class="panel-button secondary" style="margin-top: 8px; padding: 6px 12px; font-size: 11px;">
+                                    🔄 Scanner modèles ONNX Vision
+                                </button>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Modèles ONNX Vision scannés depuis <code>/storage/emulated/0/ChatAI-Files/models/vision/</code><br>
+                                    <strong>Fichiers attendus:</strong> <code>vision_model.onnx</code> (image encoder) et <code>text_model.onnx</code> (text encoder)
+                                </small>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- ⭐ SECTION 5: MODÈLES ONNX (Translation) -->
+                    <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
+                        <h4>🌐 Traduction ONNX (MarianMT) <span id="translationOnnxStatusBadge" style="font-size: 12px; font-weight: normal; margin-left: 8px;"></span></h4>
+                        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(236, 72, 153, 0.1); border-radius: 6px;">
+                            <strong>💡 Traduction ONNX:</strong> Traduction français → anglais via MarianMT (100% offline).<br>
+                            <strong>📁 Fichiers requis:</strong> <code>encoder_model.onnx</code> et <code>decoder_model.onnx</code>
+                        </p>
+                        <div class="form-grid">
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle Traduction ONNX</span>
+                                <select id="configOnnxTranslationModel">
+                                    <option value="">– Scanner les modèles –</option>
+                                </select>
+                                <button id="refreshOnnxTranslationBtn" class="panel-button secondary" style="margin-top: 8px; padding: 6px 12px; font-size: 11px;">
+                                    🔄 Scanner modèles ONNX Traduction
+                                </button>
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Modèles ONNX Traduction scannés depuis <code>/storage/emulated/0/ChatAI-Files/models/translation/</code><br>
+                                    <strong>Fichiers attendus:</strong> <code>encoder_model.onnx</code> et <code>decoder_model.onnx</code> (opus-mt-fr-en)
+                                </small>
+                            </label>
+                        </div>
+                    </div>
+                    
                     <!-- ⭐ BOUTONS DE SAUVEGARDE -->
                     <div class="config-actions-group" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid rgba(148, 163, 184, 0.3);">
                         <div class="action-section">
@@ -2004,6 +2052,122 @@
           const testLocalServerBtn = document.getElementById('testLocalServerBtn');
           if (testLocalServerBtn) {
               testLocalServerBtn.addEventListener('click', testLocalServerConnection);
+          }
+          
+          // ⭐ NOUVEAU: Scanner les modèles ONNX Vision
+          function scanOnnxVisionModels() {
+              const select = document.getElementById('configOnnxVisionModel');
+              if (!select) return;
+              
+              select.innerHTML = '<option value="">⏳ Scanner en cours...</option>';
+              
+              try {
+                  if (window.Android && window.Android.scanLocalDeviceModels) {
+                      const modelsJson = window.Android.scanLocalDeviceModels();
+                      const models = JSON.parse(modelsJson);
+                      
+                      // Filtrer les modèles ONNX Vision
+                      const visionModels = models.filter(m => 
+                          m.type === 'ONNX' && 
+                          m.category === 'Vision' &&
+                          (m.name.toLowerCase().includes('vision_model') || m.name.toLowerCase().includes('text_model'))
+                      );
+                      
+                      select.innerHTML = '<option value="">– Choisir un modèle –</option>';
+                      
+                      if (visionModels.length === 0) {
+                          select.innerHTML += '<option value="" disabled>Aucun modèle Vision ONNX trouvé</option>';
+                      } else {
+                          visionModels.forEach(model => {
+                              const option = document.createElement('option');
+                              option.value = model.path || model.name;
+                              const sizeMB = model.size ? (model.size / (1024 * 1024)).toFixed(2) : '?';
+                              option.textContent = `${model.name} (${sizeMB} MB)`;
+                              select.appendChild(option);
+                          });
+                      }
+                      
+                      // Mettre à jour le badge de statut
+                      const badge = document.getElementById('visionOnnxStatusBadge');
+                      if (badge) {
+                          if (visionModels.length > 0) {
+                              badge.textContent = '✅ ' + visionModels.length + ' modèle(s)';
+                              badge.style.color = '#10b981';
+                          } else {
+                              badge.textContent = '⚠️ Aucun modèle';
+                              badge.style.color = '#f59e0b';
+                          }
+                      }
+                  }
+              } catch (error) {
+                  console.error('Erreur scan modèles Vision ONNX:', error);
+                  select.innerHTML = '<option value="">❌ Erreur lors du scan</option>';
+              }
+          }
+          
+          const refreshOnnxVisionBtn = document.getElementById('refreshOnnxVisionBtn');
+          if (refreshOnnxVisionBtn) {
+              refreshOnnxVisionBtn.addEventListener('click', scanOnnxVisionModels);
+              // Scanner automatiquement au chargement
+              scanOnnxVisionModels();
+          }
+          
+          // ⭐ NOUVEAU: Scanner les modèles ONNX Translation
+          function scanOnnxTranslationModels() {
+              const select = document.getElementById('configOnnxTranslationModel');
+              if (!select) return;
+              
+              select.innerHTML = '<option value="">⏳ Scanner en cours...</option>';
+              
+              try {
+                  if (window.Android && window.Android.scanLocalDeviceModels) {
+                      const modelsJson = window.Android.scanLocalDeviceModels();
+                      const models = JSON.parse(modelsJson);
+                      
+                      // Filtrer les modèles ONNX Translation
+                      const translationModels = models.filter(m => 
+                          m.type === 'ONNX' && 
+                          m.category === 'Traduction' &&
+                          (m.name.toLowerCase().includes('encoder_model') || m.name.toLowerCase().includes('decoder_model'))
+                      );
+                      
+                      select.innerHTML = '<option value="">– Choisir un modèle –</option>';
+                      
+                      if (translationModels.length === 0) {
+                          select.innerHTML += '<option value="" disabled>Aucun modèle Traduction ONNX trouvé</option>';
+                      } else {
+                          translationModels.forEach(model => {
+                              const option = document.createElement('option');
+                              option.value = model.path || model.name;
+                              const sizeMB = model.size ? (model.size / (1024 * 1024)).toFixed(2) : '?';
+                              option.textContent = `${model.name} (${sizeMB} MB)`;
+                              select.appendChild(option);
+                          });
+                      }
+                      
+                      // Mettre à jour le badge de statut
+                      const badge = document.getElementById('translationOnnxStatusBadge');
+                      if (badge) {
+                          if (translationModels.length > 0) {
+                              badge.textContent = '✅ ' + translationModels.length + ' modèle(s)';
+                              badge.style.color = '#10b981';
+                          } else {
+                              badge.textContent = '⚠️ Aucun modèle';
+                              badge.style.color = '#f59e0b';
+                          }
+                      }
+                  }
+              } catch (error) {
+                  console.error('Erreur scan modèles Translation ONNX:', error);
+                  select.innerHTML = '<option value="">❌ Erreur lors du scan</option>';
+              }
+          }
+          
+          const refreshOnnxTranslationBtn = document.getElementById('refreshOnnxTranslationBtn');
+          if (refreshOnnxTranslationBtn) {
+              refreshOnnxTranslationBtn.addEventListener('click', scanOnnxTranslationModels);
+              // Scanner automatiquement au chargement
+              scanOnnxTranslationModels();
           }
           
           // Validation de l'URL en temps réel

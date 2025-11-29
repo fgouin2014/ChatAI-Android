@@ -202,6 +202,16 @@
             
             // ⭐ NOUVEAU: Mettre à jour le statut RAG après chargement
             this.updateRAGStatus();
+            
+            // ⭐ NOUVEAU: Charger configuration Vision ONNX
+            if (cfg.visionOnnx && this.core.configOnnxVisionModel) {
+                this.core.configOnnxVisionModel.value = cfg.visionOnnx.model || '';
+            }
+            
+            // ⭐ NOUVEAU: Charger configuration Translation ONNX
+            if (cfg.translationOnnx && this.core.configOnnxTranslationModel) {
+                this.core.configOnnxTranslationModel.value = cfg.translationOnnx.model || '';
+            }
 
             if (cfg.webSearch) {
                 if (this.core.configWebSearchProvider) {
@@ -538,6 +548,14 @@
                     } else {
                         cfg.rag.embeddingModel = core.configEmbeddingModel?.value || 'nomic-embed-text';
                     }
+                    
+                    // ⭐ NOUVEAU: Sauvegarder configuration Vision ONNX
+                    if (!cfg.visionOnnx) cfg.visionOnnx = {};
+                    cfg.visionOnnx.model = core.configOnnxVisionModel?.value || '';
+                    
+                    // ⭐ NOUVEAU: Sauvegarder configuration Translation ONNX
+                    if (!cfg.translationOnnx) cfg.translationOnnx = {};
+                    cfg.translationOnnx.model = core.configOnnxTranslationModel?.value || '';
                     break;
                 case 'thinking':
                     cfg.webSearch = cfg.webSearch || {};
