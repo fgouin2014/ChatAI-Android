@@ -1980,8 +1980,8 @@
               if (selectedSource === 'onnx_local') {
                   ollamaEmbeddingSection.style.display = 'none';
                   onnxEmbeddingSection.style.display = 'block';
-                  // Scanner automatiquement les modèles ONNX
-                  scanOnnxEmbeddingModels();
+                  // ⭐ MODIFIÉ: Ne pas scanner automatiquement, attendre l'action de l'utilisateur
+                  // scanOnnxEmbeddingModels();
               } else {
                   ollamaEmbeddingSection.style.display = 'block';
                   onnxEmbeddingSection.style.display = 'none';
