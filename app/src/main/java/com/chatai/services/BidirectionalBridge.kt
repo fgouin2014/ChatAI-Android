@@ -75,12 +75,9 @@ class BidirectionalBridge private constructor(private val context: Context) {
         
         // ⭐ NOUVEAU: Initialiser services RAG (selon Nos Rules: non-bloquant)
         try {
-            embeddingService = EmbeddingService(context)
-            if (embeddingService != null) {
-                ragService = RAGService(context, conversationDao, embeddingService)
-            } else {
-                Log.w(TAG, "Failed to initialize EmbeddingService")
-            }
+            val embedding = EmbeddingService(context)
+            embeddingService = embedding
+            ragService = RAGService(context, conversationDao, embedding)
             
             // Vérifier disponibilité en arrière-plan
             GlobalScope.launch(Dispatchers.IO) {
@@ -252,59 +249,65 @@ class BidirectionalBridge private constructor(private val context: Context) {
             
             if (!ragEnabled) {
                 Log.d(TAG, "RAG désactivé dans la configuration")
-            } else if (embeddingService == null) {
-                Log.w(TAG, "EmbeddingService non disponible pour RAG")
-            } else if (ragService == null) {
-                Log.w(TAG, "RAGService non disponible")
             } else {
-                // ⭐ Vérifier que les services sont prêts avant utilisation
-                try {
-                    // Générer l'embedding de la requête utilisateur (avec timeout)
-                    val queryEmbedding = try {
-                        embeddingService.embed(userInput)
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Erreur génération embedding pour RAG: ${e.message}", e)
-                        null
-                    }
-                    
-                    // ⭐ MODE OFFLINE: Passer queryText pour fallback textuel si embedding échoue
-                    val similarConversations = try {
-                        ragService.searchSimilarConversations(
-                            queryEmbedding = queryEmbedding,
-                            queryText = userInput, // ⭐ Fallback offline: recherche textuelle si embedding null
-                            topK = 5
-                        )
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Erreur recherche conversations similaires: ${e.message}", e)
-                        emptyList()
-                    }
-                    
-                    if (!similarConversations.isNullOrEmpty()) {
-                        // Construire le contexte RAG
-                        ragContext = try {
-                            ragService.buildRAGContext(similarConversations) ?: ""
+                // ⭐ Utiliser variables locales pour éviter problèmes de smart cast
+                val embedding = embeddingService
+                val rag = ragService
+                
+                if (embedding == null) {
+                    Log.w(TAG, "EmbeddingService non disponible pour RAG")
+                } else if (rag == null) {
+                    Log.w(TAG, "RAGService non disponible")
+                } else {
+                    // ⭐ Vérifier que les services sont prêts avant utilisation
+                    try {
+                        // Générer l'embedding de la requête utilisateur (avec timeout)
+                        val queryEmbedding = try {
+                            embedding.embed(userInput)
                         } catch (e: Exception) {
-                            Log.w(TAG, "Erreur construction contexte RAG: ${e.message}", e)
-                            ""
+                            Log.w(TAG, "Erreur génération embedding pour RAG: ${e.message}", e)
+                            null
                         }
                         
-                        if (ragContext.isNotEmpty()) {
+                        // ⭐ MODE OFFLINE: Passer queryText pour fallback textuel si embedding échoue
+                        val similarConversations = try {
+                            rag.searchSimilarConversations(
+                                queryEmbedding = queryEmbedding,
+                                queryText = userInput, // ⭐ Fallback offline: recherche textuelle si embedding null
+                                topK = 5
+                            )
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Erreur recherche conversations similaires: ${e.message}", e)
+                            emptyList()
+                        }
+                        
+                        if (!similarConversations.isNullOrEmpty()) {
+                            // Construire le contexte RAG
+                            ragContext = try {
+                                rag.buildRAGContext(similarConversations) ?: ""
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Erreur construction contexte RAG: ${e.message}", e)
+                                ""
+                            }
+                            
+                            if (ragContext.isNotEmpty()) {
+                                if (queryEmbedding != null) {
+                                    Log.d(TAG, "✅ RAG context retrieved (semantic): ${similarConversations.size} similar conversations")
+                                } else {
+                                    Log.d(TAG, "✅ RAG context retrieved (text-based, offline): ${similarConversations.size} similar conversations")
+                                }
+                            }
+                        } else {
                             if (queryEmbedding != null) {
-                                Log.d(TAG, "✅ RAG context retrieved (semantic): ${similarConversations.size} similar conversations")
+                                Log.d(TAG, "No similar conversations found for RAG (semantic search)")
                             } else {
-                                Log.d(TAG, "✅ RAG context retrieved (text-based, offline): ${similarConversations.size} similar conversations")
+                                Log.d(TAG, "No similar conversations found for RAG (text-based search)")
                             }
                         }
-                    } else {
-                        if (queryEmbedding != null) {
-                            Log.d(TAG, "No similar conversations found for RAG (semantic search)")
-                        } else {
-                            Log.d(TAG, "No similar conversations found for RAG (text-based search)")
-                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Erreur critique dans RAG, continuant sans contexte: ${e.message}", e)
+                        // ⭐ SELON NOS RULES: Ne pas bloquer si RAG échoue, continuer sans contexte
                     }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Erreur critique dans RAG, continuant sans contexte: ${e.message}", e)
-                    // ⭐ SELON NOS RULES: Ne pas bloquer si RAG échoue, continuer sans contexte
                 }
             }
         } catch (e: Exception) {
