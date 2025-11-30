@@ -3,6 +3,9 @@ package com.chatai.database
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
@@ -265,21 +268,30 @@ object ConversationHistoryHelper {
                 val dbRowId = dao.insert(conversation)
                 Log.i(TAG, "✅ Conversation webapp sauvegardée (DB row ID: $dbRowId)")
                 
-                // ⭐ NOUVEAU: Générer et sauvegarder les embeddings pour RAG (non-bloquant)
-                try {
-                    val embeddingService = com.chatai.services.EmbeddingService(context)
-                    val embedding = embeddingService.embedConversation(userMessage, aiResponse)
-                    
-                    if (embedding != null) {
-                        val embeddingJson = embeddingService.embeddingToJson(embedding)
-                        dao.updateEmbeddings(dbRowId, embeddingJson)
-                        Log.d(TAG, "✅ Embedding généré et sauvegardé pour RAG (${embedding.size} dimensions)")
-                    } else {
-                        Log.w(TAG, "⚠️ Impossible de générer l'embedding pour cette conversation")
+                // ⭐ NOUVEAU: Générer et sauvegarder les embeddings pour RAG (en arrière-plan, non-bloquant)
+                // Vérifier que RAG est activé avant de générer les embeddings
+                val ragEnabled = sharedPrefs.getBoolean("rag_enabled", false)
+                if (ragEnabled) {
+                    // ⭐ IMPORTANT: Générer en arrière-plan pour ne pas bloquer le thread principal
+                    GlobalScope.launch(Dispatchers.IO) {
+                        try {
+                            val embeddingService = com.chatai.services.EmbeddingService(context)
+                            val embedding = embeddingService.embedConversation(userMessage, aiResponse)
+                            
+                            if (embedding != null) {
+                                val embeddingJson = embeddingService.embeddingToJson(embedding)
+                                dao.updateEmbeddings(dbRowId, embeddingJson)
+                                Log.d(TAG, "✅ Embedding généré et sauvegardé pour RAG (${embedding.size} dimensions)")
+                            } else {
+                                Log.w(TAG, "⚠️ Impossible de générer l'embedding pour cette conversation")
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Erreur génération embedding (non-bloquant): ${e.message}", e)
+                            // ⭐ SELON NOS RULES: Ne pas bloquer si embedding échoue, conversation déjà sauvegardée
+                        }
                     }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Erreur génération embedding (non-bloquant): ${e.message}")
-                    // ⭐ SELON NOS RULES: Ne pas bloquer si embedding échoue, conversation déjà sauvegardée
+                } else {
+                    Log.d(TAG, "RAG désactivé, pas de génération d'embedding")
                 }
                 
                 true
