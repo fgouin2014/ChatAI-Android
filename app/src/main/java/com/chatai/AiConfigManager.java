@@ -91,11 +91,15 @@ public final class AiConfigManager {
                 JSONObject cloud = jsonObj.optJSONObject("cloud");
                 if (cloud != null) {
                     String provider = cloud.optString("provider", "ollama");
+                    // ⭐ FIX: Vérifier que provider n'est pas vide avant d'appeler getApiKey
+                    if (provider == null || provider.trim().isEmpty()) {
+                        provider = "ollama"; // Fallback par défaut
+                    }
                     boolean hasApiKey = cloud.has("apiKey");
                     String fileApiKey = hasApiKey ? cloud.optString("apiKey", null) : null;
                     
                     KeyringManager keyring = KeyringManager.getInstance(context);
-                    String keyringApiKey = keyring.getApiKey(provider);
+                    String keyringApiKey = keyring.getApiKey(provider.trim());
                     
                     // Enrichir si apiKey est absent du fichier OU si apiKey est vide mais qu'une clé existe dans KeyringManager
                     // (ce dernier cas peut arriver si le fichier a été écrit avec apiKey="" par erreur lors d'un changement de provider)
