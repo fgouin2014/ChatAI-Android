@@ -125,14 +125,22 @@
             this.configModeSelect = document.getElementById('configModeSelect');
             this.configSelectedModel = document.getElementById('configSelectedModel');
             this.configSelectedModelCustom = document.getElementById('configSelectedModelCustom');
+            this.configLocalDeviceModel = document.getElementById('configLocalDeviceModel'); // ⭐ NOUVEAU: Modèle local dans Général
             this.saveModeConfigBtn = document.getElementById('saveModeConfigBtn');
             
-            // Config DOM - Cloud
+            // Config DOM - Cloud (sections séparées)
             this.configCloudProvider = document.getElementById('configCloudProvider');
             this.configCloudProviderCustom = document.getElementById('configCloudProviderCustom');
             this.configCloudApiKey = document.getElementById('configCloudApiKey');
             this.configCloudModel = document.getElementById('configCloudModel');
             this.configCloudModelCustom = document.getElementById('configCloudModelCustom');
+            // ⭐ NOUVEAU: Sections providers séparées
+            this.configUseHuggingFace = document.getElementById('configUseHuggingFace');
+            this.configHuggingFaceApiKey = document.getElementById('configHuggingFaceApiKey');
+            this.configUseOllamaCloud = document.getElementById('configUseOllamaCloud');
+            this.configOllamaCloudApiKey = document.getElementById('configOllamaCloudApiKey');
+            this.configUseOpenAI = document.getElementById('configUseOpenAI');
+            this.configOpenAIApiKey = document.getElementById('configOpenAIApiKey');
             this.saveCloudConfigBtn = document.getElementById('saveCloudConfigBtn');
             
             // Config DOM - Local
@@ -141,10 +149,11 @@
             this.configLocalModelCustom = document.getElementById('configLocalModelCustom');
             this.saveLocalConfigBtn = document.getElementById('saveLocalConfigBtn');
             
-            // Config DOM - RAG (dans tab Local)
+            // Config DOM - RAG (maintenant dans tab General)
             this.configRAGEnabled = document.getElementById('configRAGEnabled');
             this.configEmbeddingModel = document.getElementById('configEmbeddingModel');
             this.configEmbeddingSource = document.getElementById('configEmbeddingSource');
+            this.configHuggingFaceEmbeddingModel = document.getElementById('configHuggingFaceEmbeddingModel'); // ⭐ NOUVEAU
             this.configOnnxEmbeddingModel = document.getElementById('configOnnxEmbeddingModel');
             this.configOnnxVisionModel = document.getElementById('configOnnxVisionModel');
             this.configOnnxTranslationModel = document.getElementById('configOnnxTranslationModel');

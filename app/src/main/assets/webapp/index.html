@@ -1798,6 +1798,30 @@
               refreshLocalDeviceModelsBtnGeneral.addEventListener('click', loadLocalDeviceModels);
           }
           
+          // ⭐ NOUVEAU: Event listeners pour les boutons de test des providers cloud
+          const testHuggingFaceBtn = document.getElementById('testHuggingFaceBtn');
+          if (testHuggingFaceBtn) {
+              testHuggingFaceBtn.addEventListener('click', async function() {
+                  // TODO: Implémenter test connexion Hugging Face
+                  alert('Test de connexion Hugging Face - À implémenter');
+              });
+          }
+          
+          const testOllamaCloudBtn = document.getElementById('testOllamaCloudBtn');
+          if (testOllamaCloudBtn) {
+              testOllamaCloudBtn.addEventListener('click', async function() {
+                  await testOllamaCloudConnection();
+              });
+          }
+          
+          const testOpenAIBtn = document.getElementById('testOpenAIBtn');
+          if (testOpenAIBtn) {
+              testOpenAIBtn.addEventListener('click', async function() {
+                  // TODO: Implémenter test connexion OpenAI
+                  alert('Test de connexion OpenAI - À implémenter');
+              });
+          }
+          
           // Mise à jour dynamique des labels selon le provider
           const providerSelect = document.getElementById('configCloudProvider');
           if (providerSelect) {

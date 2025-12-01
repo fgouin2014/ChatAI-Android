@@ -129,75 +129,108 @@
             const cfg = this.aiConfigObject;
             const hotword = cfg.hotword || {};
 
-            // Tab General : Mode actif + modèle sélectionné
+            // ⭐ MODIFIÉ: Tab General : Mode actif + Modèle (Cloud/Local) + RAG
             this.core.configModeSelect.value = cfg.mode || 'cloud';
-            this.setSelectValue(this.core.configSelectedModel, this.core.configSelectedModelCustom, cfg.selectedModel || '');
+            
+            // Modèle selon le mode
+            if (cfg.mode === 'cloud') {
+                this.setSelectValue(this.core.configSelectedModel, this.core.configSelectedModelCustom, cfg.selectedModel || '');
+            } else if (cfg.mode === 'local') {
+                // ⭐ NOUVEAU: Modèle local device
+                if (this.core.configLocalDeviceModel && cfg.local_device?.model) {
+                    this.core.configLocalDeviceModel.value = cfg.local_device.model;
+                }
+            }
+            
+            // ⭐ MODIFIÉ: Configuration RAG (maintenant dans Général)
+            if (cfg.rag) {
+                if (this.core.configRAGEnabled) {
+                    this.core.configRAGEnabled.checked = cfg.rag.enabled === true;
+                }
+                if (this.core.configEmbeddingSource) {
+                    this.core.configEmbeddingSource.value = cfg.rag.embeddingSource || 'huggingface';
+                    this.core.configEmbeddingSource.dispatchEvent(new Event('change'));
+                }
+                
+                // Configuration selon la source
+                if (cfg.rag.embeddingSource === 'huggingface') {
+                    if (this.core.configHuggingFaceEmbeddingModel) {
+                        this.core.configHuggingFaceEmbeddingModel.value = cfg.rag.huggingFaceEmbeddingModel || 'sentence-transformers/all-MiniLM-L6-v2';
+                    }
+                } else if (cfg.rag.embeddingSource === 'ollama_cloud') {
+                    if (this.core.configEmbeddingModel) {
+                        this.core.configEmbeddingModel.value = cfg.rag.embeddingModel || 'nomic-embed-text';
+                    }
+                } else if (cfg.rag.embeddingSource === 'onnx_local') {
+                    if (this.core.configOnnxEmbeddingModel) {
+                        this.core.configOnnxEmbeddingModel.value = cfg.rag.onnxEmbeddingModel || '';
+                    }
+                }
+            } else {
+                // Valeurs par défaut
+                if (this.core.configRAGEnabled) {
+                    this.core.configRAGEnabled.checked = true;
+                }
+                if (this.core.configEmbeddingSource) {
+                    this.core.configEmbeddingSource.value = 'huggingface';
+                }
+            }
 
+            // ⭐ MODIFIÉ: Tab Cloud : Sections providers séparées
             if (cfg.cloud) {
                 this.setSelectValue(this.core.configCloudProvider, this.core.configCloudProviderCustom, cfg.cloud.provider || '');
                 if (this.core.configCloudApiKey) {
-                    // Afficher la clé API en clair (pas de masquage - elle est déjà en plaintext dans les requêtes)
-                    const apiKey = cfg.cloud.apiKey || '';
-                    console.log(`🔍 [renderConfigForms] Mise à jour champ API key:`, {
-                        provider: cfg.cloud.provider,
-                        apiKeyLength: apiKey.length,
-                        apiKeyPreview: apiKey ? apiKey.substring(0, 10) + '...' : 'vide',
-                        champAvant: this.core.configCloudApiKey.value ? this.core.configCloudApiKey.value.substring(0, 10) + '...' : 'vide'
-                    });
-                    this.core.configCloudApiKey.value = apiKey;
-                    console.log(`✅ [renderConfigForms] Champ API key mis à jour:`, {
-                        champApres: this.core.configCloudApiKey.value ? this.core.configCloudApiKey.value.substring(0, 10) + '...' : 'vide',
-                        champLength: this.core.configCloudApiKey.value?.length || 0
-                    });
+                    this.core.configCloudApiKey.value = cfg.cloud.apiKey || '';
                 }
                 this.setSelectValue(this.core.configCloudModel, this.core.configCloudModelCustom, cfg.cloud.selectedModel || cfg.selectedModel || '');
+                
+                // ⭐ NOUVEAU: Sections providers séparées
+                if (cfg.cloud.huggingface) {
+                    if (this.core.configUseHuggingFace) {
+                        this.core.configUseHuggingFace.checked = cfg.cloud.huggingface.enabled === true;
+                    }
+                    if (this.core.configHuggingFaceApiKey) {
+                        this.core.configHuggingFaceApiKey.value = cfg.cloud.huggingface.apiKey || '';
+                    }
+                }
+                if (cfg.cloud.ollama) {
+                    if (this.core.configUseOllamaCloud) {
+                        this.core.configUseOllamaCloud.checked = cfg.cloud.ollama.enabled === true;
+                    }
+                    if (this.core.configOllamaCloudApiKey) {
+                        this.core.configOllamaCloudApiKey.value = cfg.cloud.ollama.apiKey || '';
+                    }
+                }
+                if (cfg.cloud.openai) {
+                    if (this.core.configUseOpenAI) {
+                        this.core.configUseOpenAI.checked = cfg.cloud.openai.enabled === true;
+                    }
+                    if (this.core.configOpenAIApiKey) {
+                        this.core.configOpenAIApiKey.value = cfg.cloud.openai.apiKey || '';
+                    }
+                }
             }
 
+            // ⭐ MODIFIÉ: Tab Local : Modèles device uniquement
             const local = cfg.local_server || cfg.localServer;
             if (local) {
                 if (this.core.configLocalUrl) this.core.configLocalUrl.value = local.url || '';
-                // Modèle local : utiliser setSelectValue pour gérer select + custom input
-                // ⭐ Conversion automatique de l'ancien format (gemma3-270m.gguf) vers le nouveau (gemma3:270m)
                 let modelValue = local.model || 'gemma3:270m';
-                // Migration automatique: gemma3-270m.gguf → gemma3:270m
                 if (modelValue === 'gemma3-270m.gguf') {
                     modelValue = 'gemma3:270m';
                     console.log('🔄 Migration automatique du modèle: gemma3-270m.gguf → gemma3:270m');
                 }
                 this.setSelectValue(this.core.configLocalModel, this.core.configLocalModelCustom, modelValue);
             } else {
-                // Initialiser avec valeur par défaut si pas de config
                 this.setSelectValue(this.core.configLocalModel, this.core.configLocalModelCustom, 'gemma3:270m');
             }
             
-            // ⭐ NOUVEAU: Charger configuration RAG
-            if (cfg.rag) {
-                if (this.core.configRAGEnabled) {
-                    this.core.configRAGEnabled.checked = cfg.rag.enabled === true;
-                }
-                // ⭐ MODIFIÉ: Support source embeddings (Ollama ou ONNX local)
-                if (this.core.configEmbeddingSource) {
-                    this.core.configEmbeddingSource.value = cfg.rag.embeddingSource || 'ollama';
-                    // Déclencher l'événement change pour mettre à jour l'UI
-                    this.core.configEmbeddingSource.dispatchEvent(new Event('change'));
-                }
-                if (cfg.rag.embeddingSource === 'onnx_local') {
-                    if (this.core.configOnnxEmbeddingModel) {
-                        this.core.configOnnxEmbeddingModel.value = cfg.rag.onnxEmbeddingModel || '';
-                    }
-                } else {
-                    if (this.core.configEmbeddingModel) {
-                        this.core.configEmbeddingModel.value = cfg.rag.embeddingModel || 'nomic-embed-text';
-                    }
-                }
-            } else {
-                // Valeurs par défaut si RAG non configuré
-                if (this.core.configRAGEnabled) {
-                    this.core.configRAGEnabled.checked = true; // RAG activé par défaut
-                }
-                if (this.core.configEmbeddingModel) {
-                    this.core.configEmbeddingModel.value = 'nomic-embed-text'; // Modèle par défaut
-                }
+            // Vision et Translation ONNX (dans Local)
+            if (cfg.visionOnnx && this.core.configOnnxVisionModel) {
+                this.core.configOnnxVisionModel.value = cfg.visionOnnx.model || '';
+            }
+            if (cfg.translationOnnx && this.core.configOnnxTranslationModel) {
+                this.core.configOnnxTranslationModel.value = cfg.translationOnnx.model || '';
             }
             
             // ⭐ NOUVEAU: Mettre à jour le statut RAG après chargement
@@ -507,47 +540,64 @@
 
             switch (section) {
                 case 'mode':
-                    // Tab General : Sélection du mode actif (Cloud/Local) + modèle par défaut
+                    // ⭐ MODIFIÉ: Tab General : Mode actif + Modèle (Cloud/Local) + RAG
                     cfg.mode = core.configModeSelect?.value || 'cloud';
-                    cfg.selectedModel = this.getSelectValue(core.configSelectedModel, core.configSelectedModelCustom);
+                    
+                    // Modèle selon le mode
+                    if (cfg.mode === 'cloud') {
+                        cfg.selectedModel = this.getSelectValue(core.configSelectedModel, core.configSelectedModelCustom);
+                    } else if (cfg.mode === 'local') {
+                        // ⭐ NOUVEAU: Modèle local device (GGUF)
+                        cfg.local_device = cfg.local_device || {};
+                        cfg.local_device.model = core.configLocalDeviceModel?.value || '';
+                    }
+                    
+                    // ⭐ MODIFIÉ: Configuration RAG (maintenant dans Général)
+                    cfg.rag = cfg.rag || {};
+                    cfg.rag.enabled = core.configRAGEnabled?.checked === true;
+                    cfg.rag.embeddingSource = core.configEmbeddingSource?.value || 'huggingface';
+                    
+                    // Configuration selon la source d'embeddings
+                    if (cfg.rag.embeddingSource === 'huggingface') {
+                        cfg.rag.huggingFaceEmbeddingModel = core.configHuggingFaceEmbeddingModel?.value || 'sentence-transformers/all-MiniLM-L6-v2';
+                    } else if (cfg.rag.embeddingSource === 'ollama_cloud') {
+                        cfg.rag.embeddingModel = core.configEmbeddingModel?.value || 'nomic-embed-text';
+                    } else if (cfg.rag.embeddingSource === 'onnx_local') {
+                        cfg.rag.onnxEmbeddingModel = core.configOnnxEmbeddingModel?.value || '';
+                    }
                     break;
                 case 'cloud':
-                    // Tab Cloud : Configuration détaillée des modèles Cloud disponibles
+                    // ⭐ MODIFIÉ: Tab Cloud : Sections providers séparées
                     cfg.cloud = cfg.cloud || {};
+                    
+                    // Provider général (pour compatibilité)
                     cfg.cloud.provider = this.getSelectValue(core.configCloudProvider, core.configCloudProviderCustom);
                     const cloudApiKeyValue = core.configCloudApiKey?.value?.trim() || '';
-                    
-                    // ⭐ FIX CRITIQUE AUDIT: TOUJOURS inclure apiKey dans le JSON
-                    // Même si le champ est vide, inclure apiKey = "" pour rendre l'intention explicite
-                    // Android distinguera:
-                    // - apiKey présent avec valeur → sauvegarder la nouvelle clé
-                    // - apiKey présent avec "" → supprimer la clé existante
-                    // - apiKey absent → conserver la clé existante (changement d'onglet)
                     cfg.cloud.apiKey = cloudApiKeyValue;
-                    if (cloudApiKeyValue) {
-                        console.log('💾 Sauvegarde nouvelle clé API:', cloudApiKeyValue.length, 'chars');
-                    } else {
-                        console.log('🗑️ Champ vide → apiKey = "" (suppression explicite si clé existante)');
-                    }
+                    
+                    // ⭐ NOUVEAU: Sections providers séparées
+                    // Hugging Face
+                    if (!cfg.cloud.huggingface) cfg.cloud.huggingface = {};
+                    cfg.cloud.huggingface.enabled = core.configUseHuggingFace?.checked === true;
+                    cfg.cloud.huggingface.apiKey = core.configHuggingFaceApiKey?.value?.trim() || '';
+                    
+                    // Ollama Cloud
+                    if (!cfg.cloud.ollama) cfg.cloud.ollama = {};
+                    cfg.cloud.ollama.enabled = core.configUseOllamaCloud?.checked === true;
+                    cfg.cloud.ollama.apiKey = core.configOllamaCloudApiKey?.value?.trim() || '';
+                    
+                    // OpenAI
+                    if (!cfg.cloud.openai) cfg.cloud.openai = {};
+                    cfg.cloud.openai.enabled = core.configUseOpenAI?.checked === true;
+                    cfg.cloud.openai.apiKey = core.configOpenAIApiKey?.value?.trim() || '';
                     
                     cfg.cloud.selectedModel = this.getSelectValue(core.configCloudModel, core.configCloudModelCustom);
                     break;
                 case 'local':
-                    // Tab Local : Configuration du serveur Ollama local + modèle Ollama + RAG
+                    // ⭐ MODIFIÉ: Tab Local : Modèles device uniquement (RAG déplacé vers Général)
                     cfg.local_server = cfg.local_server || {};
                     cfg.local_server.url = core.configLocalUrl?.value || '';
-                    // Modèle local : utiliser getSelectValue pour gérer select + custom input
                     cfg.local_server.model = this.getSelectValue(core.configLocalModel, core.configLocalModelCustom) || 'gemma3:270m';
-                    // ⭐ NOUVEAU: Configuration RAG
-                    cfg.rag = cfg.rag || {};
-                    cfg.rag.enabled = core.configRAGEnabled?.checked === true;
-                    // ⭐ MODIFIÉ: Support source embeddings (Ollama ou ONNX local)
-                    cfg.rag.embeddingSource = core.configEmbeddingSource?.value || 'ollama';
-                    if (cfg.rag.embeddingSource === 'onnx_local') {
-                        cfg.rag.onnxEmbeddingModel = core.configOnnxEmbeddingModel?.value || '';
-                    } else {
-                        cfg.rag.embeddingModel = core.configEmbeddingModel?.value || 'nomic-embed-text';
-                    }
                     
                     // ⭐ NOUVEAU: Sauvegarder configuration Vision ONNX
                     if (!cfg.visionOnnx) cfg.visionOnnx = {};
