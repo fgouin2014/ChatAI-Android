@@ -2889,8 +2889,10 @@
                     detailsDiv.textContent = error.message || 'Erreur inconnue';
                 }
             } finally {
-                testBtn.disabled = false;
-                testBtn.innerHTML = '🧪 Tester la connexion';
+                if (testBtn) {
+                    testBtn.disabled = false;
+                    testBtn.innerHTML = '🧪 Tester la connexion';
+                }
                 
                 setTimeout(() => {
                     checkCloudTestExpand();
