@@ -3867,9 +3867,13 @@
             const resultDiv = document.getElementById('cloudTestResult');
             const statusDiv = document.getElementById('cloudTestStatus');
             const detailsDiv = document.getElementById('cloudTestDetails');
-            let testBtn = document.getElementById('testOllamaCloudBtn');
-            if (!testBtn) {
-                testBtn = document.getElementById('testCloudConnectionBtn');
+            // ⭐ FIX: Utiliser le bon bouton (testOllamaCloudBtn)
+            const testBtn = document.getElementById('testOllamaCloudBtn');
+            
+            // ⭐ FIX: Vérifier que les éléments DOM existent
+            if (!resultDiv || !statusDiv || !detailsDiv) {
+                alert('❌ Erreur: Éléments DOM manquants pour afficher les résultats du test');
+                return;
             }
             
             if (!apiKey) {
