@@ -348,32 +348,69 @@ public final class AiConfigManager {
         JSONObject cloud = json.optJSONObject("cloud");
         if (cloud != null) {
             putStringIfPresent(editor, "cloud_provider", cloud, "provider");
-            String provider = cloud.optString("provider", "ollama");
-            
-            // ⭐ FIX CRITIQUE: Sauvegarder la clé API selon le provider
-            // Toujours vérifier apiKey dans le JSON, même si vide ("" = suppression explicite)
             KeyringManager keyring = KeyringManager.getInstance(context);
-            boolean hasApiKey = cloud.has("apiKey");
             
-            if (hasApiKey) {
-                // La clé est présente dans le JSON (modifiée, vide, ou explicitement supprimée)
-                String apiKey = cloud.optString("apiKey", null);
-                
-                if (apiKey != null && !apiKey.trim().isEmpty()) {
-                    // ⭐ NOUVELLE CLÉ: Sauvegarder dans KeyringManager
-                    // setApiKey() logge déjà si changement réel, pas besoin de logger ici
-                    keyring.setApiKey(provider, apiKey.trim());
-                } else {
-                    // ⭐ CHAMP VIDE: apiKey = "" ou null = suppression explicite
-                    String existingKey = keyring.getApiKey(provider);
-                    if (existingKey != null && !existingKey.trim().isEmpty()) {
-                        Log.i(TAG, "🗑️ Suppression clé " + provider + " (champ vide dans JSON)");
-                        keyring.clearApiKey(provider);
-                    }
-                    // Sinon déjà vide, ne pas logger
+            // ⭐ NOUVEAU: Gérer la nouvelle structure avec sections providers séparées
+            // cloud.huggingface.apiKey, cloud.ollama.apiKey, cloud.openai.apiKey
+            JSONObject huggingface = cloud.optJSONObject("huggingface");
+            if (huggingface != null) {
+                String hfApiKey = huggingface.optString("apiKey", null);
+                if (hfApiKey != null && !hfApiKey.trim().isEmpty()) {
+                    keyring.setApiKey("huggingface", hfApiKey.trim());
+                } else if (huggingface.has("apiKey")) {
+                    // Champ vide explicite = suppression
+                    keyring.clearApiKey("huggingface");
                 }
             }
-            // Sinon apiKey ABSENT du JSON = webapp ne l'a pas modifiée, conserver la clé existante (pas de log)
+            
+            JSONObject ollama = cloud.optJSONObject("ollama");
+            if (ollama != null) {
+                String ollamaApiKey = ollama.optString("apiKey", null);
+                if (ollamaApiKey != null && !ollamaApiKey.trim().isEmpty()) {
+                    keyring.setApiKey("ollama", ollamaApiKey.trim());
+                } else if (ollama.has("apiKey")) {
+                    // Champ vide explicite = suppression
+                    keyring.clearApiKey("ollama");
+                }
+            }
+            
+            JSONObject openai = cloud.optJSONObject("openai");
+            if (openai != null) {
+                String openaiApiKey = openai.optString("apiKey", null);
+                if (openaiApiKey != null && !openaiApiKey.trim().isEmpty()) {
+                    keyring.setApiKey("openai", openaiApiKey.trim());
+                } else if (openai.has("apiKey")) {
+                    // Champ vide explicite = suppression
+                    keyring.clearApiKey("openai");
+                }
+            }
+            
+            // ⭐ COMPATIBILITÉ: Gérer l'ancienne structure (cloud.provider + cloud.apiKey)
+            // Seulement si les nouvelles sections n'existent pas ET si provider n'est pas vide
+            if ((huggingface == null && ollama == null && openai == null)) {
+                String provider = cloud.optString("provider", null);
+                // ⭐ FIX: Vérifier que provider n'est pas vide avant d'appeler setApiKey
+                if (provider != null && !provider.trim().isEmpty()) {
+                    boolean hasApiKey = cloud.has("apiKey");
+                    
+                    if (hasApiKey) {
+                        String apiKey = cloud.optString("apiKey", null);
+                        
+                        if (apiKey != null && !apiKey.trim().isEmpty()) {
+                            keyring.setApiKey(provider.trim(), apiKey.trim());
+                        } else {
+                            // Champ vide = suppression
+                            String existingKey = keyring.getApiKey(provider.trim());
+                            if (existingKey != null && !existingKey.trim().isEmpty()) {
+                                Log.i(TAG, "🗑️ Suppression clé " + provider + " (champ vide dans JSON)");
+                                keyring.clearApiKey(provider.trim());
+                            }
+                        }
+                    }
+                }
+                // ⭐ FIX: Si provider est vide, ne pas appeler setApiKey (évite l'erreur "Provider inconnu:")
+            }
+            
             putStringIfPresent(editor, "cloud_selected_model", cloud, "selectedModel");
             putStringIfPresent(editor, "ollama_cloud_model", cloud, "selectedModel");
         }
