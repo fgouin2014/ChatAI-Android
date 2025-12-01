@@ -1235,7 +1235,8 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                     Log.w(TAG, "   → APIs tried: ${apiOrder.joinToString(", ")}")
                     Log.w(TAG, "   → All failed, using offline responses")
                     addDiagnosticLog("\n[6] LOCAL FALLBACK: Used (APIs tried: ${apiOrder.joinToString(", ")} - all failed)")
-                    response = getKittFallbackResponse(userInput)
+                    // ⭐ AMÉLIORÉ: Message contextuel selon la configuration
+                    response = getKittFallbackResponse(userInput, useHuggingFaceLLM, useOllamaCloudLLM, internetAvailable)
                     apiUsed = "local_fallback"
                 }
             }
@@ -1883,9 +1884,30 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
     
     /**
      * Réponse de fallback locale professionnelle
+     * ⭐ AMÉLIORÉ: Message contextuel selon la configuration cloud
      */
-    private fun getKittFallbackResponse(userInput: String): String {
+    private fun getKittFallbackResponse(
+        userInput: String,
+        useHuggingFaceLLM: Boolean = false,
+        useOllamaCloudLLM: Boolean = false,
+        internetAvailable: Boolean = false
+    ): String {
         val input = userInput.lowercase().trim()
+        
+        // ⭐ NOUVEAU: Message de fallback contextuel selon la configuration
+        val fallbackMessage = when {
+            // Cloud configuré mais pas d'Internet
+            (useHuggingFaceLLM || useOllamaCloudLLM) && !internetAvailable ->
+                "Je traite votre demande. Cependant, je n'ai pas de connexion Internet actuellement, ce qui limite mes capacités. Vérifiez votre connexion réseau et réessayez."
+            
+            // Cloud configuré avec Internet mais APIs ont échoué
+            (useHuggingFaceLLM || useOllamaCloudLLM) && internetAvailable ->
+                "Je traite votre demande. Les services cloud sont temporairement indisponibles. Pouvez-vous reformuler ou réessayer dans un moment ?"
+            
+            // Mode local uniquement (pas de cloud configuré)
+            else ->
+                "Je traite votre demande. Je fonctionne actuellement en mode local avec des capacités limitées. Pour des réponses plus avancées, configurez un service cloud (Hugging Face ou Ollama Cloud) dans les paramètres."
+        }
         
         return when {
             input.contains("bonjour") || input.contains("salut") || input.contains("hey") ->
@@ -1928,7 +1950,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 "Au revoir. N'hésitez pas à revenir si vous avez besoin d'assistance."
             
             else ->
-                "Je traite votre demande. Cependant, mes capacités IA actuelles sont limitées sans connexion aux services cloud. Pouvez-vous reformuler ou être plus spécifique ?"
+                fallbackMessage
         }
     }
     
@@ -2038,7 +2060,12 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
         
         // Step 4: Fallback
         if (response == null) {
-            response = getKittFallbackResponse(userInput)
+            // ⭐ AMÉLIORÉ: Passer le contexte pour message adapté
+            val useHuggingFaceLLM = huggingFaceService.isEnabledForLLM() && huggingFaceService.isConfigured()
+            val useOllamaCloudLLM = sharedPreferences.getBoolean("use_ollama_cloud", false) && 
+                !keyring.getApiKey("ollama")?.trim().isNullOrEmpty()
+            val internetAvailable = hasInternet()
+            response = getKittFallbackResponse(userInput, useHuggingFaceLLM, useOllamaCloudLLM, internetAvailable)
             steps.add(StepResult(4, "Local Fallback", "SUCCESS", 200, "Using offline responses"))
         }
         
