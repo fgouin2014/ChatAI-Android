@@ -37,6 +37,14 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    
+    // ⭐ FIX: Packaging des bibliothèques natives
+    // Nécessaire car android:extractNativeLibs="true" dans AndroidManifest.xml
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {
