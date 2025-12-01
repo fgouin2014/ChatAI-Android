@@ -170,3 +170,4 @@ Le bouton **"🌐 Traduire"** a été retiré de la barre de plugins car jugé i
 
 **Statut:** ✅ RAG corrigé, embeddings générés automatiquement pour toutes les conversations webapp
 
+

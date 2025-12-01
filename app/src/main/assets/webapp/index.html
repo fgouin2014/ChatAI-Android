@@ -284,80 +284,7 @@
                     <!-- Tab Content: Local -->
                     <div class="config-tab-content" data-content="local">
                     
-                    <!-- ⭐ SECTION 1: SERVEUR OLLAMA (PC) -->
-                    <div class="panel-section">
-                        <h4>🖥️ Serveur Ollama (PC) - Optionnel</h4>
-                        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
-                            <strong>💡 Utilisation:</strong> Utilisez la puissance de votre PC pour exécuter des modèles Ollama plus grands et plus performants que sur le device Android.<br>
-                            <strong>📋 Prérequis:</strong> Le serveur Ollama doit être installé et démarré sur votre PC (Windows/Mac/Linux).<br>
-                            <strong>🌐 Réseau:</strong> Votre PC et votre device Android doivent être sur le même réseau WiFi.<br>
-                            <strong>🔍 Trouver l'IP:</strong> Utilisez <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">ipconfig</code> (Windows) ou <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">ifconfig</code> (Linux/Mac).<br>
-                            <strong style="color: #f87171;">⚠️ N'utilisez pas 127.0.0.1</strong> - Utilisez l'IP de votre PC sur le réseau local (ex: 192.168.1.100).
-                        </p>
-                        
-                        <div class="form-grid">
-                            <label>
-                                URL du serveur
-                                <input type="text" id="configLocalUrl" placeholder="http://192.168.1.100:11434/v1/chat/completions">
-                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
-                                    Format: <code>http://VOTRE_IP:11434/v1/chat/completions</code>
-                                    <br>Exemple: <code>http://10.43.62.249:11434/v1/chat/completions</code>
-                                </small>
-                                <div id="localUrlValidation" style="margin-top: 6px; font-size: 11px; display: none;"></div>
-                            </label>
-                            
-                            <label>
-                                Statut du serveur
-                                <div id="localServerStatus" style="display: flex; align-items: center; gap: 8px; padding: 8px; background: rgba(148, 163, 184, 0.1); border-radius: 6px; margin-top: 4px;">
-                                    <span id="localServerStatusDot" style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; display: inline-block;"></span>
-                                    <span id="localServerStatusText" style="font-size: 12px; color: #94a3b8;">Non testé</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="form-grid">
-                            <label>
-                                Modèle Ollama sur PC
-                                <select id="configLocalModel">
-                                    <option value="">– Choisir –</option>
-                                    <option value="gemma3:270m">Gemma 3 270M (278 MB) ⭐</option>
-                                    <option value="llama3.2:3b">Llama 3.2 3B (1.93 GB)</option>
-                                    <option value="gemma3:1b">Gemma 3 1B (778 MB)</option>
-                                    <option value="custom">Autre (personnalisé)</option>
-                                </select>
-                                <input type="text" id="configLocalModelCustom" class="custom-input hidden" placeholder="Nom du modèle Ollama (ex: gemma3:270m)">
-                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
-                                    Modèle installé sur votre serveur Ollama PC. Vérifier avec <code>ollama list</code> sur votre PC.
-                                </small>
-                            </label>
-                        </div>
-                        
-                        <div class="config-actions-group" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
-                            <div class="action-section">
-                                <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">⚡ Actions Serveur PC</div>
-                                <div class="button-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                                    <button class="panel-button" id="testLocalServerBtn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                                        🔍 Tester connexion serveur
-                                    </button>
-                                    <button class="panel-button" id="listLocalModelsBtn" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
-                                        🔄 Récupérer les modèles
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div id="localServerTestResult" style="display: none; margin-top: 12px; padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px;">
-                            <div id="localServerTestStatus" style="font-weight: 500; margin-bottom: 8px;"></div>
-                            <div id="localServerTestDetails" style="font-size: 12px; color: #94a3b8;"></div>
-                        </div>
-                        
-                        <div id="localModelsResult" style="display: none; margin-top: 12px; padding: 12px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px;">
-                            <div id="localModelsStatus" style="font-weight: 500; margin-bottom: 8px;"></div>
-                            <div id="localModelsList" style="font-size: 12px; color: #94a3b8;"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- ⭐ SECTION 2: MODÈLES LOCAUX (DEVICE) -->
+                    <!-- ⭐ SECTION 1: MODÈLES LOCAUX (DEVICE) -->
                     <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid rgba(148, 163, 184, 0.3);">
                         <h4>📱 Modèles Locaux (Device) - Par défaut</h4>
                         <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
@@ -2057,17 +1984,16 @@
               refreshOnnxEmbeddingsBtn.addEventListener('click', scanOnnxEmbeddingModels);
           }
           
-          // Bouton pour récupérer les modèles locaux
-          const listLocalModelsBtn = document.getElementById('listLocalModelsBtn');
-          if (listLocalModelsBtn) {
-              listLocalModelsBtn.addEventListener('click', listLocalModels);
-          }
-          
-          // Bouton pour tester la connexion au serveur Ollama local
-          const testLocalServerBtn = document.getElementById('testLocalServerBtn');
-          if (testLocalServerBtn) {
-              testLocalServerBtn.addEventListener('click', testLocalServerConnection);
-          }
+          // ⭐ SUPPRIMÉ: Event listeners pour Ollama PC (plus de support)
+          // const listLocalModelsBtn = document.getElementById('listLocalModelsBtn');
+          // if (listLocalModelsBtn) {
+          //     listLocalModelsBtn.addEventListener('click', listLocalModels);
+          // }
+          // 
+          // const testLocalServerBtn = document.getElementById('testLocalServerBtn');
+          // if (testLocalServerBtn) {
+          //     testLocalServerBtn.addEventListener('click', testLocalServerConnection);
+          // }
           
           // ⭐ NOUVEAU: Scanner les modèles ONNX Vision
           function scanOnnxVisionModels() {
@@ -2213,26 +2139,13 @@
               // scanOnnxTranslationModels();
           }
           
-          // Validation de l'URL en temps réel
-          const localUrlInput = document.getElementById('configLocalUrl');
-          if (localUrlInput) {
-              localUrlInput.addEventListener('input', validateLocalServerUrl);
-              localUrlInput.addEventListener('blur', validateLocalServerUrl);
-              
-              // Essayer de charger depuis le cache d'abord
-              const savedModels = loadLocalModelsFromStorage();
-              if (savedModels && savedModels.length > 0) {
-                  populateLocalModelDropdown(savedModels);
-              }
-              
-              // Si URL configurée, charger depuis le serveur après un délai
-              if (localUrlInput.value.trim()) {
-                  // Attendre un peu pour que la page soit chargée
-                  setTimeout(() => {
-                      listLocalModels();
-                  }, 1000);
-              }
-          }
+          // ⭐ SUPPRIMÉ: Validation de l'URL Ollama PC (plus de support Ollama PC)
+          // const localUrlInput = document.getElementById('configLocalUrl');
+          // if (localUrlInput) {
+          //     localUrlInput.addEventListener('input', validateLocalServerUrl);
+          //     localUrlInput.addEventListener('blur', validateLocalServerUrl);
+          //     ...
+          // }
           
           // Bouton pour actualiser les modèles device
           const refreshDeviceModelsBtn = document.getElementById('refreshDeviceModelsBtn');
@@ -2248,6 +2161,17 @@
 
         // Fonction pour lister les modèles disponibles (sans test de connexion)
         async function listCloudModels() {
+            // ⭐ FIX: Vérifier le provider sélectionné
+            const providerSelect = document.getElementById('configCloudProvider');
+            const provider = providerSelect ? providerSelect.value : 'ollama';
+            
+            // Si Hugging Face, utiliser la fonction spécifique
+            if (provider === 'huggingface') {
+                await listHuggingFaceModels();
+                return;
+            }
+            
+            // Sinon, utiliser Ollama Cloud (comportement par défaut)
             const apiKeyField = document.getElementById('configCloudApiKey');
             const apiKey = apiKeyField.value.trim();
             
@@ -2292,7 +2216,7 @@
             const startTime = Date.now();
             
             try {
-                // Récupérer la liste des modèles disponibles
+                // Récupérer la liste des modèles disponibles (Ollama Cloud)
                 const tagsResponse = await fetch('https://ollama.com/api/tags', {
                     method: 'GET',
                     headers: {
@@ -2360,6 +2284,155 @@
                     modelsStatusDiv.innerHTML = `❌ Erreur (${elapsedTime}ms)`;
                     modelsListDiv.textContent = error.message || 'Erreur inconnue';
                 }
+            } finally {
+                listBtn.disabled = false;
+                listBtn.innerHTML = '📋 Lister les modèles';
+            }
+        }
+        
+        // ⭐ NOUVEAU: Fonction pour lister les modèles Hugging Face (sans test de connexion)
+        async function listHuggingFaceModels() {
+            const apiKeyField = document.getElementById('configCloudApiKey');
+            const apiKey = apiKeyField.value.trim();
+            
+            const modelsResultDiv = document.getElementById('cloudModelsResult');
+            const modelsStatusDiv = document.getElementById('cloudModelsStatus');
+            const modelsListDiv = document.getElementById('cloudModelsList');
+            const listBtn = document.getElementById('listCloudModelsBtn');
+            
+            if (!apiKey) {
+                modelsResultDiv.style.display = 'block';
+                modelsResultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                modelsResultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                modelsStatusDiv.innerHTML = '❌ Clé API manquante';
+                modelsStatusDiv.style.color = '#dc2626';
+                modelsListDiv.textContent = 'Veuillez entrer votre clé API Hugging Face';
+                return;
+            }
+            
+            // Nettoyer la clé API
+            const cleanApiKey = apiKey.replace(/\s+/g, '').replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
+            
+            if (!cleanApiKey) {
+                modelsResultDiv.style.display = 'block';
+                modelsResultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                modelsResultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                modelsStatusDiv.innerHTML = '❌ Clé API invalide';
+                modelsStatusDiv.style.color = '#dc2626';
+                modelsListDiv.textContent = 'La clé API ne peut pas être vide après nettoyage';
+                return;
+            }
+            
+            // Afficher "Récupération en cours..."
+            modelsResultDiv.style.display = 'block';
+            modelsResultDiv.style.background = 'rgba(59, 130, 246, 0.1)';
+            modelsResultDiv.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+            modelsStatusDiv.innerHTML = '⏳ Récupération des modèles Hugging Face...';
+            modelsStatusDiv.style.color = '#1e40af';
+            modelsListDiv.textContent = '';
+            listBtn.disabled = true;
+            listBtn.innerHTML = '⏳ Récupération...';
+            
+            const startTime = Date.now();
+            
+            try {
+                // Récupérer les modèles populaires compatibles avec hf-inference
+                let availableModels = [];
+                try {
+                    const modelsResponse = await fetch('https://huggingface.co/api/models?inference_provider=hf-inference&pipeline_tag=text-generation&sort=downloads&direction=-1&limit=20', {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (modelsResponse.ok) {
+                        const modelsData = await modelsResponse.json();
+                        // Filtrer et formater les modèles, ajouter le suffixe :hf-inference
+                        availableModels = modelsData
+                            .filter(m => m.id && (!m.id.includes('/') || m.id.split('/').length === 2))
+                            .slice(0, 15) // Limiter à 15 modèles
+                            .map(m => m.id.includes(':hf-inference') ? m.id : `${m.id}:hf-inference`);
+                    } else {
+                        throw new Error('API returned non-OK status');
+                    }
+                } catch (modelsError) {
+                    console.warn('Erreur lors de la récupération de la liste des modèles:', modelsError);
+                    // Liste par défaut de modèles compatibles avec hf-inference
+                    availableModels = [
+                        'HuggingFaceTB/SmolLM3-3B:hf-inference',
+                        'gpt2:hf-inference',
+                        'distilgpt2:hf-inference',
+                        'EleutherAI/gpt-neo-125M:hf-inference'
+                    ];
+                }
+                
+                // Tester quelques modèles pour vérifier leur disponibilité
+                const verifiedModels = [];
+                const modelsToTest = availableModels.slice(0, 10);
+                const ROUTER_ENDPOINT = 'https://router.huggingface.co/v1/chat/completions';
+                
+                for (const modelId of modelsToTest) {
+                    try {
+                        const verifyResponse = await fetch(ROUTER_ENDPOINT, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${cleanApiKey}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                model: modelId.includes(':hf-inference') ? modelId : `${modelId}:hf-inference`,
+                                messages: [{ role: 'user', content: 'test' }],
+                                max_tokens: 1
+                            })
+                        });
+                        
+                        // Si 200 ou 503 (modèle en chargement), considérer comme disponible
+                        if (verifyResponse.status === 200 || verifyResponse.status === 503) {
+                            verifiedModels.push(modelId);
+                        }
+                    } catch (e) {
+                        // Ignorer les erreurs de vérification
+                    }
+                }
+                
+                const elapsedTime = Date.now() - startTime;
+                const modelsToUse = verifiedModels.length > 0 ? verifiedModels : availableModels;
+                
+                // Sauvegarder dans localStorage
+                saveCloudModelsToStorage(modelsToUse);
+                // Peupler le dropdown
+                populateCloudModelDropdown(modelsToUse);
+                
+                // Afficher les modèles disponibles
+                modelsResultDiv.style.background = 'rgba(16, 185, 129, 0.1)';
+                modelsResultDiv.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                modelsStatusDiv.innerHTML = `✅ ${modelsToUse.length} modèle(s) Hugging Face disponible(s) (${elapsedTime}ms)`;
+                modelsStatusDiv.style.color = '#059669';
+                
+                // Récupérer le modèle actuellement sélectionné
+                const modelSelect = document.getElementById('configCloudModel');
+                const modelCustom = document.getElementById('configCloudModelCustom');
+                const currentModel = (modelSelect && modelSelect.value && modelSelect.value !== 'custom') 
+                    ? modelSelect.value 
+                    : (modelCustom && modelCustom.value ? modelCustom.value : null);
+                
+                const modelsList = modelsToUse.map(m => {
+                    const isSelected = m === currentModel;
+                    const modelClass = isSelected ? 'clickable-model selected' : 'clickable-model';
+                    const indent = isSelected ? '' : '  ';
+                    const escapedModel = m.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    return `${indent}<span class="${modelClass}" data-model="${escapedModel}" onclick="selectModelFromList('${escapedModel}')">${m}</span>`;
+                }).join('<br>');
+                modelsListDiv.innerHTML = modelsList;
+                
+            } catch (error) {
+                const elapsedTime = Date.now() - startTime;
+                modelsResultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                modelsResultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                modelsStatusDiv.style.color = '#dc2626';
+                modelsStatusDiv.innerHTML = `❌ Erreur (${elapsedTime}ms)`;
+                modelsListDiv.textContent = error.message || 'Erreur inconnue';
             } finally {
                 listBtn.disabled = false;
                 listBtn.innerHTML = '📋 Lister les modèles';
@@ -3061,7 +3134,8 @@
             }
         }
         
-        // ⭐ NOUVEAU: Fonction pour lister les modèles disponibles sur le serveur Ollama local
+        // ⭐ SUPPRIMÉ: Fonction pour lister les modèles Ollama PC (plus de support)
+        /*
         async function listLocalModels() {
             const urlField = document.getElementById('configLocalUrl');
             const serverUrl = urlField.value.trim();
@@ -3264,7 +3338,8 @@
             }
         }
         
-        // ⭐ NOUVEAU: Fonction pour valider l'URL du serveur Ollama local
+        // ⭐ SUPPRIMÉ: Fonction pour valider l'URL Ollama PC (plus de support)
+        /*
         function validateLocalServerUrl() {
             const urlField = document.getElementById('configLocalUrl');
             const validationDiv = document.getElementById('localUrlValidation');
@@ -3302,7 +3377,7 @@
             }
         }
         
-        // ⭐ NOUVEAU: Fonction pour tester la connexion au serveur Ollama local
+        // ⭐ SUPPRIMÉ: Fonction pour tester la connexion Ollama PC (plus de support)
         async function testLocalServerConnection() {
             const urlField = document.getElementById('configLocalUrl');
             const serverUrl = urlField.value.trim();

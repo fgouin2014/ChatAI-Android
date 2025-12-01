@@ -77,6 +77,61 @@ class OnnxTTSManager(
     // ⭐ NOUVEAU: Tokenizer pour preprocessing texte
     private val tokenizer = SimpleTokenizer()
     
+    // ⭐ NOUVEAU: Suivi de stabilité pour augmentation progressive des frames
+    private var successfulGenerations = 0
+    private var failedGenerations = 0
+    private val maxHistory = 20 // Garder historique des 20 dernières générations
+    
+    /**
+     * ⭐ NOUVEAU: Calculer le multiplicateur de stabilité basé sur l'historique
+     * Retourne un multiplicateur entre 1.0 (instable) et 4.0 (très stable)
+     */
+    private fun getStabilityMultiplier(): Float {
+        val total = successfulGenerations + failedGenerations
+        if (total == 0) {
+            return 1.0f // Par défaut, commencer conservateur
+        }
+        
+        val successRate = successfulGenerations.toFloat() / total.toFloat()
+        
+        // Multiplicateur progressif basé sur le taux de succès
+        return when {
+            successRate >= 0.95f -> 4.0f // Très stable: 200 frames max
+            successRate >= 0.85f -> 3.0f // Stable: 150 frames max
+            successRate >= 0.70f -> 2.0f // Moyennement stable: 100 frames max
+            successRate >= 0.50f -> 1.5f // Instable: 75 frames max
+            else -> 1.0f // Très instable: 50 frames max (base)
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Enregistrer un succès de génération
+     */
+    private fun recordSuccess() {
+        successfulGenerations++
+        // Limiter l'historique
+        if (successfulGenerations + failedGenerations > maxHistory) {
+            // Réduire proportionnellement
+            val ratio = maxHistory.toFloat() / (successfulGenerations + failedGenerations)
+            successfulGenerations = (successfulGenerations * ratio).toInt()
+            failedGenerations = (failedGenerations * ratio).toInt()
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Enregistrer un échec de génération
+     */
+    private fun recordFailure() {
+        failedGenerations++
+        // Limiter l'historique
+        if (successfulGenerations + failedGenerations > maxHistory) {
+            // Réduire proportionnellement
+            val ratio = maxHistory.toFloat() / (successfulGenerations + failedGenerations)
+            successfulGenerations = (successfulGenerations * ratio).toInt()
+            failedGenerations = (failedGenerations * ratio).toInt()
+        }
+    }
+    
     /**
      * Initialiser ONNX Runtime et charger les modèles (encoder, decoder, vocoder)
      */
@@ -443,14 +498,14 @@ class OnnxTTSManager(
             
             try {
                 // ⭐ BOUCLE AUTOREGRESSIVE: Le decoder SpeechT5 génère une frame à la fois
-                // ⚠️ TEMPORAIRE: Limiter drastiquement pour éviter crash mémoire
-                // TODO: Augmenter progressivement une fois stable
-                val maxFrames = 50 // ⚠️ LIMITE TEMPORAIRE: 50 frames max (800ms d'audio)
+                // ⭐ AMÉLIORÉ: Augmentation progressive basée sur la stabilité
+                val baseMaxFrames = 50 // Base: 50 frames (800ms)
+                val stabilityMultiplier = getStabilityMultiplier() // Multiplicateur basé sur la stabilité
+                val maxFrames = (baseMaxFrames * stabilityMultiplier).toInt().coerceAtMost(200) // Max 200 frames (3.2s)
                 val minFrames = 10 // Minimum pour test
-                val targetFrames = (sequenceLength * 2).coerceIn(minFrames, maxFrames) // Cible réduite: ~2 frames par token
+                val targetFrames = (sequenceLength * 2).coerceIn(minFrames, maxFrames) // Cible: ~2 frames par token
                 
-                Log.d(TAG, "Démarrage boucle autoregressive (LIMITÉE): target=$targetFrames frames (min=$minFrames, max=$maxFrames)")
-                Log.w(TAG, "⚠️ LIMITE TEMPORAIRE: Seulement $maxFrames frames max pour éviter crash mémoire")
+                Log.d(TAG, "Démarrage boucle autoregressive: target=$targetFrames frames (min=$minFrames, max=$maxFrames, stability=$stabilityMultiplier)")
                 
                 val accumulatedFrames = mutableListOf<FloatArray>() // Liste pour accumuler les frames
                 var currentOutputSequence = outputSequenceTensor // Tensor actuel pour output_sequence
@@ -485,6 +540,7 @@ class OnnxTTSManager(
                     if (newFrameTensor == null) {
                         Log.e(TAG, "Decoder output n'est pas un OnnxTensor à l'itération $iteration")
                         decoderResult.close()
+                        recordFailure() // ⭐ NOUVEAU: Enregistrer échec
                         break
                     }
                     
@@ -522,6 +578,11 @@ class OnnxTTSManager(
                             accumulatedFrames.add(singleFrame)
                             framesGenerated++
                         }
+                    }
+                    
+                    // ⭐ NOUVEAU: Enregistrer succès partiel (frame générée avec succès)
+                    if (framesGenerated > 0) {
+                        recordSuccess()
                     }
                     
                     // Mettre à jour output_sequence pour la prochaine itération
@@ -711,10 +772,12 @@ class OnnxTTSManager(
                     }
                     
                     Log.i(TAG, "✅ Inference réussie: ${waveform.size} échantillons")
+                    recordSuccess() // ⭐ NOUVEAU: Enregistrer succès complet
                     return waveform
                 } catch (vocoderError: Exception) {
                     Log.e(TAG, "❌ Erreur vocoder: ${vocoderError.message}", vocoderError)
                     Log.e(TAG, "Vocoder inputs tentés: ${vocoderInputs.keys.joinToString()}")
+                    recordFailure() // ⭐ NOUVEAU: Enregistrer échec
                     if (spectrogramForVocoder != melSpectrogram) {
                         spectrogramForVocoder.close() // Libérer le tensor reshaped si créé
                     }
@@ -726,6 +789,7 @@ class OnnxTTSManager(
                 }
             } catch (decoderError: Exception) {
                 Log.e(TAG, "❌ Erreur decoder (boucle autoregressive): ${decoderError.message}", decoderError)
+                recordFailure() // ⭐ NOUVEAU: Enregistrer échec
                 encoderOutput.close()
                 encoderResult.close()
                 encoderAttentionMaskTensor.close()

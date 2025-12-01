@@ -62,10 +62,12 @@ class KittAIService(
         private const val VERSION = "4.7.0" // Intelligence System: Web Search + System Context + AI Learning
         
         // APIs URLs
-        private const val OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
-        private const val ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-        private const val HUGGINGFACE_API_URL = "https://router.huggingface.co/hf-inference/models/"
-        private const val OLLAMA_CLOUD_API_URL = "https://ollama.com/api/chat" // API native Ollama Cloud (format natif)
+        // ⭐ REFACTORISÉ: URLs centralisées dans ApiConfig
+        private val OPENAI_API_URL = com.chatai.config.ApiConfig.OPENAI_CHAT_COMPLETIONS
+        private val ANTHROPIC_API_URL = com.chatai.config.ApiConfig.ANTHROPIC_MESSAGES
+        // ⭐ REFACTORISÉ: Hugging Face géré par HuggingFaceService
+        // Plus de constantes Hugging Face ici - tout est dans HuggingFaceService
+        private val OLLAMA_CLOUD_API_URL = com.chatai.config.ApiConfig.OLLAMA_CLOUD_CHAT // API native Ollama Cloud (format natif)
         
         // Serveur local (Ollama, LM Studio, etc.) - OpenAI-compatible
         // L'utilisateur peut configurer l'URL dans les paramètres
@@ -75,7 +77,6 @@ class KittAIService(
         // Models (gardés mais non utilisés dans fallback auto)
         private const val OPENAI_MODEL = "gpt-4o-mini"
         private const val ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
-        private const val HUGGINGFACE_MODEL = "gpt2"
         
         // Timeouts
         private const val TIMEOUT_SECONDS = 30L
@@ -89,6 +90,9 @@ class KittAIService(
         context.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
     
     private val keyring: KeyringManager = KeyringManager.getInstance(context)
+    
+    // ⭐ REFACTORISÉ: Service Hugging Face dédié
+    private val huggingFaceService: HuggingFaceService = HuggingFaceService(context)
     
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -140,8 +144,6 @@ class KittAIService(
     private var lastThinkingTrace: String = ""
     
     // ⭐ Smart Fallback - Détection de contexte (v3.0)
-    private var lastPCCheckTime = 0L
-    private var isPCAvailable = false
     
     // ⭐ NOUVEAU: Flag pour indiquer si l'historique est chargé
     @Volatile
@@ -598,7 +600,7 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             }
             
             val request = Request.Builder()
-                .url("https://ollama.com/api/web_search")
+                .url(com.chatai.config.ApiConfig.OLLAMA_CLOUD_WEB_SEARCH)
                 .addHeader("Authorization", "Bearer $cleanApiKey")
                 .addHeader("Content-Type", "application/json")
                 .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
@@ -837,11 +839,27 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
         // 3. Meta-Control AI
         when {
             lowerInput.contains("change") && lowerInput.contains("modèle") -> {
-                // TODO: Parser le nom du modèle
-                return when (personality) {
-                    "glados" -> "Changement de modèle ? Vous trouvez que je ne suis pas assez intelligente ?"
-                    "KARR" -> "Changer MON modèle ? Tu oses suggérer que je ne suis pas optimal ?"
-                    else -> "Pour changer de modèle, ouvrez la configuration IA."
+                // ⭐ IMPLÉMENTÉ: Parser le nom du modèle depuis la commande vocale
+                val modelName = parseModelNameFromInput(userInput)
+                if (modelName != null) {
+                    // Sauvegarder le modèle dans SharedPreferences
+                    sharedPreferences.edit()
+                        .putString("ollama_cloud_model", modelName)
+                        .apply()
+                    
+                    Log.i(TAG, "Modèle changé via commande vocale: $modelName")
+                    return when (personality) {
+                        "glados" -> "Modèle changé pour '$modelName'. Espérons que vous serez satisfait cette fois."
+                        "KARR" -> "Modèle changé: $modelName. J'espère que c'est mieux que le précédent."
+                        else -> "Modèle changé pour '$modelName'. La prochaine réponse utilisera ce modèle."
+                    }
+                } else {
+                    // Aucun modèle détecté, message d'aide
+                    return when (personality) {
+                        "glados" -> "Changement de modèle ? Vous trouvez que je ne suis pas assez intelligente ? Spécifiez le nom du modèle."
+                        "KARR" -> "Changer MON modèle ? Tu oses suggérer que je ne suis pas optimal ? Indiquez le nom du modèle."
+                        else -> "Pour changer de modèle, dites 'change modèle [nom]' ou ouvrez la configuration IA."
+                    }
                 }
             }
             lowerInput.contains("mode pc") -> {
@@ -939,54 +957,6 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
         } catch (e: Exception) {
             Log.e(TAG, "Erreur lecture heure device", e)
             return null // Si erreur, on laisse le LLM répondre
-        }
-    }
-    
-    /**
-     * ⭐ Smart Fallback v3.0 - Vérifie si le PC Ollama est accessible
-     * Cache le résultat pendant 30 secondes pour performance
-     */
-    private fun canReachPC(): Boolean {
-        // Cache de 30 secondes pour éviter les tests répétés
-        val now = System.currentTimeMillis()
-        if (now - lastPCCheckTime < 30000) {
-            return isPCAvailable
-        }
-        
-        val pcUrl = sharedPreferences.getString("local_server_url", "")?.trim()
-        if (pcUrl.isNullOrEmpty()) {
-            lastPCCheckTime = now
-            isPCAvailable = false
-            return false
-        }
-        
-        return try {
-            // Test rapide du endpoint /api/tags (plus léger que chat)
-            val testUrl = pcUrl.substringBefore("/v1") + "/api/tags"
-            val request = Request.Builder()
-                .url(testUrl)
-                .get()
-                .build()
-            
-            val quickClient = httpClient.newBuilder()
-                .connectTimeout(1, TimeUnit.SECONDS)
-                .readTimeout(1, TimeUnit.SECONDS)
-                .build()
-            
-            val response = quickClient.newCall(request).execute()
-            val available = response.isSuccessful
-            
-            lastPCCheckTime = now
-            isPCAvailable = available
-            
-            Log.d(TAG, "🖥️ PC Ollama ${if (available) "ACCESSIBLE" else "INACCESSIBLE"}")
-            available
-            
-        } catch (e: Exception) {
-            lastPCCheckTime = now
-            isPCAvailable = false
-            Log.d(TAG, "🖥️ PC Ollama INACCESSIBLE: ${e.message}")
-            false
         }
     }
     
@@ -1135,52 +1105,89 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             val forcedMode = sharedPreferences.getString("forced_api_mode", "auto")?.trim() ?: "auto"
             val disableFallback = sharedPreferences.getBoolean("disable_fallback", false)
             
-            // Détecter le contexte
-            val pcAvailable = canReachPC()
+            // Détecter le contexte (simplifié: plus de Ollama PC)
             val internetAvailable = hasInternet()
             
-            Log.i(TAG, "🎯 [ID: $conversationId] CONTEXTE: PC=${if(pcAvailable)"✅"else"❌"} | Internet=${if(internetAvailable)"✅"else"❌"} | Mode=${forcedMode}")
-            addDiagnosticLog("\n[CONTEXTE] [ID: $conversationId] PC: $pcAvailable | Internet: $internetAvailable | Mode forcé: $forcedMode")
+            Log.i(TAG, "🎯 [ID: $conversationId] CONTEXTE: Internet=${if(internetAvailable)"✅"else"❌"} | Mode=${forcedMode}")
+            addDiagnosticLog("\n[CONTEXTE] [ID: $conversationId] Internet: $internetAvailable | Mode forcé: $forcedMode")
             
             // ⭐ LOG Web Search detection
             val needsSearch = needsWebSearch(userInput)
             Log.i(TAG, "🔍 [ID: $conversationId] Web Search needed: $needsSearch")
             addDiagnosticLog("[WEB SEARCH] Needed: $needsSearch")
             
-            // ⭐ Ordre intelligent selon le contexte OU mode forcé (OLLAMA SEULEMENT)
+            // ⭐ FIX: Vérifier si Hugging Face LLM est activé
+            val useHuggingFaceLLM = huggingFaceService.isEnabledForLLM() && huggingFaceService.isConfigured()
+            
+            // ⭐ FIX: Vérifier si Ollama Cloud est activé (comme Hugging Face)
+            val useOllamaCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
+            val ollamaCloudApiKey = keyring.getApiKey("ollama")?.trim()
+            val ollamaCloudConfigured = !ollamaCloudApiKey.isNullOrEmpty()
+            val useOllamaCloudLLM = useOllamaCloud && ollamaCloudConfigured
+            
+            Log.i(TAG, "🔧 Configuration: HF=${if(useHuggingFaceLLM)"✅"else"❌"} | Ollama=${if(useOllamaCloudLLM)"✅"else"❌"}")
+            addDiagnosticLog("[CONFIG] Hugging Face: $useHuggingFaceLLM | Ollama Cloud: $useOllamaCloudLLM")
+            
+            // ⭐ CORRIGÉ: Ordre intelligent (vérifie activation de chaque service)
             val apiOrder = when (forcedMode) {
                 "cloud_only" -> {
-                    Log.i(TAG, "☁️ MODE FORCÉ: Ollama Cloud seulement")
-                    addDiagnosticLog("[MODE] FORCÉ Ollama Cloud Only")
-                    listOf("ollama_cloud")
+                    Log.i(TAG, "☁️ MODE FORCÉ: Cloud seulement")
+                    addDiagnosticLog("[MODE] FORCÉ Cloud Only")
+                    // Construire la liste selon ce qui est activé
+                    val cloudApis = mutableListOf<String>()
+                    if (useHuggingFaceLLM) cloudApis.add("huggingface")
+                    if (useOllamaCloudLLM) cloudApis.add("ollama_cloud")
+                    if (cloudApis.isEmpty()) {
+                        Log.w(TAG, "⚠️ Mode cloud_only mais aucun service cloud activé")
+                        cloudApis.add("fallback")
+                    }
+                    cloudApis
                 }
-                "pc_only" -> {
-                    Log.i(TAG, "🖥️ MODE FORCÉ: Ollama PC seulement")
-                    addDiagnosticLog("[MODE] FORCÉ Ollama PC Only")
-                    listOf("local")
+                "huggingface_only" -> {
+                    Log.i(TAG, "🤗 MODE FORCÉ: Hugging Face seulement")
+                    addDiagnosticLog("[MODE] FORCÉ Hugging Face Only")
+                    listOf("huggingface")
                 }
                 else -> {
-                    // Mode auto (smart fallback) - OLLAMA SEULEMENT
+                    // Mode auto (smart fallback) - Vérifie activation de chaque service
+                    val availableApis = mutableListOf<String>()
+                    
+                    // 1. Hugging Face (si activé + Internet)
+                    if (useHuggingFaceLLM && internetAvailable) {
+                        availableApis.add("huggingface")
+                    }
+                    
+                    // 2. Ollama Cloud (si activé + Internet)
+                    if (useOllamaCloudLLM && internetAvailable) {
+                        availableApis.add("ollama_cloud")
+                    }
+                    
+                    // 3. Fallback local (si rien d'autre disponible)
+                    if (availableApis.isEmpty()) {
+                        availableApis.add("fallback")
+                    }
+                    
+                    // Log selon la configuration
                     when {
-                        pcAvailable -> {
-                            // Mode 1: PC accessible (hotspot actif) - OPTIMAL
-                            Log.i(TAG, "🏠 Mode Auto-PC: Ollama PC → Ollama Cloud")
-                            addDiagnosticLog("[MODE] Auto - PC Priority")
-                            listOf("local", "ollama_cloud")
+                        useHuggingFaceLLM && useOllamaCloudLLM && internetAvailable -> {
+                            Log.i(TAG, "🤗 Mode Auto: Hugging Face → Ollama Cloud")
+                            addDiagnosticLog("[MODE] Auto - Hugging Face → Ollama Cloud")
                         }
-                        internetAvailable -> {
-                            // Mode 2: Internet disponible (données cellulaires) - CLOUD
-                            Log.i(TAG, "☁️ Mode Auto-Cloud: Ollama Cloud uniquement")
-                            addDiagnosticLog("[MODE] Auto - Cloud Only")
-                            listOf("ollama_cloud")
+                        useHuggingFaceLLM && internetAvailable -> {
+                            Log.i(TAG, "🤗 Mode Auto: Hugging Face seulement")
+                            addDiagnosticLog("[MODE] Auto - Hugging Face Only")
+                        }
+                        useOllamaCloudLLM && internetAvailable -> {
+                            Log.i(TAG, "☁️ Mode Auto: Ollama Cloud seulement")
+                            addDiagnosticLog("[MODE] Auto - Ollama Cloud Only")
                         }
                         else -> {
-                            // Mode 3: Offline complet (rare - tunnel/avion) - FALLBACK
                             Log.i(TAG, "📵 Mode Offline: Fallback seulement")
                             addDiagnosticLog("[MODE] Offline - Fallback")
-                            listOf("fallback")
                         }
                     }
+                    
+                    availableApis
                 }
             }
             
@@ -1194,14 +1201,14 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 if (response != null) break
                 
                 when (api) {
-                    "local" -> {
-                        Log.i(TAG, "🖥️ [ID: $conversationId] Step $step: Trying Ollama PC...")
-                        addDiagnosticLog("\n[$step] [ID: $conversationId] Ollama PC: Attempting...")
-                        response = tryLocalServer(userInput)
-                        if (response != null) apiUsed = "ollama_pc"
-                        val status = if (response != null) "SUCCESS ⚡" else "FAILED"
-                        Log.i(TAG, "🖥️ [ID: $conversationId] Step $step: Ollama PC → $status")
-                        addDiagnosticLog("[$step] Ollama PC: $status")
+                    "huggingface" -> {
+                        Log.i(TAG, "🤗 [ID: $conversationId] Step $step: Trying Hugging Face...")
+                        addDiagnosticLog("\n[$step] [ID: $conversationId] Hugging Face: Attempting...")
+                        response = tryHuggingFace(userInput)
+                        if (response != null) apiUsed = "huggingface"
+                        val status = if (response != null) "SUCCESS 🤗" else "FAILED"
+                        Log.i(TAG, "🤗 [ID: $conversationId] Step $step: Hugging Face → $status")
+                        addDiagnosticLog("[$step] Hugging Face: $status")
                     }
                     "ollama_cloud" -> {
                         Log.i(TAG, "☁️ [ID: $conversationId] Step $step: Trying Ollama Cloud...")
@@ -1532,7 +1539,20 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             addDiagnosticLog("    - Key: Configured (${ollamaCloudApiKey.length} chars)")
             
             // Récupérer le modèle cloud (par défaut: qwen3 - Petit modèle rapide pour tests)
-            val ollamaCloudModel = sharedPreferences.getString("ollama_cloud_model", "qwen3")?.trim() ?: "qwen3"
+            val rawModel = sharedPreferences.getString("ollama_cloud_model", "qwen3")?.trim() ?: "qwen3"
+            
+            // ⭐ FIX: Détecter et corriger les modèles Hugging Face (format :hf-inference)
+            // Ollama Cloud n'accepte pas ce format, utiliser un modèle Ollama par défaut
+            val ollamaCloudModel = if (rawModel.contains(":hf-inference") || rawModel.contains("HuggingFaceTB/") || rawModel.contains("/")) {
+                Log.w(TAG, "⚠️ Modèle Hugging Face détecté pour Ollama Cloud: $rawModel")
+                Log.w(TAG, "   → Ollama Cloud n'accepte pas les modèles Hugging Face")
+                Log.w(TAG, "   → Utilisation du modèle Ollama par défaut: qwen3")
+                Log.w(TAG, "   → Pour utiliser Hugging Face, configurez HuggingFaceService (mode LLM)")
+                addDiagnosticLog("    - ⚠️ Modèle Hugging Face détecté, fallback vers qwen3")
+                "qwen3" // Fallback vers modèle Ollama valide
+            } else {
+                rawModel
+            }
             addDiagnosticLog("    - Model: $ollamaCloudModel")
             
             Log.d(TAG, "Trying Ollama Cloud API...")
@@ -1771,220 +1791,38 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
      * Essaie un serveur local (Ollama, LM Studio, etc.)
      * Compatible avec l'API OpenAI
      */
-    private suspend fun tryLocalServer(userInput: String): String? = withContext(Dispatchers.IO) {
-        // ⭐ FIX: Déclarer localServerUrl en dehors du try pour accès dans catch
-        val localServerUrl = sharedPreferences.getString("local_server_url", null)?.trim()
-        
-        // Vérifier si URL est configurée (avant le try pour éviter erreurs dans catch)
-        if (localServerUrl.isNullOrEmpty()) {
-            Log.d(TAG, "Local server URL not configured")
-            addDiagnosticLog("    - ❌ URL: Not configured")
-            addDiagnosticLog("    - 💡 Configurez l'URL dans l'onglet Local de la webapp")
-            addDiagnosticLog("    - 💡 Format: http://VOTRE_IP:11434/v1/chat/completions")
-            addDiagnosticLog("    - 💡 Exemple: http://192.168.1.100:11434/v1/chat/completions")
-            return@withContext null
-        }
-        
-        try {
-            Log.i(TAG, "Local Server URL check: FOUND")
-            addDiagnosticLog("    - URL: $localServerUrl")
-            
-            // Récupérer le modèle local (configurable par l'utilisateur, par défaut: gemma3-270m.gguf)
-            val localModel = sharedPreferences.getString("local_model_name", "gemma3-270m.gguf")?.trim()
-            addDiagnosticLog("    - Model: $localModel")
-            
-            Log.d(TAG, "Trying Local Server API...")
-            
-            // Construire les messages (format OpenAI-compatible)
-            val messages = JSONArray()
-            
-            // System prompt
-            messages.put(JSONObject().apply {
-                put("role", "system")
-                put("content", getSystemPrompt())
-            })
-            
-            // Historique de conversation (derniers N échanges depuis la BD)
-            val historyToInclude = conversationHistory.takeLast(CONTEXT_WINDOW_SIZE)
-            Log.d(TAG, "📚 Including ${historyToInclude.size} history messages in request (total history: ${conversationHistory.size}, isHistoryLoaded: $isHistoryLoaded)")
-            historyToInclude.forEach { (user, assistant) ->
-                if (user.isNotEmpty()) {
-                    messages.put(JSONObject().apply {
-                        put("role", "user")
-                        put("content", user)
-                    })
-                }
-                if (assistant.isNotEmpty()) {
-                    messages.put(JSONObject().apply {
-                        put("role", "assistant")
-                        put("content", assistant)
-                    })
-                }
-            }
-            
-            // Message actuel
-            messages.put(JSONObject().apply {
-                put("role", "user")
-                put("content", userInput)
-            })
-            
-            val requestBody = JSONObject().apply {
-                put("model", localModel)
-                put("messages", messages)
-                put("max_tokens", 200)
-                put("temperature", 0.8)
-                put("think", true) // ⭐ ACTIVER THINKING pour apprentissage
-            }
-            
-            Log.i(TAG, "Request to local server: ${requestBody.toString().take(100)}")
-            
-            val request = Request.Builder()
-                .url(localServerUrl)
-                .addHeader("Content-Type", "application/json")
-                .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-            
-            Log.d(TAG, "Sending request to Local Server...")
-            val response = httpClient.newCall(request).execute()
-            
-            Log.d(TAG, "Local Server HTTP response code: ${response.code}")
-            addDiagnosticLog("    - HTTP response: ${response.code}")
-            
-            if (response.isSuccessful) {
-                val responseBody = response.body?.string()
-                Log.d(TAG, "Local Server raw response body length: ${responseBody?.length ?: 0}")
-                responseBody?.let {
-                    val jsonResponse = JSONObject(it)
-                    val messageObj = jsonResponse
-                        .getJSONArray("choices")
-                        .getJSONObject(0)
-                        .getJSONObject("message")
-                    val content = messageObj.getString("content")
-                    
-                    // ⭐ EXTRAIRE LE THINKING pour apprentissage (si disponible)
-                    val thinking = messageObj.optString("thinking", "")
-                    if (thinking.isNotEmpty()) {
-                        Log.d(TAG, "🧠 Thinking received from local server: ${thinking.take(100)}...")
-                        addDiagnosticLog("    - 🧠 Thinking: ${thinking.take(150)}")
-                        lastThinkingTrace = thinking
-                    }
-                    
-                    Log.d(TAG, "Local Server response received successfully: ${content.take(50)}...")
-                    addDiagnosticLog("    - Response: ${content.take(100)}")
-                    return@withContext content.trim()
-                }
-            } else {
-                val errorBody = response.body?.string()
-                Log.e(TAG, "Local Server HTTP ${response.code} ERROR:")
-                Log.e(TAG, "Error body: $errorBody")
-                addDiagnosticLog("    - HTTP ${response.code} ERROR: ${errorBody?.take(100)}")
-            }
-            
-            return@withContext null
-            
-        } catch (e: java.net.ConnectException) {
-            Log.e(TAG, "Local Server connection refused", e)
-            val port = localServerUrl?.substringAfterLast(":")?.substringBefore("/") ?: "11434"
-            addDiagnosticLog("    - ❌ Connexion refusée (port $port)")
-            addDiagnosticLog("    - 💡 Le serveur Ollama local n'est pas démarré")
-            addDiagnosticLog("    - 💡 Démarrer Ollama: ollama serve (ou installer Ollama)")
-            addDiagnosticLog("    - 💡 Vérifier l'URL: $localServerUrl")
-            return@withContext null
-        } catch (e: java.net.SocketTimeoutException) {
-            Log.e(TAG, "Local Server timeout", e)
-            addDiagnosticLog("    - ⏱️ Timeout de connexion")
-            addDiagnosticLog("    - 💡 Le serveur Ollama ne répond pas")
-            addDiagnosticLog("    - 💡 Vérifier que Ollama est démarré et accessible")
-            return@withContext null
-        } catch (e: java.net.UnknownHostException) {
-            Log.e(TAG, "Local Server unknown host", e)
-            addDiagnosticLog("    - ❌ Hôte inconnu")
-            addDiagnosticLog("    - 💡 Vérifier l'URL du serveur: $localServerUrl")
-            addDiagnosticLog("    - 💡 Utiliser l'IP de votre PC (ex: http://192.168.1.100:11434)")
-            return@withContext null
-        } catch (e: Exception) {
-            Log.e(TAG, "Local Server error", e)
-            addDiagnosticLog("    - ❌ Exception: ${e.message}")
-            addDiagnosticLog("    - 💡 Vérifier que le serveur Ollama est démarré (port 11434)")
-            addDiagnosticLog("    - 💡 Vérifier l'URL configurée: $localServerUrl")
-            return@withContext null
-        }
-    }
-    
     /**
-     * Essaie l'API Hugging Face
+     * ⭐ REFACTORISÉ: Essaie l'API Hugging Face via HuggingFaceService
      */
     private suspend fun tryHuggingFace(userInput: String): String? = withContext(Dispatchers.IO) {
         try {
-            val apiKey = keyring.getApiKey("huggingface")?.trim()
-            Log.i(TAG, "Hugging Face key check: ${if (apiKey.isNullOrEmpty()) "EMPTY/NULL" else "FOUND (${apiKey.length} chars)"}")
-            if (apiKey.isNullOrEmpty()) {
+            if (!huggingFaceService.isConfigured()) {
                 Log.w(TAG, "Hugging Face API key not configured")
                 addDiagnosticLog("    - Key: Not configured")
                 return@withContext null
             }
-            addDiagnosticLog("    - Key: Configured (${apiKey.length} chars)")
-            addDiagnosticLog("    - Model: $HUGGINGFACE_MODEL")
             
-            Log.i(TAG, "Trying Hugging Face API...")
+            addDiagnosticLog("    - Key: Configured")
+            val model = sharedPreferences.getString("hf_llm_model", HuggingFaceService.DEFAULT_LLM_MODEL)
+                ?: HuggingFaceService.DEFAULT_LLM_MODEL
+            addDiagnosticLog("    - Model: $model")
             
-            val requestBody = JSONObject().apply {
-                put("inputs", userInput)
-                put("parameters", JSONObject().apply {
-                    put("max_length", 150)
-                    put("temperature", 0.8)
-                })
-            }
+            Log.i(TAG, "Trying Hugging Face API via HuggingFaceService...")
             
-            val fullUrl = HUGGINGFACE_API_URL + HUGGINGFACE_MODEL
-            Log.i(TAG, "Hugging Face URL: $fullUrl")
-            Log.i(TAG, "Request body: ${requestBody.toString()}")
-            addDiagnosticLog("    - URL: $fullUrl")
-            addDiagnosticLog("    - Request: ${requestBody.toString().take(100)}")
+            // Utiliser HuggingFaceService pour générer la réponse
+            val systemPrompt = getSystemPrompt()
+            val response = huggingFaceService.generateText(userInput, systemPrompt)
             
-            val request = Request.Builder()
-                .url(fullUrl)
-                .addHeader("Authorization", "Bearer $apiKey")
-                .addHeader("Content-Type", "application/json")
-                .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-            
-            Log.i(TAG, "Sending request to Hugging Face...")
-            val response = httpClient.newCall(request).execute()
-            
-            Log.i(TAG, "Hugging Face HTTP response code: ${response.code}")
-            
-            if (response.isSuccessful) {
-                val responseBody = response.body?.string()
-                Log.i(TAG, "Hugging Face raw response body length: ${responseBody?.length ?: 0}")
-                Log.i(TAG, "Hugging Face raw JSON: ${responseBody?.take(200)}")
-                addDiagnosticLog("    - Response body: ${responseBody?.take(150)}")
-                responseBody?.let {
-                    try {
-                        val jsonArray = JSONArray(it)
-                        if (jsonArray.length() > 0) {
-                            val generatedText = jsonArray.getJSONObject(0)
-                                .getString("generated_text")
-                            
-                            // Ajouter le style KITT à la réponse
-                            val kittStyled = addKittStyle(generatedText)
-                            Log.i(TAG, "Hugging Face SUCCESS: $kittStyled")
-                            addDiagnosticLog("    - Generated text: ${generatedText.take(100)}")
-                            return@withContext kittStyled
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing Hugging Face JSON", e)
-                        addDiagnosticLog("    - JSON parse error: ${e.message}")
-                    }
-                }
+            if (response != null) {
+                val kittStyled = addKittStyle(response)
+                Log.i(TAG, "Hugging Face SUCCESS: $kittStyled")
+                addDiagnosticLog("    - Generated text: ${response.take(100)}")
+                return@withContext kittStyled
             } else {
-                val errorBody = response.body?.string()
-                Log.e(TAG, "Hugging Face API HTTP ${response.code} ERROR:")
-                Log.e(TAG, "Error body: $errorBody")
-                addDiagnosticLog("    - HTTP ${response.code} ERROR: ${errorBody?.take(100)}")
+                Log.w(TAG, "Hugging Face API returned null")
+                addDiagnosticLog("    - Response: null")
+                return@withContext null
             }
-            
-            return@withContext null
             
         } catch (e: Exception) {
             Log.e(TAG, "Hugging Face API error", e)
@@ -1999,6 +1837,48 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
     private fun addKittStyle(response: String): String {
         // Pas de préfixe automatique - réponse directe et professionnelle
         return response
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Parser le nom du modèle depuis une commande vocale
+     * Exemples: "change modèle qwen3", "change modèle deepseek-r1", "change modèle gpt-oss"
+     */
+    private fun parseModelNameFromInput(input: String): String? {
+        val lowerInput = input.lowercase()
+        
+        // Patterns pour détecter le nom du modèle
+        val patterns = listOf(
+            Regex("change.*modèle.*?([a-z0-9.-]+)", RegexOption.IGNORE_CASE),
+            Regex("modèle.*?([a-z0-9.-]+)", RegexOption.IGNORE_CASE),
+            Regex("utilise.*?([a-z0-9.-]+)", RegexOption.IGNORE_CASE),
+            Regex("passe.*?([a-z0-9.-]+)", RegexOption.IGNORE_CASE)
+        )
+        
+        // Modèles Ollama connus (validation)
+        val knownModels = listOf(
+            "qwen3", "deepseek-r1", "deepseek-v3.1", "gpt-oss", "llama3.2", 
+            "mistral", "gemma3", "llava", "bakllava"
+        )
+        
+        for (pattern in patterns) {
+            val match = pattern.find(lowerInput)
+            if (match != null) {
+                val modelName = match.groupValues[1].trim()
+                // Vérifier si c'est un modèle connu (ou accepter n'importe quel nom valide)
+                if (modelName.isNotBlank() && modelName.length >= 3) {
+                    // Si c'est un modèle connu, le retourner directement
+                    if (knownModels.any { it.equals(modelName, ignoreCase = true) }) {
+                        return modelName
+                    }
+                    // Sinon, accepter quand même (peut être un modèle personnalisé)
+                    if (modelName.matches(Regex("[a-z0-9.-]+"))) {
+                        return modelName
+                    }
+                }
+            }
+        }
+        
+        return null
     }
     
     /**
@@ -2281,46 +2161,28 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
         }
     }
     
+    /**
+     * ⭐ REFACTORISÉ: Version simple utilisant HuggingFaceService
+     */
     private suspend fun tryHuggingFaceSimple(userInput: String, steps: MutableList<StepResult>): String? {
         return try {
-            val apiKey = keyring.getApiKey("huggingface")?.trim()
-            if (apiKey.isNullOrEmpty()) return null
-            
-            val requestBody = JSONObject().apply {
-                put("inputs", userInput)
-                put("parameters", JSONObject().apply {
-                    put("max_length", 150)
-                    put("temperature", 0.8)
-                })
+            if (!huggingFaceService.isConfigured()) {
+                steps.add(StepResult(3, "Hugging Face", "SKIPPED", null, "API key not configured"))
+                return null
             }
             
-            val request = Request.Builder()
-                .url(HUGGINGFACE_API_URL + HUGGINGFACE_MODEL)
-                .addHeader("Authorization", "Bearer $apiKey")
-                .addHeader("Content-Type", "application/json")
-                .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
-                .build()
+            val response = huggingFaceService.generateText(userInput)
             
-            val response = httpClient.newCall(request).execute()
-            
-            if (response.isSuccessful) {
-                val responseBody = response.body?.string()
-                responseBody?.let {
-                    val jsonResponse = JSONObject(it)
-                    val generatedText = jsonResponse.getString("generated_text")
-                    val kittStyled = addKittStyle(generatedText)
-                    
-                    steps.add(StepResult(3, "Hugging Face BlenderBot", "SUCCESS", response.code, null))
-                    return kittStyled
-                }
+            if (response != null) {
+                val kittStyled = addKittStyle(response)
+                steps.add(StepResult(3, "Hugging Face", "SUCCESS", 200, null))
+                return kittStyled
             } else {
-                val errorBody = response.body?.string()
-                steps.add(StepResult(3, "Hugging Face BlenderBot", "FAILED", response.code, errorBody?.take(80)))
+                steps.add(StepResult(3, "Hugging Face", "FAILED", null, "No response"))
+                return null
             }
-            
-            null
         } catch (e: Exception) {
-            steps.add(StepResult(3, "Hugging Face BlenderBot", "FAILED", null, e.message?.take(80)))
+            steps.add(StepResult(3, "Hugging Face", "FAILED", null, e.message?.take(80)))
             null
         }
     }

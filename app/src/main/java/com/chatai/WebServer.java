@@ -19,7 +19,7 @@ import java.util.Locale;
  */
 public class WebServer {
     private static final String TAG = "WebServer";
-    private static final int PORT = 8888;
+    private static final int DEFAULT_PORT = 8888; // ⚠️ PORT CRITIQUE: Utilisé pour WASM/EmulatorJS (URLs codées en dur)
     private static final String SITES_DIR = "/storage/emulated/0/ChatAI-Files/sites";
     
     // Options configurables (comme Apache/Nginx)
@@ -33,10 +33,12 @@ public class WebServer {
     private ServerSocket serverSocket;
     private boolean isRunning = false;
     private Thread serverThread;
-    private int actualPort = PORT; // Port réel utilisé (peut différer si PORT est occupé)
+    private int actualPort = DEFAULT_PORT; // Port réel utilisé (peut différer si DEFAULT_PORT est occupé)
+    private android.content.SharedPreferences sharedPreferences;
     
     public WebServer(Context context) {
         this.context = context;
+        this.sharedPreferences = context.getSharedPreferences("chatai_config", Context.MODE_PRIVATE);
     }
     
     // Méthodes de configuration (comme Apache/Nginx)
@@ -68,23 +70,32 @@ public class WebServer {
         if (isRunning || serverSocket != null) {
             Log.w(TAG, "Serveur web déjà en cours, fermeture avant redémarrage");
             stop();
+            // ⭐ FIX: Augmenter le délai d'attente pour permettre la libération complète du port
             try {
-                Thread.sleep(500); // Attendre que le socket soit complètement libéré
+                Thread.sleep(1000); // Attendre 1 seconde que le socket soit complètement libéré
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
         }
         
         // ⚠️ PORT 8888 CRITIQUE : Utilisé pour WASM/EmulatorJS (URLs codées en dur dans le code)
-        // Essayer d'abord le port 8888, puis attendre et réessayer avant d'utiliser un port alternatif
-        int portToTry = PORT;
-        int maxRetries = 3; // Réessayer 3 fois le port 8888 avant de passer à un port alternatif
-        int retryDelayMs = 1000; // Attendre 1 seconde entre chaque tentative
+        // ⭐ FIX: Lire le port depuis SharedPreferences avec fallback vers 8888
+        int configuredPort = sharedPreferences.getInt("webserver_port", DEFAULT_PORT);
+        if (configuredPort != DEFAULT_PORT) {
+            Log.w(TAG, "⚠️ ATTENTION: Port WebServer configuré à " + configuredPort + " au lieu de " + DEFAULT_PORT);
+            Log.w(TAG, "⚠️ Les URLs WASM/EmulatorJS codées en dur ne fonctionneront PAS avec un port différent!");
+        }
+        int portToTry = configuredPort;
+        int maxRetries = 10; // ⭐ AUGMENTÉ: Réessayer 10 fois le port 8888 (TIME_WAIT peut prendre jusqu'à 2 min)
+        int retryDelayMs = 1000; // ⭐ AUGMENTÉ: Attendre 1 seconde entre chaque tentative (plus rapide mais plus de tentatives)
         
         // Essayer d'abord le port 8888 plusieurs fois (peut être dans TIME_WAIT)
         for (int retry = 0; retry < maxRetries; retry++) {
             try {
-                serverSocket = new ServerSocket(portToTry);
+                // ⭐ FIX: Utiliser SO_REUSEADDR pour permettre réutilisation du port même en TIME_WAIT
+                serverSocket = new ServerSocket();
+                serverSocket.setReuseAddress(true); // Permet réutilisation immédiate du port
+                serverSocket.bind(new java.net.InetSocketAddress(portToTry));
                 actualPort = portToTry;
                 isRunning = true;
                 
@@ -121,16 +132,19 @@ public class WebServer {
                         return;
                     }
                 } else {
-                    // Après 3 tentatives, utiliser un port alternatif avec avertissement CRITIQUE
-                    Log.e(TAG, "❌❌❌ ATTENTION CRITIQUE: Port " + PORT + " toujours occupé après " + maxRetries + " tentatives");
+                    // Après 5 tentatives, utiliser un port alternatif avec avertissement CRITIQUE
+                    Log.e(TAG, "❌❌❌ ATTENTION CRITIQUE: Port " + portToTry + " toujours occupé après " + maxRetries + " tentatives");
                     Log.e(TAG, "❌ Les URLs codées en dur (WASM/EmulatorJS) ne fonctionneront PAS avec un port alternatif !");
                     Log.e(TAG, "❌ URLs affectées: /gamelibrary/, /gamedata/, /relax/, etc.");
                     Log.e(TAG, "❌ Solution: Arrêter le processus qui occupe le port 8888 ou redémarrer l'app");
                     
                     // Essayer quand même un port alternatif en dernier recours
-                    int fallbackPort = PORT + 1;
+                    int fallbackPort = portToTry + 1;
                     try {
-                        serverSocket = new ServerSocket(fallbackPort);
+                        // ⭐ FIX: Utiliser SO_REUSEADDR aussi pour le port alternatif
+                        serverSocket = new ServerSocket();
+                        serverSocket.setReuseAddress(true);
+                        serverSocket.bind(new java.net.InetSocketAddress(fallbackPort));
                         actualPort = fallbackPort;
                         isRunning = true;
                         
@@ -153,7 +167,7 @@ public class WebServer {
                         Log.e(TAG, "⚠️ Serveur web démarré sur port alternatif " + fallbackPort + " - WASM/EmulatorJS NE FONCTIONNERA PAS");
                         return;
                     } catch (java.net.BindException fallbackException) {
-                        Log.e(TAG, "Erreur démarrage serveur web: port " + PORT + " et port alternatif " + fallbackPort + " tous deux occupés", fallbackException);
+                        Log.e(TAG, "Erreur démarrage serveur web: port " + portToTry + " et port alternatif " + fallbackPort + " tous deux occupés", fallbackException);
                         isRunning = false;
                     } catch (IOException fallbackException) {
                         Log.e(TAG, "Erreur démarrage serveur web (port alternatif): " + fallbackException.getMessage(), fallbackException);
@@ -172,7 +186,7 @@ public class WebServer {
      * Arrête le serveur web
      */
     public void stop() {
-        if (!isRunning) {
+        if (!isRunning && serverSocket == null) {
             return;
         }
         
@@ -180,21 +194,34 @@ public class WebServer {
         
         try {
             if (serverSocket != null && !serverSocket.isClosed()) {
+                // ⭐ FIX: Fermer le socket de manière synchrone pour libérer le port immédiatement
                 serverSocket.close();
+                Log.d(TAG, "Socket fermé, port libéré");
             }
         } catch (IOException e) {
             Log.e(TAG, "Erreur arrêt serveur web", e);
+        } finally {
+            // ⭐ FIX: S'assurer que le socket est null après fermeture
+            serverSocket = null;
         }
         
         if (serverThread != null) {
             serverThread.interrupt();
+            try {
+                // ⭐ FIX: Attendre que le thread se termine (max 1 seconde)
+                serverThread.join(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                Log.w(TAG, "Interruption lors de l'attente de l'arrêt du thread", e);
+            }
+            serverThread = null;
         }
         
         Log.i(TAG, "Serveur web arrêté");
     }
     
     /**
-     * Retourne le port réel utilisé (peut différer de PORT si le port par défaut était occupé)
+     * Retourne le port réel utilisé (peut différer de DEFAULT_PORT si le port par défaut était occupé)
      */
     public int getActualPort() {
         return actualPort;
@@ -1281,8 +1308,11 @@ public class WebServer {
                 return consoleInfo;
             }
             
-            // 3. Auto-detecter depuis cores.json (TODO: implementer)
-            // Pour l'instant, passer directement au fallback
+            // 3. Auto-détection depuis cores.json non implémentée
+            // Note: Les presets (étape 2) couvrent déjà la plupart des consoles courantes.
+            // L'auto-détection depuis cores.json serait utile pour les consoles rares,
+            // mais le fallback générique (étape 4) suffit pour l'instant.
+            // Si nécessaire, implémenter en s'inspirant de RetroPlay-Android/WebServer.java
             
             // 4. Fallback generique
             Log.d(TAG, "Using generic fallback config for: " + dirName);
@@ -2194,7 +2224,7 @@ public class WebServer {
         
         // Pied de page avec infos serveur (comme Apache/Nginx)
         html.append("<address>ChatAI WebServer/1.0 (Android) Server at ")
-            .append("localhost Port ").append(PORT).append("</address>\n");
+            .append("localhost Port ").append(actualPort).append("</address>\n");
         html.append("</body></html>\n");
         
         byte[] htmlBytes = html.toString().getBytes("UTF-8");

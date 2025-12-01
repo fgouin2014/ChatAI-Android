@@ -232,42 +232,38 @@ class ConfigurationActivity : AppCompatActivity() {
     private fun testServerConnections() {
         Toast.makeText(this, "Test des connexions serveurs...", Toast.LENGTH_SHORT).show()
         
-        // Tester les connexions (simulation)
-        Thread {
-            Thread.sleep(2000)
+        // ⭐ FIX: Utiliser Handler.postDelayed() au lieu de Thread.sleep()
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            val results = mutableListOf<String>()
             
-            runOnUiThread {
-                val results = mutableListOf<String>()
-                
-                // Test HTTP Server
-                try {
-                    val httpPort = httpPortInput.text.toString().toInt()
-                    results.add("✅ HTTP Server: Port $httpPort disponible")
-                } catch (e: Exception) {
-                    results.add("❌ HTTP Server: Erreur de port")
-                }
-                
-                // Test WebSocket Server
-                try {
-                    val wsPort = wsPortInput.text.toString().toInt()
-                    results.add("✅ WebSocket Server: Port $wsPort disponible")
-                } catch (e: Exception) {
-                    results.add("❌ WebSocket Server: Erreur de port")
-                }
-                
-                // Test File Server
-                try {
-                    val filePort = filePortInput.text.toString().toInt()
-                    results.add("✅ File Server: Port $filePort disponible")
-                } catch (e: Exception) {
-                    results.add("❌ File Server: Erreur de port")
-                }
-                
-                // Afficher les résultats
-                val message = results.joinToString("\n")
-                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            // Test HTTP Server
+            try {
+                val httpPort = httpPortInput.text.toString().toInt()
+                results.add("✅ HTTP Server: Port $httpPort disponible")
+            } catch (e: Exception) {
+                results.add("❌ HTTP Server: Erreur de port")
             }
-        }.start()
+            
+            // Test WebSocket Server
+            try {
+                val wsPort = wsPortInput.text.toString().toInt()
+                results.add("✅ WebSocket Server: Port $wsPort disponible")
+            } catch (e: Exception) {
+                results.add("❌ WebSocket Server: Erreur de port")
+            }
+            
+            // Test File Server
+            try {
+                val filePort = filePortInput.text.toString().toInt()
+                results.add("✅ File Server: Port $filePort disponible")
+            } catch (e: Exception) {
+                results.add("❌ File Server: Erreur de port")
+            }
+            
+            // Afficher les résultats
+            val message = results.joinToString("\n")
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        }, 2000) // Délai de 2 secondes
     }
     
     private fun openStorageLocationPicker() {

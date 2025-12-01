@@ -37,8 +37,9 @@ class OllamaThinkingService(private val context: Context) {
         private const val TAG = "OllamaThinkingService"
         
         // URLs par défaut
-        private const val OLLAMA_LOCAL_DEFAULT = "http://localhost:11434/v1/chat/completions" // Format OpenAI-compatible
-        private const val OLLAMA_CLOUD_URL = "https://ollama.com/api/chat" // API native Ollama Cloud (format natif)
+        // ⭐ REFACTORISÉ: URLs centralisées dans ApiConfig
+        private val OLLAMA_LOCAL_DEFAULT = com.chatai.config.ApiConfig.OLLAMA_LOCAL_DEFAULT // Format OpenAI-compatible
+        private val OLLAMA_CLOUD_URL = com.chatai.config.ApiConfig.OLLAMA_CLOUD_CHAT // API native Ollama Cloud (format natif)
         
         // Modèles recommandés avec thinking
         private val THINKING_MODELS = listOf(
@@ -149,33 +150,42 @@ class OllamaThinkingService(private val context: Context) {
     ): Flow<BidirectionalBridge.ThinkingChunk> = flow {
         Log.i(TAG, "Starting thinking stream for: $userInput")
         
-        // Déterminer quelle API utiliser
+        // ⭐ SIMPLIFIÉ: Plus de mode Local (Ollama PC supprimé)
+        // Utiliser uniquement Ollama Cloud si activé
         val useCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
-        val apiUrl = if (useCloud) {
-            OLLAMA_CLOUD_URL
-        } else {
-            sharedPreferences.getString("local_server_url", null)?.trim() 
-                ?: OLLAMA_LOCAL_DEFAULT
+        
+        if (!useCloud) {
+            Log.w(TAG, "⚠️ Ollama Cloud non activé - OllamaThinkingService ne peut pas fonctionner")
+            Log.w(TAG, "   → Activez Ollama Cloud dans la configuration ou utilisez Hugging Face")
+            emit(BidirectionalBridge.ThinkingChunk(
+                type = BidirectionalBridge.ChunkType.RESPONSE,
+                content = "Ollama Cloud non activé. Activez-le dans la configuration ou utilisez Hugging Face.",
+                isComplete = true
+            ))
+            return@flow
         }
         
-        val apiKey = if (useCloud) {
-            getCachedApiKey() // Utiliser cache pour éviter appels répétés
+        val apiUrl = OLLAMA_CLOUD_URL
+        val apiKey = getCachedApiKey() // Utiliser cache pour éviter appels répétés
+        
+        // Récupérer le modèle Ollama Cloud
+        val rawModel = sharedPreferences.getString("ollama_cloud_model", null)?.trim()
+            ?: sharedPreferences.getString("selected_model", null)?.trim()
+            ?: "qwen3"
+        
+        // ⭐ FIX: Détecter et corriger les modèles Hugging Face (format :hf-inference)
+        // Ollama Cloud n'accepte pas ce format, utiliser un modèle Ollama par défaut
+        val modelName = if (rawModel.contains(":hf-inference") || rawModel.contains("HuggingFaceTB/") || rawModel.contains("/")) {
+            Log.w(TAG, "⚠️ Modèle Hugging Face détecté pour Ollama Cloud: $rawModel")
+            Log.w(TAG, "   → Ollama Cloud n'accepte pas les modèles Hugging Face")
+            Log.w(TAG, "   → Utilisation du modèle Ollama par défaut: qwen3")
+            Log.w(TAG, "   → Pour utiliser Hugging Face, configurez HuggingFaceService (mode LLM)")
+            "qwen3" // Fallback vers modèle Ollama valide
         } else {
-            null // Ollama local n'a pas besoin de clé API
+            rawModel
         }
         
-        // Récupérer le modèle selon le mode
-        val modelName = if (useCloud) {
-            // Mode Cloud : utiliser cloud.selectedModel ou selectedModel (fallback) ou qwen3 (défaut)
-            sharedPreferences.getString("ollama_cloud_model", null)?.trim()
-                ?: sharedPreferences.getString("selected_model", null)?.trim()
-                ?: "qwen3"
-        } else {
-            // Mode Local : utiliser le modèle configuré par l'utilisateur (par défaut: gemma3-270m.gguf)
-            sharedPreferences.getString("local_model_name", "gemma3-270m.gguf")?.trim() ?: "gemma3-270m.gguf"
-        }
-        
-        Log.i(TAG, "Using ${if (useCloud) "Cloud" else "Local"} API: $apiUrl")
+        Log.i(TAG, "Using Ollama Cloud API: $apiUrl")
         Log.i(TAG, "Model: $modelName, Thinking: $enableThinking")
         
         // ⭐ NOUVEAU: Charger l'historique de conversation depuis Room DB
@@ -609,17 +619,17 @@ class OllamaThinkingService(private val context: Context) {
     }
     
     /**
-     * Vérifie si Ollama est disponible
+     * Vérifie si Ollama Cloud est disponible (plus de support Ollama PC)
      */
     suspend fun checkAvailability(): Boolean = withContext(Dispatchers.IO) {
         try {
             val useCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
-            val url = if (useCloud) {
-                OLLAMA_CLOUD_URL
-            } else {
-                sharedPreferences.getString("local_server_url", null)?.trim()
-                    ?: OLLAMA_LOCAL_DEFAULT
+            if (!useCloud) {
+                Log.d(TAG, "Ollama Cloud non activé - Ollama non disponible")
+                return@withContext false
             }
+            
+            val url = OLLAMA_CLOUD_URL
             
             // Retirer le /v1/chat/completions pour tester la racine
             val baseUrl = url.substringBefore("/v1/")
@@ -650,135 +660,20 @@ class OllamaThinkingService(private val context: Context) {
     }
     
     /**
-     * Fallback : Essaie Local si Cloud a échoué
+     * ⭐ SUPPRIMÉ: Fallback vers Local (plus de support Ollama PC)
+     * Retourne un message d'erreur au lieu d'essayer Ollama PC
      */
     private fun tryLocalFallback(
         userInput: String,
         personality: String,
         enableThinking: Boolean
     ): Flow<BidirectionalBridge.ThinkingChunk> = flow {
-        Log.i(TAG, "🔄 Fallback vers Local (Cloud inaccessible)")
+        Log.w(TAG, "⚠️ Ollama Cloud inaccessible - Plus de fallback vers Ollama PC")
         emit(BidirectionalBridge.ThinkingChunk(
-            type = BidirectionalBridge.ChunkType.THINKING,
-            content = "Cloud inaccessible, basculement vers Local...",
-            isComplete = false
+            type = BidirectionalBridge.ChunkType.RESPONSE,
+            content = "Ollama Cloud inaccessible. Vérifiez votre connexion Internet et votre clé API Ollama Cloud.",
+            isComplete = true
         ))
-        
-            // Récupérer config Local (pas de clé API nécessaire pour Local)
-            val localUrl = sharedPreferences.getString("local_server_url", null)?.trim()
-                ?: OLLAMA_LOCAL_DEFAULT
-            val localModel = sharedPreferences.getString("local_model_name", "gemma3-270m.gguf")?.trim() ?: "gemma3-270m.gguf"
-            // Note: Ollama local n'a pas besoin de clé API
-        
-        Log.i(TAG, "Using Local fallback: $localUrl, Model: $localModel")
-        
-        // Construire la requête pour Local (format OpenAI-compatible)
-        val messages = JSONArray()
-        messages.put(JSONObject().apply {
-            put("role", "system")
-            put("content", getSystemPrompt(personality))
-        })
-        messages.put(JSONObject().apply {
-            put("role", "user")
-            put("content", userInput)
-        })
-        
-        val requestBody = JSONObject().apply {
-            put("model", localModel)
-            put("messages", messages)
-            put("stream", true)
-            put("temperature", 0.8)
-            put("max_tokens", 500)
-        }
-        
-        val request = Request.Builder()
-            .url(localUrl)
-            .addHeader("Content-Type", "application/json")
-            .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
-            .build()
-        
-        val httpClient = createHttpClient(localModel)
-        
-        try {
-            httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    val errorBody = response.body?.string()
-                    Log.e(TAG, "Local fallback failed: HTTP ${response.code} - $errorBody")
-                    emit(BidirectionalBridge.ThinkingChunk(
-                        type = BidirectionalBridge.ChunkType.RESPONSE,
-                        content = "Erreur Local (fallback): HTTP ${response.code} - ${errorBody?.take(200)}",
-                        isComplete = true
-                    ))
-                    return@flow
-                }
-                
-                // Lire le stream (même logique que Cloud mais format OpenAI-compatible)
-                val reader = response.body?.byteStream()?.bufferedReader()
-                if (reader == null) {
-                    Log.e(TAG, "Local fallback: Response body is null")
-                    return@flow
-                }
-                
-                val responseBuilder = StringBuilder()
-                
-                reader.useLines { lines ->
-                    for (line in lines) {
-                        if (line.isBlank() || line.startsWith(":")) continue
-                        
-                        val jsonLine = if (line.startsWith("data: ")) {
-                            line.substring(6)
-                        } else {
-                            line
-                        }
-                        
-                        if (jsonLine == "[DONE]") {
-                            Log.d(TAG, "Local fallback stream completed")
-                            break
-                        }
-                        
-                        try {
-                            val json = JSONObject(jsonLine)
-                            val choices = json.optJSONArray("choices")
-                            
-                            if (choices != null && choices.length() > 0) {
-                                val choice = choices.getJSONObject(0)
-                                val delta = choice.optJSONObject("delta")
-                                if (delta == null) continue
-                                
-                                val content = delta.optString("content", "")
-                                if (content.isNotEmpty()) {
-                                    responseBuilder.append(content)
-                                    emit(BidirectionalBridge.ThinkingChunk(
-                                        type = BidirectionalBridge.ChunkType.RESPONSE,
-                                        content = content,
-                                        isComplete = false
-                                    ))
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error parsing Local fallback JSON line: $jsonLine", e)
-                        }
-                    }
-                }
-                
-                // Émettre la réponse complète
-                if (responseBuilder.isNotEmpty()) {
-                    emit(BidirectionalBridge.ThinkingChunk(
-                        type = BidirectionalBridge.ChunkType.RESPONSE,
-                        content = "",
-                        isComplete = true,
-                        metadata = mapOf("full_response" to responseBuilder.toString(), "fallback" to "local")
-                    ))
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Local fallback error", e)
-            emit(BidirectionalBridge.ThinkingChunk(
-                type = BidirectionalBridge.ChunkType.RESPONSE,
-                content = "Erreur Local (fallback): ${e.message}",
-                isComplete = true
-            ))
-        }
     }
 }
 

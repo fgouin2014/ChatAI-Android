@@ -135,3 +135,4 @@ Pour une implémentation complète SentencePiece, il faudrait:
 
 **Statut:** ✅ **IMPLÉMENTÉ ET INTÉGRÉ** - Prêt pour tests avec vocabulaire réel.
 
+

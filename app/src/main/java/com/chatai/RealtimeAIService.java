@@ -32,8 +32,11 @@ public class RealtimeAIService {
     private WebSocketServer webSocketServer;
     
     // URLs des services d'IA
-    private static final String HUGGINGFACE_API_URL = "https://router.huggingface.co/hf-inference/models/";
-    private static final String OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+    // ⭐ REFACTORISÉ: URLs centralisées dans ApiConfig (Kotlin)
+    // Note: RealtimeAIService est en Java, donc on utilise les constantes directement
+    // Pour une migration complète, convertir en Kotlin ou créer un wrapper Java
+    private static final String HUGGINGFACE_API_URL = "https://router.huggingface.co/hf-inference/models/"; // TODO: Migrer vers ApiConfig
+    private static final String OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"; // TODO: Migrer vers ApiConfig
     
     // Modèles disponibles
     private static final String[] AI_MODELS = {

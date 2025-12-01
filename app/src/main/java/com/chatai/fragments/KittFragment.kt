@@ -1108,7 +1108,7 @@ class KittFragment : Fragment(),
             }
             
             val request = okhttp3.Request.Builder()
-                .url("https://ollama.com/api/chat")
+                .url(com.chatai.config.ApiConfig.OLLAMA_CLOUD_CHAT) // ⭐ REFACTORISÉ: URL centralisée
                 .addHeader("Authorization", "Bearer $apiKey")
                 .addHeader("Content-Type", "application/json")
                 .post(requestBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))

@@ -1437,14 +1437,16 @@ class SecureMobileAIChat {
     }
 
     /**
-     * Requête API HuggingFace sécurisée avec retry
+     * ⭐ REFACTORISÉ: Requête API HuggingFace sécurisée avec retry
+     * Utilise le nouveau endpoint router.huggingface.co (cohérent avec backend Android)
      */
     async queryHuggingFaceSecure(message, retryCount = 0) {
         if (!this.apiToken) {
             throw new Error('Token API non configuré. Veuillez contacter l\'administrateur.');
         }
         
-        const apiUrl = `https://api-inference.huggingface.co/models/${this.currentModel}`;
+        // ⭐ NOUVEAU ENDPOINT: router.huggingface.co (cohérent avec HuggingFaceService.kt)
+        const apiUrl = `https://router.huggingface.co/hf-inference/models/${this.currentModel}`;
         const maxRetries = 3;
         
         try {

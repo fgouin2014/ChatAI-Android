@@ -86,15 +86,31 @@ public class BackgroundService extends Service {
         // Créer la notification
         Notification notification = createNotification();
         
-        // ⭐ FIX: Utiliser le bon type de foreground service selon la version Android
-        // Android 14+ (API 34+): Utiliser FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-        // Android 13 et inférieur: Utiliser le type déclaré dans le manifest
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            // Android 14+ - Utiliser specialUse (nécessite déclaration dans manifest)
-            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-        } else {
-            // Android 13 et inférieur - Utiliser le type du manifest
-            startForeground(NOTIFICATION_ID, notification);
+        // ⭐ FIX Android 12+: Utiliser le bon type de foreground service selon la version Android
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                // Android 14+ (API 34+) - Utiliser specialUse (déclaré dans manifest)
+                startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                // Android 12-13 (API 31-33) - Utiliser specialUse aussi (déclaré dans manifest)
+                startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            } else {
+                // Android 11 et inférieur - Pas de type requis
+                startForeground(NOTIFICATION_ID, notification);
+            }
+            Log.i(TAG, "Service démarré en foreground avec succès");
+        } catch (android.app.ForegroundServiceStartNotAllowedException e) {
+            // ⭐ FIX: Gérer l'exception gracieusement - essayer comme service régulier
+            Log.e(TAG, "ForegroundServiceStartNotAllowedException: " + e.getMessage());
+            Log.w(TAG, "Service ne peut pas démarrer en foreground, continuation comme service régulier (peut être tué par le système)");
+            try {
+                // Essayer quand même startForeground sans type (pour compatibilité)
+                startForeground(NOTIFICATION_ID, notification);
+            } catch (Exception e2) {
+                Log.e(TAG, "Impossible de démarrer le service même en mode régulier: " + e2.getMessage());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur démarrage foreground service: " + e.getMessage(), e);
         }
 
         // Gestion des actions explicites
@@ -629,13 +645,20 @@ public class BackgroundService extends Service {
         
         String ipAddress = getLocalIpAddress();
         String notificationText = ipAddress != null 
-            ? "IP: " + ipAddress + " | Ports: 8888, 8080, 9090"
+            ? "IP: " + ipAddress + " | Ports: 8080, 8081, 8082" // ⭐ FIX: Port 8888 retiré (réservé pour EmulatorJS)
             : "Les serveurs ChatAI fonctionnent en arrière-plan";
+        
+        // ⭐ FIX: Utiliser une ressource de l'app au lieu d'une ressource système (évite "Invalid resource ID 0x00000000")
+        int iconResId = getResources().getIdentifier("ic_launcher_foreground", "drawable", getPackageName());
+        if (iconResId == 0) {
+            // Fallback vers une ressource système standard si ic_launcher_foreground n'existe pas
+            iconResId = android.R.drawable.ic_menu_info_details;
+        }
         
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("ChatAI - Serveurs actifs")
             .setContentText(notificationText)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(iconResId)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(notificationText))
@@ -665,7 +688,8 @@ public class BackgroundService extends Service {
             httpServer = new HttpServer(this);
             wsServer = new WebSocketServer(this);
             fileServer = new FileServer(this);
-            webServer = new WebServer(this);
+            // ⭐ FIX: WebServer port 8888 désactivé - réservé pour EmulatorJS (GameLibrary)
+            // webServer = new WebServer(this);
             ttsServer = new TTSServer(this);
             
             // Configurer les références entre serveurs
@@ -677,7 +701,8 @@ public class BackgroundService extends Service {
             httpServer.start();
             wsServer.start();
             fileServer.start();
-            webServer.start();
+            // ⭐ FIX: WebServer port 8888 désactivé - réservé pour EmulatorJS (GameLibrary)
+            // webServer.start();
             ttsServer.start();
             
             // Démarrer Hotword Detection (Porcupine)
@@ -730,9 +755,10 @@ public class BackgroundService extends Service {
             if (fileServer != null) {
                 fileServer.stop();
             }
-            if (webServer != null) {
-                webServer.stop();
-            }
+            // ⭐ FIX: WebServer port 8888 désactivé - réservé pour EmulatorJS (GameLibrary)
+            // if (webServer != null) {
+            //     webServer.stop();
+            // }
             if (ttsServer != null) {
                 ttsServer.stop();
             }
@@ -929,7 +955,7 @@ public class BackgroundService extends Service {
         return (httpServer != null && httpServer.isRunning()) &&
                (wsServer != null && wsServer.isRunning()) &&
                (fileServer != null && fileServer.isRunning()) &&
-               (webServer != null && webServer.isRunning());
+               false; // ⭐ FIX: WebServer désactivé (port 8888 réservé pour EmulatorJS)
     }
     
     public boolean isServiceRunning() {
@@ -953,8 +979,9 @@ public class BackgroundService extends Service {
         return fileServer;
     }
     
+    // ⭐ FIX: WebServer désactivé (port 8888 réservé pour EmulatorJS)
     public WebServer getWebServer() {
-        return webServer;
+        return null; // WebServer désactivé
     }
     
     /**

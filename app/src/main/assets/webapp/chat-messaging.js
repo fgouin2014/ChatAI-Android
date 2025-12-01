@@ -136,7 +136,8 @@
         }
 
         /**
-         * Requête HuggingFace (fallback)
+         * ⭐ REFACTORISÉ: Requête HuggingFace (fallback)
+         * Utilise le nouveau endpoint router.huggingface.co (cohérent avec backend Android)
          */
         async queryHuggingFaceSecure(message, retryCount = 0) {
             const maxRetries = 2;

@@ -198,3 +198,4 @@ Les nouveaux boutons apparaissent dans la barre de plugins, sous le champ de sai
 
 **Statut:** ✅ Toutes les fonctionnalités ONNX sont maintenant accessibles depuis l'interface du chat
 
+

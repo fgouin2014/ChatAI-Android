@@ -97,3 +97,4 @@ VisionService: ✅ ONNX Vision initialisé (CLIP, 512 dimensions)
 
 **Statut:** ✅ **Tous les fichiers sont présents et prêts pour test**
 
+

@@ -242,3 +242,4 @@ Tous les services ONNX s'initialisent automatiquement au démarrage de l'applica
 
 **Conclusion:** **TOUTES les fonctionnalités ONNX fonctionnent dans TOUS LES MODES** tant que les fichiers ONNX requis sont présents sur le device. Elles sont **100% offline** et **indépendantes** de la configuration AI principale (Cloud/Local).
 
+

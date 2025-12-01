@@ -149,3 +149,4 @@ window.Android.translateText("Bonjour le monde");
 
 **Conclusion:** La traduction ONNX fonctionne dans **TOUS LES MODES** tant que les fichiers ONNX sont présents sur le device.
 
+

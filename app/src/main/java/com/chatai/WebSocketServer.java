@@ -4,6 +4,7 @@ import android.content.Context;
 import android.util.Log;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -66,30 +67,41 @@ public class WebSocketServer {
     private void startServer() throws IOException {
         // Lire le port depuis la configuration utilisateur
         int configuredPort = secureConfig.getIntSetting("ws_port", PORT);
+        int maxRetries = 5; // ⭐ AUGMENTÉ: Essayer plusieurs ports alternatifs
+        int retryDelayMs = 500; // Attendre 500ms entre chaque tentative
         
-        try {
-            serverChannel = ServerSocketChannel.open();
-            // Écouter sur toutes les interfaces (0.0.0.0) pour permettre l'accès externe
-            serverChannel.bind(new InetSocketAddress("0.0.0.0", configuredPort));
-            serverChannel.configureBlocking(false);
-            
-            selector = Selector.open();
-            serverChannel.register(selector, SelectionKey.OP_ACCEPT);
-            
-            isRunning = true;
-            Log.i(TAG, "Serveur WebSocket démarré sur le port " + configuredPort);
-        } catch (java.net.BindException e) {
-            Log.w(TAG, "Port " + configuredPort + " déjà utilisé, tentative avec port " + (configuredPort + 1));
-            // Essayer le port suivant
-            serverChannel = ServerSocketChannel.open();
-            serverChannel.bind(new InetSocketAddress("0.0.0.0", configuredPort + 1));
-            serverChannel.configureBlocking(false);
-            
-            selector = Selector.open();
-            serverChannel.register(selector, SelectionKey.OP_ACCEPT);
-            
-            isRunning = true;
-            Log.i(TAG, "Serveur WebSocket démarré sur le port " + (configuredPort + 1));
+        // ⭐ FIX: Essayer plusieurs ports avec retry logic
+        for (int retry = 0; retry < maxRetries; retry++) {
+            int portToTry = configuredPort + retry;
+            try {
+                serverChannel = ServerSocketChannel.open();
+                // ⭐ FIX: Utiliser SO_REUSEADDR pour permettre réutilisation du port
+                ServerSocket socket = serverChannel.socket();
+                socket.setReuseAddress(true);
+                // Écouter sur toutes les interfaces (0.0.0.0) pour permettre l'accès externe
+                serverChannel.bind(new InetSocketAddress("0.0.0.0", portToTry));
+                serverChannel.configureBlocking(false);
+                
+                selector = Selector.open();
+                serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+                
+                isRunning = true;
+                Log.i(TAG, "Serveur WebSocket démarré sur le port " + portToTry);
+                return; // Succès
+            } catch (java.net.BindException e) {
+                if (retry < maxRetries - 1) {
+                    Log.w(TAG, "Port " + portToTry + " déjà utilisé (tentative " + (retry + 1) + "/" + maxRetries + "), essai port " + (portToTry + 1));
+                    try {
+                        Thread.sleep(retryDelayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException("Interruption lors de l'attente du port", ie);
+                    }
+                } else {
+                    Log.e(TAG, "Impossible de démarrer le serveur WebSocket après " + maxRetries + " tentatives");
+                    throw new IOException("Tous les ports WebSocket sont occupés", e);
+                }
+            }
         }
         
         // Boucle principale du serveur

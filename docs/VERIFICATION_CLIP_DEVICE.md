@@ -130,3 +130,4 @@ OnnxVisionManager: ⚠️ ONNX Vision non disponible
 
 **Statut:** ✅ Fichiers transférés, prêts pour test
 
+

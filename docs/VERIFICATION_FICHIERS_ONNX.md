@@ -187,3 +187,4 @@ adb logcat -d | Select-String -Pattern "OnnxEmbeddingManager|OnnxVisionManager|O
 
 **Conclusion:** 2 fonctionnalités sur 3 sont prêtes (Embeddings ✅, Translation ✅). Vision nécessite correction des noms de fichiers.
 
+

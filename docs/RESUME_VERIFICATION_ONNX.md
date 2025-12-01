@@ -117,3 +117,4 @@ adb logcat -d | Select-String -Pattern "OnnxEmbeddingManager|OnnxVisionManager|O
 
 **Les fonctionnalités prêtes fonctionnent dans TOUS les modes** (Cloud/Local/Device) car elles sont 100% offline.
 
+

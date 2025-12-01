@@ -73,6 +73,14 @@ class BidirectionalBridge private constructor(private val context: Context) {
         Log.i(TAG, "🌉 BidirectionalBridge initialized")
         ollamaThinkingService = OllamaThinkingService(context)
         
+        // ⭐ NOUVEAU: Auto-configurer RAG au démarrage
+        try {
+            RAGAutoConfigurator.autoConfigure(context)
+        } catch (e: Exception) {
+            Log.w(TAG, "Erreur auto-configuration RAG: ${e.message}")
+            // Ne pas bloquer si auto-config échoue
+        }
+        
         // ⭐ NOUVEAU: Initialiser services RAG (selon Nos Rules: non-bloquant)
         try {
             val embedding = EmbeddingService(context)
@@ -87,42 +95,36 @@ class BidirectionalBridge private constructor(private val context: Context) {
                 
                 if (ragEnabled) {
                     if (isAvailable) {
-                        if (useCloud) {
-                            // Vérifier si on utilise Hugging Face ou Ollama Cloud
-                            val useHuggingFace = sharedPreferences.getBoolean("rag_use_huggingface", true)
-                            val hfApiKey = keyring.getApiKey("huggingface")?.trim()
-                            if (useHuggingFace && !hfApiKey.isNullOrEmpty()) {
-                                Log.i(TAG, "✅ RAG activé avec Ollama Cloud + Hugging Face embeddings")
-                            } else {
-                                Log.i(TAG, "✅ RAG activé avec Ollama Cloud - /api/embeddings détecté et fonctionnel")
-                            }
+                        // ⭐ REFACTORISÉ: Utiliser HuggingFaceService pour vérifier la configuration
+                        val huggingFaceService = HuggingFaceService(context)
+                        if (huggingFaceService.isEnabledForEmbeddings() && huggingFaceService.isConfigured()) {
+                            Log.i(TAG, "✅ RAG activé avec Hugging Face embeddings")
+                        } else if (useCloud) {
+                            Log.i(TAG, "✅ RAG activé avec Ollama Cloud - /api/embeddings détecté et fonctionnel")
                         } else {
                             Log.i(TAG, "✅ RAG activé avec Ollama Local")
                         }
                     } else {
-                        if (useCloud) {
-                            val useHuggingFace = sharedPreferences.getBoolean("rag_use_huggingface", true)
-                            val hfApiKey = keyring.getApiKey("huggingface")?.trim()
-                            if (useHuggingFace && !hfApiKey.isNullOrEmpty()) {
+                        // ⭐ REFACTORISÉ: Messages d'erreur simplifiés
+                        val huggingFaceService = HuggingFaceService(context)
+                        if (huggingFaceService.isEnabledForEmbeddings()) {
+                            if (huggingFaceService.isConfigured()) {
                                 Log.w(TAG, "⚠️ RAG activé mais Hugging Face embeddings non disponibles")
-                                Log.w(TAG, "   → Vérifiez votre clé API Hugging Face")
+                                Log.w(TAG, "   → Vérifiez votre connexion internet et votre clé API Hugging Face")
                             } else {
-                                Log.w(TAG, "❌ RAG activé mais Ollama Cloud ne supporte PAS les embeddings")
-                                Log.w(TAG, "   → Ollama Cloud n'a pas d'endpoint /api/embeddings")
-                                Log.w(TAG, "   → Solution: Configurez Hugging Face API key pour activer RAG avec Cloud")
-                                Log.w(TAG, "   → Alternative: Utilisez Ollama Local pour activer RAG")
+                                Log.w(TAG, "⚠️ RAG activé mais Hugging Face non configuré")
+                                Log.w(TAG, "   → Configurez votre clé API Hugging Face dans Configuration → API Keys")
                             }
+                        } else if (useCloud) {
+                            Log.w(TAG, "❌ RAG activé mais Ollama Cloud ne supporte PAS les embeddings")
+                            Log.w(TAG, "   → Solution: Activez Hugging Face (Configuration → RAG → Utiliser Hugging Face)")
                         } else {
                             Log.w(TAG, "⚠️ RAG activé mais service d'embedding non disponible")
-                            Log.w(TAG, "   → Vérifiez que Ollama local est démarré et que le modèle d'embedding est installé")
+                            Log.w(TAG, "   → Options: Ollama local OU Hugging Face (Configuration → RAG)")
                         }
                     }
                 } else {
-                    if (useCloud) {
-                        Log.d(TAG, "RAG désactivé dans les paramètres")
-                    } else {
-                        Log.d(TAG, "RAG désactivé dans les paramètres")
-                    }
+                    Log.d(TAG, "RAG désactivé dans les paramètres")
                 }
             }
         } catch (e: Exception) {
@@ -315,17 +317,51 @@ class BidirectionalBridge private constructor(private val context: Context) {
             // ⭐ SELON NOS RULES: Ne pas bloquer si RAG échoue, continuer sans contexte
         }
         
-        // Si pas de Function Calling, utiliser Ollama avec thinking
-        // ⭐ MODIFIÉ: Passer ragContext à OllamaThinkingService
-        val ollamaFlow = ollamaThinkingService?.streamWithThinking(
-            userInput = userInput,
-            personality = personality,
-            enableThinking = enableThinking,
-            ragContext = ragContext  // ⭐ NOUVEAU: Contexte RAG pour améliorer la réponse
-        ) ?: throw IllegalStateException("OllamaThinkingService not initialized")
-        
-        // Collecter et émettre tous les chunks du flow Ollama
-        emitAll(ollamaFlow)
+        // ⭐ AMÉLIORÉ: Utiliser KittAIService qui gère déjà l'ordre intelligent (Hugging Face → Ollama Cloud → Fallback)
+        // au lieu de forcer OllamaThinkingService qui nécessite Ollama Cloud activé
+        try {
+            val kittAIService = KittAIService(context, personality, "web")
+            
+            // Construire le prompt avec contexte RAG si disponible
+            val enhancedInput = if (ragContext.isNotEmpty()) {
+                "$ragContext\n\nQuestion: $userInput"
+            } else {
+                userInput
+            }
+            
+            // Utiliser KittAIService qui gère automatiquement l'ordre des APIs
+            // ⭐ NOTE: processUserInput est suspend, donc on peut l'appeler directement dans le flow
+            val response = kittAIService.processUserInput(enhancedInput)
+            
+            // Émettre la réponse comme un chunk unique
+            emit(ThinkingChunk(
+                type = ChunkType.RESPONSE,
+                content = response,
+                isComplete = true
+            ))
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur lors du traitement via KittAIService, fallback vers OllamaThinkingService: ${e.message}", e)
+            
+            // Fallback: Essayer OllamaThinkingService si KittAIService échoue
+            val useOllamaCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
+            val ollamaService = ollamaThinkingService // Variable locale pour éviter smart cast
+            if (useOllamaCloud && ollamaService != null) {
+                val ollamaFlow = ollamaService.streamWithThinking(
+                    userInput = userInput,
+                    personality = personality,
+                    enableThinking = enableThinking,
+                    ragContext = ragContext
+                )
+                emitAll(ollamaFlow)
+            } else {
+                // Aucun service disponible
+                emit(ThinkingChunk(
+                    type = ChunkType.RESPONSE,
+                    content = "Aucun service IA disponible. Configurez Hugging Face ou Ollama Cloud dans les paramètres.",
+                    isComplete = true
+                ))
+            }
+        }
     }
     
     /**

@@ -18,6 +18,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.chatai.R
 import java.text.DecimalFormat
 
@@ -60,6 +61,7 @@ class KittDrawerFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         sharedPreferences = requireContext().getSharedPreferences("kitt_prefs", Context.MODE_PRIVATE)
         setupButtons(view)
+        setupThemeToggle(view)
         updateThemeButtons(view)
         applySelectedTheme(view)
         
@@ -408,6 +410,45 @@ class KittDrawerFragment : Fragment() {
         sharedPreferences.edit().putString("kitt_theme", theme).apply()
     }
     
+    private fun setupThemeToggle(view: View) {
+        val themeToggle = view.findViewById<SwitchMaterial>(R.id.themeToggleSwitch)
+        val themeButtonsContainer = view.findViewById<LinearLayout>(R.id.themeButtonsContainer)
+        
+        // ⭐ NOUVEAU: Toggle thème persistant, OFF par défaut
+        val isThemeEnabled = sharedPreferences.getBoolean("kitt_theme_enabled", false)
+        themeToggle.isChecked = isThemeEnabled
+        
+        // Afficher/masquer les boutons selon l'état du toggle
+        themeButtonsContainer.visibility = if (isThemeEnabled) View.VISIBLE else View.GONE
+        
+        // Si le thème est désactivé, appliquer le thème par défaut (rouge)
+        if (!isThemeEnabled) {
+            applyDefaultTheme(view)
+        }
+        
+        themeToggle.setOnCheckedChangeListener { _, isChecked ->
+            // Sauvegarder l'état du toggle
+            sharedPreferences.edit().putBoolean("kitt_theme_enabled", isChecked).apply()
+            
+            // Afficher/masquer les boutons de thème
+            themeButtonsContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
+            
+            if (isChecked) {
+                // Si activé, appliquer le thème actuel
+                applySelectedTheme(view)
+            } else {
+                // Si désactivé, appliquer le thème par défaut (rouge)
+                applyDefaultTheme(view)
+            }
+        }
+    }
+    
+    private fun applyDefaultTheme(view: View) {
+        // Appliquer le thème rouge par défaut quand le toggle est OFF
+        view.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.kitt_black))
+        // Les autres éléments gardent leur style par défaut (rouge)
+    }
+    
     private fun getCurrentTheme(): String {
         return sharedPreferences.getString("kitt_theme", "red") ?: "red"
     }
@@ -455,6 +496,13 @@ class KittDrawerFragment : Fragment() {
     
     
     private fun applySelectedTheme(view: View) {
+        // ⭐ NOUVEAU: Vérifier si le thème est activé avant d'appliquer
+        val isThemeEnabled = sharedPreferences.getBoolean("kitt_theme_enabled", false)
+        if (!isThemeEnabled) {
+            applyDefaultTheme(view)
+            return
+        }
+        
         val selectedTheme = getCurrentTheme()
         
         when (selectedTheme) {

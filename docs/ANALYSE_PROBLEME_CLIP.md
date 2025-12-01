@@ -177,3 +177,4 @@ Créer un script Python qui:
 
 **Statut:** ⚠️ En attente d'analyse approfondie et correction
 
+

@@ -182,6 +182,7 @@ class OnnxEmbeddingManager(private val context: Context) {
             // Le modèle retourne généralement [batch, sequence_length, hidden_size]
             // On doit faire un pooling (mean) pour obtenir [batch, hidden_size]
             val outputTensor = try {
+                // ⭐ FIX: Essayer get(0) directement, gérer IndexOutOfBoundsException si vide
                 val output = result.get(0) as? OnnxTensor
                 if (output == null) {
                     Log.e(TAG, "Output n'est pas un OnnxTensor")
@@ -190,6 +191,11 @@ class OnnxEmbeddingManager(private val context: Context) {
                     return null
                 }
                 output
+            } catch (e: IndexOutOfBoundsException) {
+                Log.e(TAG, "IndexOutOfBoundsException: result est vide ou invalide", e)
+                result.close()
+                inputTensor.close()
+                return null
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur extraction output: ${e.message}", e)
                 result.close()
@@ -199,12 +205,38 @@ class OnnxEmbeddingManager(private val context: Context) {
             
             // Extraire les données
             val outputShape = outputTensor.info.shape
+            if (outputShape == null || outputShape.isEmpty()) {
+                Log.e(TAG, "Output shape est null ou vide")
+                outputTensor.close()
+                inputTensor.close()
+                result.close()
+                return null
+            }
+            
             Log.d(TAG, "Output shape: ${outputShape.contentToString()}")
             
             val outputBuffer = outputTensor.floatBuffer
             val outputSize = outputBuffer.remaining()
+            
+            // ⭐ FIX: Vérifier que le buffer a assez de données
+            if (outputSize <= 0) {
+                Log.e(TAG, "Output buffer est vide (size: $outputSize)")
+                outputTensor.close()
+                inputTensor.close()
+                result.close()
+                return null
+            }
+            
             val outputData = FloatArray(outputSize)
-            outputBuffer.get(outputData)
+            try {
+                outputBuffer.get(outputData)
+            } catch (e: java.nio.BufferUnderflowException) {
+                Log.e(TAG, "BufferUnderflowException: buffer n'a pas assez de données (size: $outputSize)", e)
+                outputTensor.close()
+                inputTensor.close()
+                result.close()
+                return null
+            }
             
             // Fermer les tensors
             outputTensor.close()
@@ -218,6 +250,19 @@ class OnnxEmbeddingManager(private val context: Context) {
                 val batchSize = outputShape[0].toInt()
                 val seqLength = outputShape[1].toInt()
                 val hiddenSize = outputShape[2].toInt()
+                
+                // ⭐ FIX: Vérifier que les dimensions sont valides
+                if (batchSize <= 0 || seqLength <= 0 || hiddenSize <= 0) {
+                    Log.e(TAG, "Dimensions invalides: batch=$batchSize, seq=$seqLength, hidden=$hiddenSize")
+                    return null
+                }
+                
+                // ⭐ FIX: Vérifier que outputData a assez d'éléments
+                val expectedSize = batchSize * seqLength * hiddenSize
+                if (outputData.size < expectedSize) {
+                    Log.e(TAG, "Output data size mismatch: attendu $expectedSize, obtenu ${outputData.size}")
+                    return null
+                }
                 
                 if (hiddenSize != EMBEDDING_DIMENSIONS) {
                     Log.w(TAG, "Dimension embedding inattendue: $hiddenSize (attendu: $EMBEDDING_DIMENSIONS)")
@@ -233,14 +278,46 @@ class OnnxEmbeddingManager(private val context: Context) {
                         if (idx < outputData.size) {
                             sum += outputData[idx]
                             count++
+                        } else {
+                            Log.w(TAG, "Index hors limites dans pooling: idx=$idx, size=${outputData.size}")
+                            break
                         }
                     }
                     pooled[i] = if (count > 0) sum / count else 0.0f
                 }
                 pooled
-            } else if (outputShape.size == 2 && outputShape[1].toInt() == EMBEDDING_DIMENSIONS) {
+            } else if (outputShape.size == 2) {
                 // [batch, hidden_size] - déjà poolé
-                outputData.take(EMBEDDING_DIMENSIONS).toFloatArray()
+                val batchSize = outputShape[0].toInt()
+                val hiddenSize = outputShape[1].toInt()
+                
+                // ⭐ FIX: Vérifier que les dimensions sont valides
+                if (batchSize <= 0 || hiddenSize <= 0) {
+                    Log.e(TAG, "Dimensions invalides (2D): batch=$batchSize, hidden=$hiddenSize")
+                    return null
+                }
+                
+                // ⭐ FIX: Vérifier que outputData a assez d'éléments
+                val expectedSize = batchSize * hiddenSize
+                if (outputData.size < expectedSize) {
+                    Log.e(TAG, "Output data size mismatch (2D): attendu $expectedSize, obtenu ${outputData.size}")
+                    return null
+                }
+                
+                if (hiddenSize == EMBEDDING_DIMENSIONS) {
+                    outputData.take(EMBEDDING_DIMENSIONS).toFloatArray()
+                } else {
+                    Log.w(TAG, "Dimension embedding inattendue (2D): $hiddenSize (attendu: $EMBEDDING_DIMENSIONS)")
+                    // Prendre les premières EMBEDDING_DIMENSIONS valeurs ou pad avec zéros
+                    if (hiddenSize >= EMBEDDING_DIMENSIONS) {
+                        outputData.take(EMBEDDING_DIMENSIONS).toFloatArray()
+                    } else {
+                        // Pad avec zéros si plus petit
+                        val padded = FloatArray(EMBEDDING_DIMENSIONS) { 0.0f }
+                        outputData.copyInto(padded, 0, 0, minOf(outputData.size, EMBEDDING_DIMENSIONS))
+                        padded
+                    }
+                }
             } else {
                 Log.e(TAG, "Shape output inattendu: ${outputShape.contentToString()}")
                 return null

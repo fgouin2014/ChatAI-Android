@@ -1,14 +1,22 @@
 package com.chatai.services
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import android.util.Log
+import com.chatai.KeyringManager
 import com.chatai.managers.OnnxVisionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.TimeUnit
 
 /**
  * 👁️ VISION SERVICE
@@ -31,6 +39,13 @@ class VisionService(private val context: Context) {
     companion object {
         private const val TAG = "VisionService"
         
+        // Ollama Cloud API
+        // ⭐ REFACTORISÉ: URL centralisée dans ApiConfig
+        private val OLLAMA_CLOUD_URL = com.chatai.config.ApiConfig.OLLAMA_CLOUD_CHAT
+        
+        // Modèles vision Ollama recommandés
+        private val VISION_MODELS = listOf("llava", "bakllava", "llava-phi3")
+        
         // Descriptions possibles basées sur la similarité CLIP
         private val DESCRIPTION_TEMPLATES = listOf(
             "Je vois une image qui contient {description}.",
@@ -38,11 +53,42 @@ class VisionService(private val context: Context) {
             "L'image représente {description}.",
             "Je peux identifier {description} dans cette image."
         )
+        
+        // Descriptions prédéfinies pour comparaison embeddings
+        private val PREDEFINED_DESCRIPTIONS = listOf(
+            "une personne",
+            "un animal",
+            "un véhicule",
+            "un bâtiment",
+            "de la nourriture",
+            "un paysage",
+            "du texte",
+            "un objet",
+            "une scène d'intérieur",
+            "une scène d'extérieur",
+            "un écran d'ordinateur",
+            "une photo",
+            "un dessin",
+            "un diagramme"
+        )
     }
     
     // ⭐ Manager ONNX pour vision locale
     private var onnxVisionManager: OnnxVisionManager? = null
     private var onnxInitialized = false
+    
+    private val sharedPreferences: SharedPreferences = 
+        context.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
+    
+    private val keyring: KeyringManager = KeyringManager.getInstance(context)
+    
+    // Client HTTP pour Ollama Cloud
+    private val httpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS) // Vision peut prendre plus de temps
+        .writeTimeout(10, TimeUnit.SECONDS)
+        .callTimeout(120, TimeUnit.SECONDS)
+        .build()
     
     init {
         // ⭐ Initialiser ONNX Vision Manager au démarrage
@@ -111,9 +157,7 @@ class VisionService(private val context: Context) {
                     // Encoder l'image avec CLIP
                     val imageEmbedding = onnxVisionManager!!.encodeImage(bitmap)
                     if (imageEmbedding != null) {
-                        // Générer une description basée sur des templates et la similarité
-                        // Pour l'instant, on utilise des descriptions génériques
-                        // TODO: Utiliser encodeText() pour comparer avec des descriptions prédéfinies
+                        // ⭐ AMÉLIORÉ: Utiliser encodeText() pour comparer avec des descriptions prédéfinies
                         val description = generateDescriptionFromEmbedding(imageEmbedding)
                         Log.d(TAG, "✅ Image analysée via ONNX local")
                         return@withContext description
@@ -124,8 +168,16 @@ class VisionService(private val context: Context) {
             }
             
             // ⭐ Fallback: Ollama Vision (si disponible)
-            // TODO: Implémenter appel Ollama Vision API
-            Log.w(TAG, "Ollama Vision non implémenté, retour description générique")
+            val useCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
+            if (useCloud) {
+                val description = tryOllamaVision(imageBase64)
+                if (description != null) {
+                    Log.d(TAG, "✅ Image analysée via Ollama Cloud Vision")
+                    return@withContext description
+                }
+            }
+            
+            Log.w(TAG, "Aucun service vision disponible, retour description générique")
             return@withContext "J'ai reçu votre image. L'analyse détaillée nécessite un modèle vision configuré."
             
         } catch (e: Exception) {
@@ -135,25 +187,140 @@ class VisionService(private val context: Context) {
     }
     
     /**
-     * Générer une description basée sur l'embedding de l'image
-     * ⭐ TEMPORAIRE: Utilise des descriptions génériques
-     * TODO: Comparer avec des descriptions prédéfinies via encodeText() et computeSimilarity()
+     * ⭐ AMÉLIORÉ: Générer une description basée sur l'embedding de l'image
+     * Compare avec des descriptions prédéfinies via encodeText() et computeSimilarity()
      */
     private fun generateDescriptionFromEmbedding(embedding: FloatArray): String {
-        // ⭐ TEMPORAIRE: Description générique
-        // TODO: Utiliser encodeText() pour encoder des descriptions prédéfinies
-        // et computeSimilarity() pour trouver la meilleure correspondance
-        val templates = listOf(
-            "des éléments visuels intéressants",
-            "une composition visuelle",
-            "du contenu visuel",
-            "une scène ou des objets"
-        )
+        if (onnxVisionManager?.isReady() != true) {
+            // Fallback si ONNX pas prêt
+            val randomTemplate = DESCRIPTION_TEMPLATES.random()
+            return randomTemplate.replace("{description}", "du contenu visuel")
+        }
         
-        val randomTemplate = DESCRIPTION_TEMPLATES.random()
-        val randomDescription = templates.random()
-        
-        return randomTemplate.replace("{description}", randomDescription)
+        try {
+            // Encoder toutes les descriptions prédéfinies
+            val descriptionEmbeddings = PREDEFINED_DESCRIPTIONS.mapNotNull { desc ->
+                val textEmbedding = onnxVisionManager!!.encodeText(desc)
+                if (textEmbedding != null) {
+                    Pair(desc, textEmbedding)
+                } else {
+                    null
+                }
+            }
+            
+            if (descriptionEmbeddings.isEmpty()) {
+                Log.w(TAG, "Aucune description prédéfinie encodée, fallback générique")
+                val randomTemplate = DESCRIPTION_TEMPLATES.random()
+                return randomTemplate.replace("{description}", "du contenu visuel")
+            }
+            
+            // Trouver la description la plus similaire
+            var bestMatch = ""
+            var bestSimilarity = -1f
+            
+            descriptionEmbeddings.forEach { (desc, textEmbedding) ->
+                val similarity = onnxVisionManager!!.computeSimilarity(embedding, textEmbedding)
+                if (similarity > bestSimilarity) {
+                    bestSimilarity = similarity
+                    bestMatch = desc
+                }
+            }
+            
+            Log.d(TAG, "Meilleure correspondance: '$bestMatch' (similarité: ${String.format("%.3f", bestSimilarity)})")
+            
+            // Utiliser la meilleure correspondance
+            val template = DESCRIPTION_TEMPLATES.random()
+            return template.replace("{description}", bestMatch)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur comparaison embeddings: ${e.message}", e)
+            // Fallback générique
+            val randomTemplate = DESCRIPTION_TEMPLATES.random()
+            return randomTemplate.replace("{description}", "du contenu visuel")
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Essayer Ollama Cloud Vision API
+     */
+    private suspend fun tryOllamaVision(imageBase64: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val apiKey = keyring.getApiKey("ollama")?.trim()
+            if (apiKey.isNullOrEmpty()) {
+                Log.w(TAG, "Ollama Cloud API key not configured")
+                return@withContext null
+            }
+            
+            // Récupérer le modèle vision configuré (ou défaut)
+            val visionModel = sharedPreferences.getString("ollama_vision_model", VISION_MODELS.first())
+                ?: VISION_MODELS.first()
+            
+            Log.d(TAG, "Trying Ollama Cloud Vision with model: $visionModel")
+            
+            // Construire la requête Ollama Vision
+            val messages = JSONArray()
+            messages.put(JSONObject().apply {
+                put("role", "user")
+                put("content", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("type", "text")
+                        put("text", "Décris cette image en détail en français.")
+                    })
+                    put(JSONObject().apply {
+                        put("type", "image_url")
+                        put("image_url", JSONObject().apply {
+                            put("url", "data:image/jpeg;base64,$imageBase64")
+                        })
+                    })
+                })
+            })
+            
+            val requestBody = JSONObject().apply {
+                put("model", visionModel)
+                put("messages", messages)
+                put("stream", false)
+            }
+            
+            val request = Request.Builder()
+                .url(OLLAMA_CLOUD_URL)
+                .addHeader("Authorization", "Bearer $apiKey")
+                .addHeader("Content-Type", "application/json")
+                .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            
+            if (!response.isSuccessful) {
+                val errorBody = response.body?.string()
+                Log.w(TAG, "Ollama Vision request failed: HTTP ${response.code}")
+                if (errorBody != null) {
+                    Log.w(TAG, "Error body: ${errorBody.take(200)}")
+                }
+                return@withContext null
+            }
+            
+            val responseBody = response.body?.string()
+            if (responseBody == null) {
+                Log.w(TAG, "Ollama Vision response body is null")
+                return@withContext null
+            }
+            
+            // Parser la réponse Ollama
+            val jsonResponse = JSONObject(responseBody)
+            val message = jsonResponse.optJSONObject("message")
+            val content = message?.optString("content")
+            
+            if (content != null && content.isNotBlank()) {
+                Log.d(TAG, "✅ Ollama Vision description: ${content.take(100)}...")
+                return@withContext content.trim()
+            }
+            
+            return@withContext null
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error calling Ollama Vision: ${e.message}", e)
+            return@withContext null
+        }
     }
     
     /**

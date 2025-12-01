@@ -635,12 +635,44 @@
                 android:layout_marginTop="16dp"
                 android:layout_marginBottom="4dp" />
 
-            <!-- Theme Toggle Buttons -->
+            <!-- Theme Toggle Switch -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="8dp"
+                android:layout_marginBottom="8dp"
+                android:background="@color/kitt_red_alpha">
+                
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="THÈME"
+                    android:textColor="@color/kitt_red"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold" />
+                
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/themeToggleSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="false"
+                    app:thumbTint="@color/kitt_red"
+                    app:trackTint="@color/kitt_red_alpha" />
+                    
+            </LinearLayout>
+
+            <!-- Theme Toggle Buttons -->
+            <LinearLayout
+                android:id="@+id/themeButtonsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginBottom="8dp">
+                android:layout_marginBottom="8dp"
+                android:visibility="gone">
 
                 <!-- Rouge Toggle -->
                 <com.google.android.material.button.MaterialButton

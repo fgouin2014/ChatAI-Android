@@ -79,3 +79,4 @@ Simplifier le Text Encoder pour:
 
 **Note:** Le Vision Encoder fonctionne correctement. Le Text Encoder nécessite une approche simplifiée.
 
+

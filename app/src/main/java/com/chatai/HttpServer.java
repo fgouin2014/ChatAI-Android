@@ -603,7 +603,7 @@ public class HttpServer {
             );
             
             okhttp3.Request request = new okhttp3.Request.Builder()
-                .url("https://ollama.com/api/web_search")
+                .url(com.chatai.config.ApiConfig.OLLAMA_CLOUD_WEB_SEARCH) // ⭐ REFACTORISÉ: URL centralisée
                 .addHeader("Authorization", "Bearer " + apiKey)
                 .addHeader("Content-Type", "application/json")
                 .post(body)

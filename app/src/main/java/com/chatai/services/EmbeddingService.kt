@@ -36,10 +36,8 @@ class EmbeddingService(private val context: Context) {
         // Modèle d'embedding par défaut (nomic-embed-text: 768 dimensions)
         private const val DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
         
-        // ⭐ NOUVEAU: Modèles Hugging Face pour embeddings (Cloud)
-        private const val HUGGINGFACE_API_URL = "https://router.huggingface.co/hf-inference/models/"
-        private const val DEFAULT_HF_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2" // 384 dimensions
-        // Alternatives: "sentence-transformers/all-mpnet-base-v2" (768), "intfloat/multilingual-e5-base" (768)
+        // ⭐ REFACTORISÉ: Hugging Face géré par HuggingFaceService
+        // Plus de constantes Hugging Face ici - tout est dans HuggingFaceService
         
         // Dimensions de nomic-embed-text
         private const val EMBEDDING_DIMENSIONS = 768
@@ -48,6 +46,9 @@ class EmbeddingService(private val context: Context) {
     // ⭐ NOUVEAU: Manager ONNX pour embeddings locaux
     private var onnxEmbeddingManager: OnnxEmbeddingManager? = null
     private var onnxInitialized = false
+    
+    // ⭐ REFACTORISÉ: Service Hugging Face dédié
+    private val huggingFaceService: HuggingFaceService = HuggingFaceService(context)
     
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
@@ -77,11 +78,17 @@ class EmbeddingService(private val context: Context) {
             }
             
             if (!onnxInitialized) {
-                onnxInitialized = onnxEmbeddingManager!!.initialize()
-                if (onnxInitialized) {
-                    Log.i(TAG, "✅ ONNX Embeddings initialisé (384 dimensions)")
+                val manager = onnxEmbeddingManager
+                if (manager != null) {
+                    onnxInitialized = manager.initialize()
+                    if (onnxInitialized) {
+                        Log.i(TAG, "✅ ONNX Embeddings initialisé (384 dimensions)")
+                    } else {
+                        Log.w(TAG, "⚠️ ONNX Embeddings non disponible, fallback Ollama/HuggingFace")
+                    }
                 } else {
-                    Log.w(TAG, "⚠️ ONNX Embeddings non disponible, fallback Ollama/HuggingFace")
+                    Log.w(TAG, "⚠️ OnnxEmbeddingManager est null, fallback Ollama/HuggingFace")
+                    onnxInitialized = false
                 }
             }
         } catch (e: Exception) {
@@ -103,36 +110,38 @@ class EmbeddingService(private val context: Context) {
                 return@withContext null
             }
             
-            // ⭐ NOUVEAU: Essayer ONNX local en premier (100% offline)
-            if (onnxInitialized && onnxEmbeddingManager?.isReady() == true) {
-                try {
-                    val embedding = onnxEmbeddingManager!!.embed(text)
-                    if (embedding != null) {
-                        Log.d(TAG, "✅ Embedding généré via ONNX local (${embedding.size} dimensions)")
-                        return@withContext embedding
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Erreur ONNX embedding, fallback: ${e.message}")
+            // ⭐ REFACTORISÉ: Logique claire et simple pour Hugging Face
+            // 1. Vérifier si Hugging Face est activé pour embeddings
+            if (huggingFaceService.isEnabledForEmbeddings() && huggingFaceService.isConfigured()) {
+                val embedding = huggingFaceService.generateEmbedding(text)
+                if (embedding != null) {
+                    Log.d(TAG, "✅ Embedding généré via Hugging Face (${embedding.size} dimensions)")
+                    return@withContext embedding
                 }
             }
             
-            val useCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
-            
-            // ⭐ NOUVEAU: Si Ollama Cloud est utilisé, utiliser Hugging Face pour embeddings
-            // (car Ollama Cloud ne supporte pas /api/embeddings)
-            val useHuggingFace = useCloud && sharedPreferences.getBoolean("rag_use_huggingface", true)
-            val huggingFaceApiKey = keyring.getApiKey("huggingface")?.trim()
-            
-            if (useHuggingFace && !huggingFaceApiKey.isNullOrEmpty()) {
-                // Utiliser Hugging Face Inference API pour embeddings
-                return@withContext embedWithHuggingFace(text, huggingFaceApiKey)
+            // 2. Essayer ONNX local (100% offline)
+            if (onnxInitialized) {
+                val manager = onnxEmbeddingManager
+                if (manager != null && manager.isReady()) {
+                    try {
+                        val embedding = manager.embed(text)
+                        if (embedding != null) {
+                            Log.d(TAG, "✅ Embedding généré via ONNX local (${embedding.size} dimensions)")
+                            return@withContext embedding
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Erreur ONNX embedding, fallback: ${e.message}", e)
+                    }
+                }
             }
             
-            // Sinon, utiliser Ollama (local ou cloud si supporté)
+            // 3. Sinon, utiliser Ollama (local ou cloud si supporté)
+            val useCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
             val embeddingsUrl = if (useCloud) {
                 // ⭐ FUTURE-PROOF: Tester si Ollama Cloud supporte /api/embeddings
                 // Si Ollama ajoute cet endpoint, il sera automatiquement utilisé
-                "https://ollama.com/api/embeddings"
+                com.chatai.config.ApiConfig.OLLAMA_CLOUD_EMBEDDINGS
             } else {
                 // Récupérer URL du serveur Ollama local
                 val localServerUrl = sharedPreferences.getString("local_server_url", null)?.trim()
@@ -287,69 +296,7 @@ class EmbeddingService(private val context: Context) {
         }
     }
     
-    /**
-     * ⭐ NOUVEAU: Génère un embedding via Hugging Face Inference API
-     * Utilisé quand Ollama Cloud est sélectionné (car Ollama Cloud ne supporte pas /api/embeddings)
-     */
-    private suspend fun embedWithHuggingFace(text: String, apiKey: String): FloatArray? = withContext(Dispatchers.IO) {
-        try {
-            // Récupérer le modèle Hugging Face configuré (ou défaut)
-            val hfModel = sharedPreferences.getString("hf_embedding_model", DEFAULT_HF_EMBEDDING_MODEL)
-                ?: DEFAULT_HF_EMBEDDING_MODEL
-            
-            val embeddingsUrl = HUGGINGFACE_API_URL + hfModel
-            Log.d(TAG, "Generating embedding via Hugging Face: $hfModel")
-            
-            // Format Hugging Face: {"inputs": "text to embed"}
-            val requestBody = JSONObject().apply {
-                put("inputs", text)
-            }
-            
-            val request = Request.Builder()
-                .url(embeddingsUrl)
-                .addHeader("Authorization", "Bearer $apiKey")
-                .addHeader("Content-Type", "application/json")
-                .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-            
-            val response = httpClient.newCall(request).execute()
-            
-            if (!response.isSuccessful) {
-                val errorBody = response.body?.string()
-                val statusCode = response.code
-                Log.w(TAG, "Hugging Face embedding request failed: HTTP $statusCode")
-                if (errorBody != null) {
-                    Log.w(TAG, "Error body: ${errorBody.take(200)}")
-                }
-                return@withContext null
-            }
-            
-            val responseBody = response.body?.string()
-            if (responseBody == null) {
-                Log.w(TAG, "Hugging Face embedding response body is null")
-                return@withContext null
-            }
-            
-            // Hugging Face retourne: [[0.1, 0.2, ...]] (array de arrays, on prend le premier)
-            val jsonArray = JSONArray(responseBody)
-            if (jsonArray.length() == 0) {
-                Log.w(TAG, "Hugging Face embedding response is empty")
-                return@withContext null
-            }
-            
-            val embeddingArray = jsonArray.getJSONArray(0) // Prendre le premier array
-            val embedding = FloatArray(embeddingArray.length()) { i ->
-                embeddingArray.getDouble(i).toFloat()
-            }
-            
-            Log.d(TAG, "✅ Hugging Face embedding generated: ${embedding.size} dimensions")
-            return@withContext embedding
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error generating embedding with Hugging Face", e)
-            return@withContext null
-        }
-    }
+    // ⭐ REFACTORISÉ: embedWithHuggingFace() supprimé - maintenant dans HuggingFaceService
     
     /**
      * Génère un embedding pour une conversation complète (userMessage + aiResponse)
@@ -421,49 +368,20 @@ class EmbeddingService(private val context: Context) {
      */
     suspend fun isAvailable(): Boolean = withContext(Dispatchers.IO) {
         try {
-            val useCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
-            val useHuggingFace = useCloud && sharedPreferences.getBoolean("rag_use_huggingface", true)
-            val huggingFaceApiKey = keyring.getApiKey("huggingface")?.trim()
-            
-            // ⭐ NOUVEAU: Si Ollama Cloud + Hugging Face configuré, vérifier Hugging Face
-            if (useHuggingFace && !huggingFaceApiKey.isNullOrEmpty()) {
-                // Tester Hugging Face Inference API
-                val hfModel = sharedPreferences.getString("hf_embedding_model", DEFAULT_HF_EMBEDDING_MODEL)
-                    ?: DEFAULT_HF_EMBEDDING_MODEL
-                val testUrl = HUGGINGFACE_API_URL + hfModel
-                
-                val testRequestBody = JSONObject().apply {
-                    put("inputs", "test")
-                }
-                
-                val request = Request.Builder()
-                    .url(testUrl)
-                    .addHeader("Authorization", "Bearer $huggingFaceApiKey")
-                    .addHeader("Content-Type", "application/json")
-                    .post(testRequestBody.toString().toRequestBody("application/json".toMediaType()))
-                    .build()
-                
-                try {
-                    val response = httpClient.newCall(request).execute()
-                    val available = response.isSuccessful || response.code == 503 // 503 = modèle en chargement
-                    response.close()
-                    if (available) {
-                        Log.i(TAG, "✅ Hugging Face embeddings available (model: $hfModel)")
-                    } else {
-                        Log.w(TAG, "⚠️ Hugging Face embeddings not available (HTTP ${response.code})")
-                    }
-                    return@withContext available
-                } catch (e: Exception) {
-                    Log.w(TAG, "Hugging Face embeddings test failed: ${e.message}")
-                    return@withContext false
+            // ⭐ REFACTORISÉ: Utiliser HuggingFaceService pour tester la disponibilité
+            if (huggingFaceService.isEnabledForEmbeddings() && huggingFaceService.isConfigured()) {
+                val available = huggingFaceService.testConnection()
+                if (available) {
+                    return@withContext true
                 }
             }
             
+            val useCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
             if (useCloud) {
                 // ⭐ FUTURE-PROOF: Tester si Ollama Cloud supporte /api/embeddings
                 // Si l'endpoint existe (même avec erreur 401/403), c'est qu'il est disponible
                 // Si l'endpoint n'existe pas (404/501), c'est qu'il n'est pas encore disponible
-                val testUrl = "https://ollama.com/api/embeddings"
+                val testUrl = com.chatai.config.ApiConfig.OLLAMA_CLOUD_EMBEDDINGS
                 val testRequestBody = JSONObject().apply {
                     put("model", DEFAULT_EMBEDDING_MODEL)
                     put("prompt", "test")

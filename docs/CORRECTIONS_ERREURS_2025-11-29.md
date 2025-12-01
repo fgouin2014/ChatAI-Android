@@ -142,3 +142,4 @@ Le décodage autoregressif fonctionne comme suit:
 **Date de correction:** 2025-11-29  
 **Statut global:** ✅ **3/5 erreurs corrigées** (60%)
 
+

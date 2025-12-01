@@ -92,15 +92,30 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
         // Démarrer le service en arrière-plan
         startBackgroundService();
         
-        // ⭐ NOUVEAU : Initialiser le fichier de log (créer répertoire et fichier s'ils n'existent pas)
-        initializeLogFile();
-        
-        // ⭐ NOUVEAU : Initialiser le service TTS global pour utilisation depuis le chat
-        initializeGlobalTTS();
-        
+        // ⭐ FIX ANR: Setup WebView immédiatement (nécessaire pour l'UI)
         setupWebView();
-        setupKittInterface();
-        setupKittButton();
+        
+        // ⭐ FIX ANR: Déplacer les opérations lourdes vers un thread en arrière-plan
+        new Thread(() -> {
+            try {
+                // Initialiser le fichier de log (I/O - peut être lent)
+                initializeLogFile();
+                
+                // Auto-configurer RAG (peut charger des modèles)
+                autoConfigureRAG();
+                
+                // Initialiser TTS (peut être lourd)
+                runOnUiThread(() -> initializeGlobalTTS());
+            } catch (Exception e) {
+                Log.e(TAG, "Erreur initialisation arrière-plan", e);
+            }
+        }).start();
+        
+        // ⭐ FIX ANR: Setup KITT interface après un court délai (permet à WebView de se charger)
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            setupKittInterface();
+            setupKittButton();
+        }, 100); // Délai minimal pour permettre au WebView de commencer à charger
         
         // Vérifier si lancé depuis Quick Settings Tile
         handleKittActivationIntent(getIntent());
@@ -334,7 +349,28 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
             Log.i(TAG, "Démarrage du service en arrière-plan...");
             
             Intent serviceIntent = new Intent(this, BackgroundService.class);
-            startForegroundService(serviceIntent);
+            
+            // ⭐ FIX Android 12+: Gérer ForegroundServiceStartNotAllowedException
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    startForegroundService(serviceIntent);
+                } else {
+                    startService(serviceIntent);
+                }
+            } catch (android.app.ForegroundServiceStartNotAllowedException e) {
+                // ⭐ FIX: Service ne peut pas démarrer en foreground, essayer comme service régulier
+                Log.e(TAG, "ForegroundServiceStartNotAllowedException: " + e.getMessage());
+                Log.w(TAG, "Service ne peut pas démarrer en foreground, essai comme service régulier");
+                try {
+                    startService(serviceIntent);
+                    Log.i(TAG, "Service démarré en mode régulier (moins fiable mais fonctionnel)");
+                } catch (Exception e2) {
+                    Log.e(TAG, "Impossible de démarrer le service: " + e2.getMessage());
+                    // Fallback vers les serveurs locaux
+                    startLocalServers();
+                    return;
+                }
+            }
             
             // Lier le service
             bindService(serviceIntent, serviceConnection, android.content.Context.BIND_AUTO_CREATE);
@@ -418,10 +454,10 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
             fileServer.start();
             Log.i(TAG, "Serveur de fichiers démarré sur le port " + fileServer.getPort());
             
-            // Démarrer le serveur web pour les assets
-            webServer = new WebServer(this);
-            webServer.start();
-            Log.i(TAG, "Serveur web démarré sur le port 8888");
+            // ⭐ FIX: WebServer port 8888 désactivé - réservé pour EmulatorJS (GameLibrary)
+            // webServer = new WebServer(this);
+            // webServer.start();
+            // Log.i(TAG, "Serveur web démarré sur le port 8888");
             
             // Lier le FileServer au HttpServer
             httpServer.setFileServer(fileServer);
@@ -549,6 +585,20 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
         }
     }
 
+    /**
+     * ⭐ NOUVEAU : Auto-configurer RAG au démarrage
+     * Configure automatiquement le RAG si ONNX est disponible
+     */
+    private void autoConfigureRAG() {
+        try {
+            Log.i(TAG, "🔧 Auto-configuration RAG...");
+            com.chatai.services.RAGAutoConfigurator.autoConfigure(this);
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur auto-configuration RAG: " + e.getMessage(), e);
+            // Ne pas bloquer si auto-config échoue
+        }
+    }
+    
     private void initializeGlobalTTS() {
         try {
             // Créer un listener minimal pour le TTS global (seulement pour logging)

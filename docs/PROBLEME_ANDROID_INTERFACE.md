@@ -99,3 +99,4 @@ console.log(window.AndroidApp); // Devrait afficher l'objet, pas undefined
 
 **Statut:** ✅ Correction appliquée, nécessite recompilation et test
 
+
