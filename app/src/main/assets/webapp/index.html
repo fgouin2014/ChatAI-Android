@@ -3893,30 +3893,50 @@
             const cleanApiKey = apiKey.replace(/\s+/g, '').replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
             
             if (!cleanApiKey) {
-                modelsResultDiv.style.display = 'none';
-                resultDiv.style.display = 'block';
-                resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
-                resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                statusDiv.innerHTML = '❌ Clé API invalide';
-                statusDiv.style.color = '#dc2626';
-                detailsDiv.textContent = 'La clé API ne peut pas être vide après nettoyage';
+                if (modelsResultDiv) modelsResultDiv.style.display = 'none';
+                if (resultDiv) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                    resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                }
+                if (statusDiv) {
+                    statusDiv.innerHTML = '❌ Clé API invalide';
+                    statusDiv.style.color = '#dc2626';
+                }
+                if (detailsDiv) {
+                    detailsDiv.textContent = 'La clé API ne peut pas être vide après nettoyage';
+                }
+                if (testBtn) {
+                    testBtn.disabled = false;
+                    testBtn.innerHTML = '🧪 Tester connexion';
+                }
                 return;
             }
             
             // Afficher "Test en cours..."
-            modelsResultDiv.style.display = 'block';
-            modelsStatusDiv.innerHTML = '⏳ Récupération des modèles disponibles...';
-            modelsStatusDiv.style.color = '#7c3aed';
-            modelsListDiv.textContent = '';
+            if (modelsResultDiv) modelsResultDiv.style.display = 'block';
+            if (modelsStatusDiv) {
+                modelsStatusDiv.innerHTML = '⏳ Récupération des modèles disponibles...';
+                modelsStatusDiv.style.color = '#7c3aed';
+            }
+            if (modelsListDiv) modelsListDiv.textContent = '';
             
-            resultDiv.style.display = 'block';
-            resultDiv.style.background = 'rgba(59, 130, 246, 0.1)';
-            resultDiv.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-            statusDiv.innerHTML = '⏳ Test de connexion en cours...';
-            statusDiv.style.color = '#1e40af';
-            detailsDiv.textContent = '';
-            testBtn.disabled = true;
-            testBtn.innerHTML = '⏳ Test en cours...';
+            if (resultDiv) {
+                resultDiv.style.display = 'block';
+                resultDiv.style.background = 'rgba(59, 130, 246, 0.1)';
+                resultDiv.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+            }
+            if (statusDiv) {
+                statusDiv.innerHTML = '⏳ Test de connexion en cours...';
+                statusDiv.style.color = '#1e40af';
+            }
+            if (detailsDiv) {
+                detailsDiv.textContent = '';
+            }
+            if (testBtn) {
+                testBtn.disabled = true;
+                testBtn.innerHTML = '⏳ Test en cours...';
+            }
             
             const startTime = Date.now();
             
