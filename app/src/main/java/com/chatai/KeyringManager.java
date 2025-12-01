@@ -224,8 +224,12 @@ public class KeyringManager {
     public void clearApiKey(String provider) {
         String keyName = getKeyName(provider);
         if (keyName != null) {
+            // ⭐ FIX: Ne logger que si la clé existait vraiment (évite logs répétés inutiles)
+            boolean keyExisted = prefs.contains(keyName);
             prefs.edit().remove(keyName).apply();
-            Log.d(TAG, "🗑️ Clé " + provider + " supprimée");
+            if (keyExisted) {
+                Log.d(TAG, "🗑️ Clé " + provider + " supprimée");
+            }
         }
     }
     
