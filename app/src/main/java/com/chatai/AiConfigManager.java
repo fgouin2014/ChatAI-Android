@@ -227,6 +227,10 @@ public final class AiConfigManager {
 
             JSONObject cloud = new JSONObject();
             String provider = prefs.getString("cloud_provider", "ollama");
+            // ⭐ FIX: Vérifier que provider n'est pas vide avant d'appeler getApiKey
+            if (provider == null || provider.trim().isEmpty()) {
+                provider = "ollama"; // Fallback par défaut
+            }
             cloud.put("provider", provider);
             // ⭐ FIX CRITIQUE AUDIT: TOUJOURS inclure apiKey dans le JSON
             // Même si la clé n'existe pas, inclure apiKey = "" pour rendre l'état explicite
@@ -234,7 +238,7 @@ public final class AiConfigManager {
             // - apiKey = "xxx" → clé configurée
             // - apiKey = "" → aucune clé configurée
             KeyringManager keyring = KeyringManager.getInstance(context);
-            String apiKey = keyring.getApiKey(provider);
+            String apiKey = keyring.getApiKey(provider.trim());
             if (apiKey != null && !apiKey.trim().isEmpty()) {
                 apiKey = apiKey.trim();
                 cloud.put("apiKey", apiKey);
