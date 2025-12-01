@@ -1712,13 +1712,14 @@
                 serverBtn.addEventListener('click', openServers);
             }
             
-          // Lister les modèles Ollama Cloud
+          // ⭐ MODIFIÉ: Lister les modèles (fonctionne avec Hugging Face ou Ollama selon provider)
           const listModelsBtn = document.getElementById('listCloudModelsBtn');
           if (listModelsBtn) {
               listModelsBtn.addEventListener('click', listCloudModels);
           }
           
-          // Test de connexion Cloud (router selon provider)
+          // ⭐ MODIFIÉ: Test de connexion Cloud (router selon provider sélectionné)
+          // Note: Les boutons de test individuels (testHuggingFaceBtn, etc.) sont gérés plus haut
           const testCloudBtn = document.getElementById('testCloudConnectionBtn');
           if (testCloudBtn) {
               testCloudBtn.addEventListener('click', async function() {
@@ -1802,8 +1803,7 @@
           const testHuggingFaceBtn = document.getElementById('testHuggingFaceBtn');
           if (testHuggingFaceBtn) {
               testHuggingFaceBtn.addEventListener('click', async function() {
-                  // TODO: Implémenter test connexion Hugging Face
-                  alert('Test de connexion Hugging Face - À implémenter');
+                  await testHuggingFaceConnection();
               });
           }
           
@@ -2596,16 +2596,17 @@
         
         // Fonction de test de connexion Hugging Face
         async function testHuggingFaceConnection() {
-            const apiKeyField = document.getElementById('configCloudApiKey');
-            let apiKey = apiKeyField.value.trim();
+            // ⭐ FIX: Utiliser le bon champ API Key (configHuggingFaceApiKey)
+            const apiKeyField = document.getElementById('configHuggingFaceApiKey');
+            let apiKey = apiKeyField?.value?.trim() || '';
             
             // ⭐ FIX: Si le champ est vide, essayer de récupérer depuis la config Android
             if (!apiKey && window.secureChatApp?.chatConfig) {
                 try {
                     const config = JSON.parse(window.secureChatApp.chatConfig.androidInterface.readAiConfigJson());
-                    apiKey = config?.cloud?.apiKey?.trim() || '';
+                    apiKey = config?.cloud?.huggingface?.apiKey?.trim() || config?.cloud?.apiKey?.trim() || '';
                     // Si trouvée, mettre à jour le champ
-                    if (apiKey) {
+                    if (apiKey && apiKeyField) {
                         apiKeyField.value = apiKey;
                     }
                 } catch (e) {
@@ -3822,16 +3823,17 @@
         }
         
         async function testOllamaCloudConnection() {
-            const apiKeyField = document.getElementById('configCloudApiKey');
-            let apiKey = apiKeyField.value.trim();
+            // ⭐ FIX: Utiliser le bon champ API Key (configOllamaCloudApiKey)
+            const apiKeyField = document.getElementById('configOllamaCloudApiKey');
+            let apiKey = apiKeyField?.value?.trim() || '';
             
             // ⭐ FIX: Si le champ est vide, essayer de récupérer depuis la config Android
             if (!apiKey && window.secureChatApp?.chatConfig) {
                 try {
                     const config = JSON.parse(window.secureChatApp.chatConfig.androidInterface.readAiConfigJson());
-                    apiKey = config?.cloud?.apiKey?.trim() || '';
+                    apiKey = config?.cloud?.ollama?.apiKey?.trim() || config?.cloud?.apiKey?.trim() || '';
                     // Si trouvée, mettre à jour le champ
-                    if (apiKey) {
+                    if (apiKey && apiKeyField) {
                         apiKeyField.value = apiKey;
                     }
                 } catch (e) {
@@ -3843,7 +3845,7 @@
             const modelCustom = document.getElementById('configCloudModelCustom');
             const model = (modelSelect && modelSelect.value && modelSelect.value !== 'custom') 
                 ? modelSelect.value 
-                : (modelCustom && modelCustom.value ? modelCustom.value : 'gpt-oss:120b');
+                : (modelCustom && modelCustom.value ? modelCustom.value : 'qwen3');
             
             const modelsResultDiv = document.getElementById('cloudModelsResult');
             const modelsStatusDiv = document.getElementById('cloudModelsStatus');
@@ -3852,16 +3854,25 @@
             const resultDiv = document.getElementById('cloudTestResult');
             const statusDiv = document.getElementById('cloudTestStatus');
             const detailsDiv = document.getElementById('cloudTestDetails');
-            const testBtn = document.getElementById('testCloudConnectionBtn');
+            let testBtn = document.getElementById('testOllamaCloudBtn');
+            if (!testBtn) {
+                testBtn = document.getElementById('testCloudConnectionBtn');
+            }
             
             if (!apiKey) {
-                modelsResultDiv.style.display = 'none';
-                resultDiv.style.display = 'block';
-                resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
-                resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                statusDiv.innerHTML = '❌ Clé API manquante';
-                statusDiv.style.color = '#dc2626';
-                detailsDiv.textContent = 'Veuillez entrer votre clé API Ollama Cloud';
+                if (modelsResultDiv) modelsResultDiv.style.display = 'none';
+                if (resultDiv) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                    resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                }
+                if (statusDiv) {
+                    statusDiv.innerHTML = '❌ Clé API manquante';
+                    statusDiv.style.color = '#dc2626';
+                }
+                if (detailsDiv) {
+                    detailsDiv.textContent = 'Veuillez entrer votre clé API Ollama Cloud';
+                }
                 return;
             }
             
@@ -4039,8 +4050,10 @@
                     detailsDiv.textContent = error.message || 'Erreur inconnue';
                 }
             } finally {
-                testBtn.disabled = false;
-                testBtn.innerHTML = '🧪 Tester la connexion';
+                if (testBtn) {
+                    testBtn.disabled = false;
+                    testBtn.innerHTML = '🧪 Tester la connexion';
+                }
                 
                 // Afficher le bouton "Voir plus" si nécessaire
                 setTimeout(() => {
