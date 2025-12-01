@@ -2617,17 +2617,28 @@
             const resultDiv = document.getElementById('cloudTestResult');
             const statusDiv = document.getElementById('cloudTestStatus');
             const detailsDiv = document.getElementById('cloudTestDetails');
-            const testBtn = document.getElementById('testCloudConnectionBtn');
+            // ⭐ FIX: Utiliser le bon bouton (testHuggingFaceBtn au lieu de testCloudConnectionBtn)
+            const testBtn = document.getElementById('testHuggingFaceBtn');
             const modelsResultDiv = document.getElementById('cloudModelsResult');
             
+            // ⭐ FIX: Vérifier que les éléments DOM existent
+            if (!resultDiv || !statusDiv || !detailsDiv) {
+                alert('❌ Erreur: Éléments DOM manquants pour afficher les résultats du test');
+                return;
+            }
+            
             if (!apiKey) {
-                modelsResultDiv.style.display = 'none';
+                if (modelsResultDiv) modelsResultDiv.style.display = 'none';
                 resultDiv.style.display = 'block';
                 resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
                 resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
                 statusDiv.innerHTML = '❌ Clé API manquante';
                 statusDiv.style.color = '#dc2626';
                 detailsDiv.textContent = 'Veuillez entrer votre clé API Hugging Face';
+                if (testBtn) {
+                    testBtn.disabled = false;
+                    testBtn.innerHTML = '🧪 Tester connexion';
+                }
                 return;
             }
             
@@ -4051,8 +4062,10 @@
                 }
             } finally {
                 if (testBtn) {
-                    testBtn.disabled = false;
-                    testBtn.innerHTML = '🧪 Tester la connexion';
+                    if (testBtn) {
+                        testBtn.disabled = false;
+                        testBtn.innerHTML = '🧪 Tester la connexion';
+                    }
                 }
                 
                 // Afficher le bouton "Voir plus" si nécessaire

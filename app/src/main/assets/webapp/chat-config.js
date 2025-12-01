@@ -178,9 +178,27 @@
 
             // ⭐ MODIFIÉ: Tab Cloud : Sections providers séparées
             if (cfg.cloud) {
-                this.setSelectValue(this.core.configCloudProvider, this.core.configCloudProviderCustom, cfg.cloud.provider || '');
-                if (this.core.configCloudApiKey) {
-                    this.core.configCloudApiKey.value = cfg.cloud.apiKey || '';
+                // ⭐ FIX: Ne pas charger cloud.provider/apiKey dans "Autres Providers" si déjà utilisé par les sections dédiées
+                // Vérifier si provider est déjà géré par une section dédiée
+                const provider = cfg.cloud.provider || '';
+                const hasDedicatedSection = (provider === 'huggingface' && cfg.cloud.huggingface) ||
+                                          (provider === 'ollama' && cfg.cloud.ollama) ||
+                                          (provider === 'openai' && cfg.cloud.openai);
+                
+                // Ne charger dans "Autres Providers" que si provider n'est pas déjà géré par une section dédiée
+                if (!hasDedicatedSection && provider && provider !== 'huggingface' && provider !== 'ollama' && provider !== 'openai') {
+                    this.setSelectValue(this.core.configCloudProvider, this.core.configCloudProviderCustom, provider);
+                    if (this.core.configCloudApiKey && cfg.cloud.apiKey) {
+                        this.core.configCloudApiKey.value = cfg.cloud.apiKey || '';
+                    }
+                } else {
+                    // Vider "Autres Providers" si provider est géré par une section dédiée ou si vide
+                    if (this.core.configCloudProvider) {
+                        this.core.configCloudProvider.value = '';
+                    }
+                    if (this.core.configCloudApiKey) {
+                        this.core.configCloudApiKey.value = '';
+                    }
                 }
                 this.setSelectValue(this.core.configCloudModel, this.core.configCloudModelCustom, cfg.cloud.selectedModel || cfg.selectedModel || '');
                 
