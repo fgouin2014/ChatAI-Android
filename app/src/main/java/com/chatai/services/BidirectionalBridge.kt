@@ -95,32 +95,48 @@ class BidirectionalBridge private constructor(private val context: Context) {
                 
                 if (ragEnabled) {
                     if (isAvailable) {
-                        // ⭐ REFACTORISÉ: Utiliser HuggingFaceService pour vérifier la configuration
-                        val huggingFaceService = HuggingFaceService(context)
-                        if (huggingFaceService.isEnabledForEmbeddings() && huggingFaceService.isConfigured()) {
-                            Log.i(TAG, "✅ RAG activé avec Hugging Face embeddings")
-                        } else if (useCloud) {
-                            Log.i(TAG, "✅ RAG activé avec Ollama Cloud - /api/embeddings détecté et fonctionnel")
+                        // ⭐ AMÉLIORÉ: Vérifier ONNX en premier (priorité offline)
+                        val onnxManager = embeddingService?.getOnnxManager()
+                        val onnxReady = onnxManager?.isReady() ?: false
+                        
+                        if (onnxReady) {
+                            Log.i(TAG, "✅ RAG activé avec ONNX local (100% offline)")
                         } else {
-                            Log.i(TAG, "✅ RAG activé avec Ollama Local")
+                            // ⭐ REFACTORISÉ: Utiliser HuggingFaceService pour vérifier la configuration
+                            val huggingFaceService = HuggingFaceService(context)
+                            if (huggingFaceService.isEnabledForEmbeddings() && huggingFaceService.isConfigured()) {
+                                Log.i(TAG, "✅ RAG activé avec Hugging Face embeddings")
+                            } else if (useCloud) {
+                                Log.i(TAG, "✅ RAG activé avec Ollama Cloud - /api/embeddings détecté et fonctionnel")
+                            } else {
+                                Log.i(TAG, "✅ RAG activé avec Ollama Local")
+                            }
                         }
                     } else {
-                        // ⭐ REFACTORISÉ: Messages d'erreur simplifiés
-                        val huggingFaceService = HuggingFaceService(context)
-                        if (huggingFaceService.isEnabledForEmbeddings()) {
-                            if (huggingFaceService.isConfigured()) {
-                                Log.w(TAG, "⚠️ RAG activé mais Hugging Face embeddings non disponibles")
-                                Log.w(TAG, "   → Vérifiez votre connexion internet et votre clé API Hugging Face")
-                            } else {
-                                Log.w(TAG, "⚠️ RAG activé mais Hugging Face non configuré")
-                                Log.w(TAG, "   → Configurez votre clé API Hugging Face dans Configuration → API Keys")
-                            }
-                        } else if (useCloud) {
-                            Log.w(TAG, "❌ RAG activé mais Ollama Cloud ne supporte PAS les embeddings")
-                            Log.w(TAG, "   → Solution: Activez Hugging Face (Configuration → RAG → Utiliser Hugging Face)")
+                        // ⭐ AMÉLIORÉ: Vérifier ONNX avant d'afficher des warnings
+                        val onnxManager = embeddingService?.getOnnxManager()
+                        val onnxReady = onnxManager?.isReady() ?: false
+                        
+                        if (onnxReady) {
+                            Log.i(TAG, "✅ RAG activé avec ONNX local (100% offline)")
                         } else {
-                            Log.w(TAG, "⚠️ RAG activé mais service d'embedding non disponible")
-                            Log.w(TAG, "   → Options: Ollama local OU Hugging Face (Configuration → RAG)")
+                            // ⭐ REFACTORISÉ: Messages d'erreur simplifiés
+                            val huggingFaceService = HuggingFaceService(context)
+                            if (huggingFaceService.isEnabledForEmbeddings()) {
+                                if (huggingFaceService.isConfigured()) {
+                                    Log.w(TAG, "⚠️ RAG activé mais Hugging Face embeddings non disponibles")
+                                    Log.w(TAG, "   → Vérifiez votre connexion internet et votre clé API Hugging Face")
+                                } else {
+                                    Log.w(TAG, "⚠️ RAG activé mais Hugging Face non configuré")
+                                    Log.w(TAG, "   → Configurez votre clé API Hugging Face dans Configuration → API Keys")
+                                }
+                            } else if (useCloud) {
+                                Log.w(TAG, "❌ RAG activé mais Ollama Cloud ne supporte PAS les embeddings")
+                                Log.w(TAG, "   → Solution: Activez Hugging Face OU utilisez ONNX local (Configuration → Général → RAG)")
+                            } else {
+                                Log.w(TAG, "⚠️ RAG activé mais service d'embedding non disponible")
+                                Log.w(TAG, "   → Options: ONNX local (recommandé), Ollama local OU Hugging Face (Configuration → Général → RAG)")
+                            }
                         }
                     }
                 } else {

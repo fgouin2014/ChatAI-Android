@@ -358,6 +358,13 @@ class EmbeddingService(private val context: Context) {
     }
     
     /**
+     * ⭐ NOUVEAU: Expose le manager ONNX pour vérification externe
+     */
+    fun getOnnxManager(): OnnxEmbeddingManager? {
+        return onnxEmbeddingManager
+    }
+    
+    /**
      * Vérifie si le service d'embedding est disponible
      * Teste Ollama local ou Cloud selon la configuration
      * 
