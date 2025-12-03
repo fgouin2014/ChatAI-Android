@@ -58,10 +58,11 @@
             if (!this.core) return;
             
             this.customSelects = [
-                { select: this.core.configSelectedModel, custom: this.core.configSelectedModelCustom },
+                // ⭐ SIMPLIFIÉ: Plus de configLocalModel (Ollama PC supprimé)
+                { select: this.core.configHuggingFaceLLMModel, custom: this.core.configHuggingFaceLLMModelCustom },
+                { select: this.core.configOllamaCloudModel, custom: this.core.configOllamaCloudModelCustom },
                 { select: this.core.configCloudProvider, custom: this.core.configCloudProviderCustom },
                 { select: this.core.configCloudModel, custom: this.core.configCloudModelCustom },
-                { select: this.core.configLocalModel, custom: this.core.configLocalModelCustom },
                 { select: this.core.configVisionModel, custom: this.core.configVisionModelCustom },
                 { select: this.core.configAudioModel, custom: this.core.configAudioModelCustom },
                 { select: this.core.configTtsVoice, custom: this.core.configTtsVoiceCustom }
@@ -129,16 +130,96 @@
             const cfg = this.aiConfigObject;
             const hotword = cfg.hotword || {};
 
-            // ⭐ MODIFIÉ: Tab General : Mode actif + Modèle (Cloud/Local) + RAG
-            this.core.configModeSelect.value = cfg.mode || 'cloud';
+            // ⭐ SIMPLIFIÉ: Tab General : Mode API (Hugging Face / Ollama Cloud) + Modèle + RAG
+            // Utiliser forced_api_mode au lieu de mode
+            const forcedMode = cfg.forced_api_mode || cfg.mode || '';
+            this.core.configModeSelect.value = forcedMode;
             
-            // Modèle selon le mode
-            if (cfg.mode === 'cloud') {
-                this.setSelectValue(this.core.configSelectedModel, this.core.configSelectedModelCustom, cfg.selectedModel || '');
-            } else if (cfg.mode === 'local') {
-                // ⭐ NOUVEAU: Modèle local device
-                if (this.core.configLocalDeviceModel && cfg.local_device?.model) {
-                    this.core.configLocalDeviceModel.value = cfg.local_device.model;
+            // ⭐ FIX: Déclencher updateModelSectionVisibility après avoir défini le mode
+            // Cela affichera la bonne section et déclenchera le scan si nécessaire
+            // ⭐ FIX: updateModelSectionVisibility() gère déjà le scan automatique, pas besoin de scan supplémentaire
+            if (typeof window.updateModelSectionVisibility === 'function') {
+                // Utiliser un petit délai pour s'assurer que le DOM est prêt
+                setTimeout(() => {
+                    window.updateModelSectionVisibility();
+                    // ⭐ SUPPRIMÉ: Scan supplémentaire inutile, updateModelSectionVisibility() le fait déjà
+                }, 150);
+            }
+            
+            // Modele selon le mode API
+            if (forcedMode === 'local_gguf') {
+                // Modele Local GGUF - check localStorage first, then config
+                const localModel = localStorage.getItem('chatai_local_gguf_model') 
+                    || cfg.local_gguf_model 
+                    || cfg.selectedModel 
+                    || 'qwen2.5-1.5b-instruct-q4_k_m.gguf';
+                if (this.core.configLocalGGUFModel) {
+                    this.core.configLocalGGUFModel.value = localModel;
+                }
+                console.log('[chat-config] Loaded local_gguf_model:', localModel);
+                
+                // Load GGUF inference parameters
+                const ggufParams = cfg.gguf_params || {};
+                if (this.core.configGGUFSystemPrompt) {
+                    this.core.configGGUFSystemPrompt.value = ggufParams.system_prompt || 'You are a helpful AI assistant.';
+                }
+                if (this.core.configGGUFTemperature) {
+                    this.core.configGGUFTemperature.value = ggufParams.temperature || 0.7;
+                    const tempDisplay = document.getElementById('configGGUFTemperatureValue');
+                    if (tempDisplay) tempDisplay.textContent = ggufParams.temperature || 0.7;
+                }
+                if (this.core.configGGUFMaxTokens) {
+                    this.core.configGGUFMaxTokens.value = ggufParams.max_tokens || 128;
+                }
+                if (this.core.configGGUFContextSize) {
+                    this.core.configGGUFContextSize.value = ggufParams.context_size || 2048;
+                }
+                if (this.core.configGGUFThreads) {
+                    this.core.configGGUFThreads.value = ggufParams.threads || 4;
+                }
+                if (this.core.configGGUFTopK) {
+                    this.core.configGGUFTopK.value = ggufParams.top_k || 40;
+                }
+                if (this.core.configGGUFTopP) {
+                    this.core.configGGUFTopP.value = ggufParams.top_p || 0.95;
+                }
+                if (this.core.configGGUFFlashAttention) {
+                    this.core.configGGUFFlashAttention.checked = ggufParams.flash_attention || false;
+                }
+                if (this.core.configGGUFBatchSize) {
+                    this.core.configGGUFBatchSize.value = ggufParams.batch_size || 512;
+                }
+                if (this.core.configGGUFRepeatPenalty) {
+                    this.core.configGGUFRepeatPenalty.value = ggufParams.repeat_penalty || 1.1;
+                }
+                console.log('[chat-config] Loaded GGUF params:', ggufParams);
+            } else if (forcedMode === 'huggingface') {
+                // Modèle Hugging Face LLM
+                const hfModel = cfg.hf_llm_model || cfg.selectedModel || '';
+                if (this.core.configHuggingFaceLLMModel) {
+                    if (hfModel.includes(':hf-inference') || hfModel.includes('HuggingFaceTB/')) {
+                        this.core.configHuggingFaceLLMModel.value = 'custom';
+                        if (this.core.configHuggingFaceLLMModelCustom) {
+                            this.core.configHuggingFaceLLMModelCustom.value = hfModel;
+                            this.core.configHuggingFaceLLMModelCustom.classList.remove('hidden');
+                        }
+                    } else {
+                        this.core.configHuggingFaceLLMModel.value = hfModel || '';
+                    }
+                }
+            } else if (forcedMode === 'ollama_cloud') {
+                // Modèle Ollama Cloud
+                const ollamaModel = cfg.ollama_cloud_model || cfg.selectedModel || '';
+                if (this.core.configOllamaCloudModel) {
+                    if (ollamaModel && !['gpt-oss:120b', 'qwen3-coder:480b-cloud', 'deepseek-v3.1:671b-cloud'].includes(ollamaModel)) {
+                        this.core.configOllamaCloudModel.value = 'custom';
+                        if (this.core.configOllamaCloudModelCustom) {
+                            this.core.configOllamaCloudModelCustom.value = ollamaModel;
+                            this.core.configOllamaCloudModelCustom.classList.remove('hidden');
+                        }
+                    } else {
+                        this.core.configOllamaCloudModel.value = ollamaModel || '';
+                    }
                 }
             }
             
@@ -185,8 +266,9 @@
                                           (provider === 'ollama' && cfg.cloud.ollama) ||
                                           (provider === 'openai' && cfg.cloud.openai);
                 
+                // ⭐ SUPPRIMÉ: "Autres Providers" (non utilisés dans flow principal)
                 // Ne charger dans "Autres Providers" que si provider n'est pas déjà géré par une section dédiée
-                if (!hasDedicatedSection && provider && provider !== 'huggingface' && provider !== 'ollama' && provider !== 'openai') {
+                if (!hasDedicatedSection && provider && provider !== 'huggingface' && provider !== 'ollama') {
                     this.setSelectValue(this.core.configCloudProvider, this.core.configCloudProviderCustom, provider);
                     if (this.core.configCloudApiKey && cfg.cloud.apiKey) {
                         this.core.configCloudApiKey.value = cfg.cloud.apiKey || '';
@@ -219,29 +301,16 @@
                         this.core.configOllamaCloudApiKey.value = cfg.cloud.ollama.apiKey || '';
                     }
                 }
-                if (cfg.cloud.openai) {
-                    if (this.core.configUseOpenAI) {
-                        this.core.configUseOpenAI.checked = cfg.cloud.openai.enabled === true;
-                    }
-                    if (this.core.configOpenAIApiKey) {
-                        this.core.configOpenAIApiKey.value = cfg.cloud.openai.apiKey || '';
-                    }
-                }
+                // ⭐ SUPPRIMÉ: OpenAI (non utilisé dans flow principal)
+                // if (cfg.cloud.openai) { ... }
             }
 
-            // ⭐ MODIFIÉ: Tab Local : Modèles device uniquement
-            const local = cfg.local_server || cfg.localServer;
-            if (local) {
-                if (this.core.configLocalUrl) this.core.configLocalUrl.value = local.url || '';
-                let modelValue = local.model || 'gemma3:270m';
-                if (modelValue === 'gemma3-270m.gguf') {
-                    modelValue = 'gemma3:270m';
-                    console.log('🔄 Migration automatique du modèle: gemma3-270m.gguf → gemma3:270m');
-                }
-                this.setSelectValue(this.core.configLocalModel, this.core.configLocalModelCustom, modelValue);
-            } else {
-                this.setSelectValue(this.core.configLocalModel, this.core.configLocalModelCustom, 'gemma3:270m');
-            }
+            // ⭐ SIMPLIFIÉ: Tab Local - Plus de local_server (Ollama PC supprimé)
+            // L'onglet Local contient maintenant uniquement:
+            // - Modèles device GGUF (affichage seulement, pas de sélection)
+            // - Vision ONNX
+            // - Translation ONNX
+            // Plus de configuration de serveur Ollama local (PC)
             
             // Vision et Translation ONNX (dans Local)
             if (cfg.visionOnnx && this.core.configOnnxVisionModel) {
@@ -265,8 +334,12 @@
             }
 
             if (cfg.webSearch) {
+                // ⭐ MODIFIÉ: Web Search avec checkbox enabled
+                if (this.core.configWebSearchEnabled) {
+                    this.core.configWebSearchEnabled.checked = cfg.webSearch?.enabled === true;
+                }
                 if (this.core.configWebSearchProvider) {
-                    this.core.configWebSearchProvider.value = cfg.webSearch.enabled ? (cfg.webSearch.provider || '') : '';
+                    this.core.configWebSearchProvider.value = cfg.webSearch?.provider || 'ollama';
                 }
             }
 
@@ -558,16 +631,43 @@
 
             switch (section) {
                 case 'mode':
-                    // ⭐ MODIFIÉ: Tab General : Mode actif + Modèle (Cloud/Local) + RAG
-                    cfg.mode = core.configModeSelect?.value || 'cloud';
+                    // ⭐ SIMPLIFIÉ: Tab General : Mode API (Hugging Face / Ollama Cloud) + Modèle + RAG
+                    const forcedMode = core.configModeSelect?.value || '';
+                    cfg.forced_api_mode = forcedMode; // Sauvegarder dans forced_api_mode
                     
-                    // Modèle selon le mode
-                    if (cfg.mode === 'cloud') {
-                        cfg.selectedModel = this.getSelectValue(core.configSelectedModel, core.configSelectedModelCustom);
-                    } else if (cfg.mode === 'local') {
-                        // ⭐ NOUVEAU: Modèle local device (GGUF)
-                        cfg.local_device = cfg.local_device || {};
-                        cfg.local_device.model = core.configLocalDeviceModel?.value || '';
+                    // Modele selon le mode API
+                    if (forcedMode === 'local_gguf') {
+                        // Modele Local GGUF
+                        const localModel = core.configLocalGGUFModel?.value || 'qwen2.5-1.5b-instruct-q4_k_m.gguf';
+                        cfg.local_gguf_model = localModel;
+                        cfg.selectedModel = localModel; // Compatibilite
+                        // Save to localStorage for persistence across sessions
+                        localStorage.setItem('chatai_local_gguf_model', localModel);
+                        
+                        // Save GGUF inference parameters
+                        cfg.gguf_params = {
+                            system_prompt: core.configGGUFSystemPrompt?.value || 'You are a helpful AI assistant.',
+                            temperature: parseFloat(core.configGGUFTemperature?.value) || 0.7,
+                            max_tokens: parseInt(core.configGGUFMaxTokens?.value) || 128,
+                            context_size: parseInt(core.configGGUFContextSize?.value) || 2048,
+                            threads: parseInt(core.configGGUFThreads?.value) || 4,
+                            top_k: parseInt(core.configGGUFTopK?.value) || 40,
+                            top_p: parseFloat(core.configGGUFTopP?.value) || 0.95,
+                            flash_attention: core.configGGUFFlashAttention?.checked || false,
+                            batch_size: parseInt(core.configGGUFBatchSize?.value) || 512,
+                            repeat_penalty: parseFloat(core.configGGUFRepeatPenalty?.value) || 1.1
+                        };
+                        console.log('[chat-config] Saved GGUF params:', cfg.gguf_params);
+                    } else if (forcedMode === 'huggingface') {
+                        // Modèle Hugging Face LLM
+                        const hfModel = this.getSelectValue(core.configHuggingFaceLLMModel, core.configHuggingFaceLLMModelCustom);
+                        cfg.hf_llm_model = hfModel;
+                        cfg.selectedModel = hfModel; // Compatibilité
+                    } else if (forcedMode === 'ollama_cloud') {
+                        // Modèle Ollama Cloud
+                        const ollamaModel = this.getSelectValue(core.configOllamaCloudModel, core.configOllamaCloudModelCustom);
+                        cfg.ollama_cloud_model = ollamaModel;
+                        cfg.selectedModel = ollamaModel; // Compatibilité
                     }
                     
                     // ⭐ MODIFIÉ: Configuration RAG (maintenant dans Général)
@@ -588,12 +688,7 @@
                     // ⭐ MODIFIÉ: Tab Cloud : Sections providers séparées
                     cfg.cloud = cfg.cloud || {};
                     
-                    // Provider général (pour compatibilité)
-                    cfg.cloud.provider = this.getSelectValue(core.configCloudProvider, core.configCloudProviderCustom);
-                    const cloudApiKeyValue = core.configCloudApiKey?.value?.trim() || '';
-                    cfg.cloud.apiKey = cloudApiKeyValue;
-                    
-                    // ⭐ NOUVEAU: Sections providers séparées
+                    // ⭐ SIMPLIFIÉ: Seuls Hugging Face et Ollama Cloud sont utilisés dans le flow principal
                     // Hugging Face
                     if (!cfg.cloud.huggingface) cfg.cloud.huggingface = {};
                     cfg.cloud.huggingface.enabled = core.configUseHuggingFace?.checked === true;
@@ -604,31 +699,28 @@
                     cfg.cloud.ollama.enabled = core.configUseOllamaCloud?.checked === true;
                     cfg.cloud.ollama.apiKey = core.configOllamaCloudApiKey?.value?.trim() || '';
                     
-                    // OpenAI
-                    if (!cfg.cloud.openai) cfg.cloud.openai = {};
-                    cfg.cloud.openai.enabled = core.configUseOpenAI?.checked === true;
-                    cfg.cloud.openai.apiKey = core.configOpenAIApiKey?.value?.trim() || '';
+                    // ⭐ SUPPRIMÉ: OpenAI, Anthropic, Groq, Perplexity (non utilisés dans flow principal)
                     
                     cfg.cloud.selectedModel = this.getSelectValue(core.configCloudModel, core.configCloudModelCustom);
                     break;
                 case 'local':
-                    // ⭐ MODIFIÉ: Tab Local : Modèles device uniquement (RAG déplacé vers Général)
-                    cfg.local_server = cfg.local_server || {};
-                    cfg.local_server.url = core.configLocalUrl?.value || '';
-                    cfg.local_server.model = this.getSelectValue(core.configLocalModel, core.configLocalModelCustom) || 'gemma3:270m';
+                    // ⭐ SIMPLIFIÉ: Tab Local - Plus de local_server (Ollama PC supprimé)
+                    // Sauvegarder uniquement Vision ONNX et Translation ONNX
                     
-                    // ⭐ NOUVEAU: Sauvegarder configuration Vision ONNX
+                    // ⭐ Sauvegarder configuration Vision ONNX
                     if (!cfg.visionOnnx) cfg.visionOnnx = {};
                     cfg.visionOnnx.model = core.configOnnxVisionModel?.value || '';
                     
-                    // ⭐ NOUVEAU: Sauvegarder configuration Translation ONNX
+                    // ⭐ Sauvegarder configuration Translation ONNX
                     if (!cfg.translationOnnx) cfg.translationOnnx = {};
                     cfg.translationOnnx.model = core.configOnnxTranslationModel?.value || '';
                     break;
                 case 'thinking':
                     cfg.webSearch = cfg.webSearch || {};
-                    const webSearchProvider = core.configWebSearchProvider?.value.trim() || '';
-                    cfg.webSearch.enabled = !!webSearchProvider;
+                    // ⭐ MODIFIÉ: Web Search avec checkbox enabled
+                    const webSearchEnabled = core.configWebSearchEnabled?.checked === true;
+                    const webSearchProvider = webSearchEnabled ? (core.configWebSearchProvider?.value.trim() || 'ollama') : '';
+                    cfg.webSearch.enabled = webSearchEnabled && !!webSearchProvider;
                     cfg.webSearch.provider = webSearchProvider;
                     cfg.thinkingTrace = cfg.thinkingTrace || {};
                     const thinkingValue = core.configThinkingEnabled?.value || '';
@@ -1094,6 +1186,33 @@
                     const targetContent = document.querySelector(`.config-tab-content[data-content="${targetTab}"]`);
                     if (targetContent) {
                         targetContent.classList.add('active');
+                    }
+                    
+                    // ⭐ FIX: Déclencher le scan des modèles GGUF si on ouvre l'onglet Général et que le mode est local_gguf
+                    if (targetTab === 'general') {
+                        const modeSelect = document.getElementById('configModeSelect');
+                        if (modeSelect && modeSelect.value === 'local_gguf') {
+                            setTimeout(() => {
+                                console.log('🔄 Onglet Général ouvert avec mode Local GGUF, scan automatique...');
+                                if (window.scanLocalGGUFModels) {
+                                    window.scanLocalGGUFModels();
+                                } else if (typeof scanLocalGGUFModels === 'function') {
+                                    scanLocalGGUFModels();
+                                }
+                            }, 200);
+                        }
+                    }
+                    
+                    // ⭐ FIX: Déclencher le chargement des modèles device si on ouvre l'onglet Local
+                    if (targetTab === 'local') {
+                        setTimeout(() => {
+                            console.log('🔄 Onglet Local ouvert, chargement des modèles device...');
+                            if (window.loadLocalDeviceModels) {
+                                window.loadLocalDeviceModels();
+                            } else if (typeof loadLocalDeviceModels === 'function') {
+                                loadLocalDeviceModels();
+                            }
+                        }, 200);
                     }
                 });
             });

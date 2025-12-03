@@ -223,7 +223,9 @@ public final class AiConfigManager {
 
             root.put("version", prefs.getString("ai_config_version", "1.0.0"));
             root.put("selectedModel", selectedModel);
-            root.put("mode", prefs.getString("ai_mode", "cloud"));
+            root.put("mode", prefs.getString("ai_mode", "cloud")); // Compatibilité
+            // ⭐ SIMPLIFIÉ: Mode API explicite (huggingface ou ollama_cloud)
+            root.put("forced_api_mode", prefs.getString("forced_api_mode", null));
 
             JSONObject cloud = new JSONObject();
             String provider = prefs.getString("cloud_provider", "ollama");
@@ -247,6 +249,25 @@ public final class AiConfigManager {
                 cloud.put("apiKey", "");
             }
             cloud.put("selectedModel", prefs.getString("cloud_selected_model", selectedModel));
+            
+            // ⭐ NOUVEAU: Sections providers séparées (huggingface, ollama, openai)
+            JSONObject huggingfaceSection = new JSONObject();
+            huggingfaceSection.put("enabled", prefs.getBoolean("use_huggingface_llm", false));
+            String hfApiKey = keyring.getApiKey("huggingface");
+            huggingfaceSection.put("apiKey", hfApiKey != null && !hfApiKey.trim().isEmpty() ? hfApiKey.trim() : "");
+            cloud.put("huggingface", huggingfaceSection);
+            
+            JSONObject ollamaSection = new JSONObject();
+            ollamaSection.put("enabled", prefs.getBoolean("use_ollama_cloud", false));
+            String ollamaApiKey = keyring.getApiKey("ollama");
+            ollamaSection.put("apiKey", ollamaApiKey != null && !ollamaApiKey.trim().isEmpty() ? ollamaApiKey.trim() : "");
+            cloud.put("ollama", ollamaSection);
+            
+            JSONObject openaiSection = new JSONObject();
+            openaiSection.put("enabled", prefs.getBoolean("use_openai", false)); // ⭐ Si cette clé existe
+            String openaiApiKey = keyring.getApiKey("openai");
+            openaiSection.put("apiKey", openaiApiKey != null && !openaiApiKey.trim().isEmpty() ? openaiApiKey.trim() : "");
+            cloud.put("openai", openaiSection);
 
             JSONObject webSearch = new JSONObject();
             webSearch.put("enabled", prefs.getBoolean("websearch_enabled", true));
@@ -316,7 +337,7 @@ public final class AiConfigManager {
             
             // ⭐ NOUVEAU: Configuration RAG (Recherche sémantique)
             JSONObject rag = new JSONObject();
-            rag.put("enabled", prefs.getBoolean("rag_enabled", true)); // RAG activé par défaut
+            rag.put("enabled", prefs.getBoolean("rag_enabled", false)); // ⭐ RAG désactivé par défaut - Activation manuelle requise
             rag.put("embeddingModel", prefs.getString("embedding_model", "nomic-embed-text")); // Modèle par défaut
 
             root.put("cloud", cloud);
@@ -344,7 +365,9 @@ public final class AiConfigManager {
 
         putStringIfPresent(editor, "ai_config_version", json, "version");
         // selectedModel supprimé (non utilisé, redondant avec cloud.selectedModel/local_server.model)
-        putStringIfPresent(editor, "ai_mode", json, "mode");
+        putStringIfPresent(editor, "ai_mode", json, "mode"); // Compatibilité
+        // ⭐ SIMPLIFIÉ: Mode API explicite (huggingface ou ollama_cloud)
+        putStringIfPresent(editor, "forced_api_mode", json, "forced_api_mode");
         putLongIfPresent(editor, "config_updated_at", json, "updatedAt");
         
         // Convertir ai_mode en use_ollama_cloud (boolean)
@@ -362,6 +385,9 @@ public final class AiConfigManager {
             // cloud.huggingface.apiKey, cloud.ollama.apiKey, cloud.openai.apiKey
             JSONObject huggingface = cloud.optJSONObject("huggingface");
             if (huggingface != null) {
+                // ⭐ FIX: Sauvegarder use_huggingface_llm depuis cloud.huggingface.enabled
+                putBooleanIfPresent(editor, "use_huggingface_llm", huggingface, "enabled");
+                
                 String hfApiKey = huggingface.optString("apiKey", null);
                 if (hfApiKey != null && !hfApiKey.trim().isEmpty()) {
                     keyring.setApiKey("huggingface", hfApiKey.trim());
@@ -373,6 +399,9 @@ public final class AiConfigManager {
             
             JSONObject ollama = cloud.optJSONObject("ollama");
             if (ollama != null) {
+                // ⭐ FIX: Sauvegarder use_ollama_cloud depuis cloud.ollama.enabled
+                putBooleanIfPresent(editor, "use_ollama_cloud", ollama, "enabled");
+                
                 String ollamaApiKey = ollama.optString("apiKey", null);
                 if (ollamaApiKey != null && !ollamaApiKey.trim().isEmpty()) {
                     keyring.setApiKey("ollama", ollamaApiKey.trim());

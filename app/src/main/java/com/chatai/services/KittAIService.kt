@@ -1033,6 +1033,34 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             Log.i(TAG, "📝 User input: $userInput")
             Log.i(TAG, "🤖 Personality: $personality | Platform: $platform")
             
+            // Verifier disponibilite llama.cpp et initialiser si mode local_gguf
+            val forcedMode = sharedPreferences.getString("forced_api_mode", null)?.trim()
+            val isLocalGGUFAvailable = LocalGGUFService.isNativeLibraryAvailable()
+            
+            if (forcedMode == "local_gguf") {
+                // Verifier d'abord si la bibliotheque native est disponible
+                if (!isLocalGGUFAvailable) {
+                    val errorMsg = LocalGGUFService.getLibraryLoadError() ?: "Native library not loaded"
+                    Log.e(TAG, "[processUserInput] Local GGUF mode selected but native library unavailable: $errorMsg")
+                    addDiagnosticLog("[ERROR] llama.cpp not available: $errorMsg")
+                    return@withContext "Error: Local GGUF mode unavailable. Native library (llama.cpp) failed to load. Please select another mode (Hugging Face or Ollama Cloud)."
+                }
+                
+                // Initialiser si pas encore pret
+                if (!localGGUFService.isReady()) {
+                    Log.i(TAG, "[processUserInput] Auto-initializing LocalGGUFService...")
+                    addDiagnosticLog("[INIT] Auto-initializing LocalGGUFService...")
+                    val initialized = localGGUFService.initialize()
+                    if (!initialized) {
+                        Log.e(TAG, "[processUserInput] LocalGGUFService initialization failed")
+                        addDiagnosticLog("[ERROR] LocalGGUFService initialization failed")
+                        return@withContext "Error: Failed to initialize local GGUF model. Make sure the model file exists in /ChatAI-Files/models/"
+                    }
+                    Log.i(TAG, "[processUserInput] LocalGGUFService initialized successfully")
+                    addDiagnosticLog("[INIT] LocalGGUFService ready")
+                }
+            }
+            
             // ⭐ FUNCTION CALLING #1 - Détection d'actions (App, System, Meta-Control)
             val actionResponse = detectAndExecuteAction(userInput)
             if (actionResponse != null) {
@@ -1101,25 +1129,22 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             addDiagnosticLog("=== KITT AI Diagnostic v$VERSION ===")
             addDiagnosticLog("Input: $userInput")
             
-            // ⭐ Vérifier si un mode forcé est configuré
-            val forcedMode = sharedPreferences.getString("forced_api_mode", "auto")?.trim() ?: "auto"
-            val disableFallback = sharedPreferences.getBoolean("disable_fallback", false)
-            
-            // Détecter le contexte (simplifié: plus de Ollama PC)
+            // ⭐ SIMPLIFIÉ: Mode explicite (Hugging Face ou Ollama Cloud)
+            val selectedMode = sharedPreferences.getString("forced_api_mode", null)?.trim()
             val internetAvailable = hasInternet()
             
-            Log.i(TAG, "🎯 [ID: $conversationId] CONTEXTE: Internet=${if(internetAvailable)"✅"else"❌"} | Mode=${forcedMode}")
-            addDiagnosticLog("\n[CONTEXTE] [ID: $conversationId] Internet: $internetAvailable | Mode forcé: $forcedMode")
+            Log.i(TAG, "🎯 [ID: $conversationId] CONTEXTE: Internet=${if(internetAvailable)"✅"else"❌"} | Mode sélectionné: ${selectedMode ?: "AUCUN"}")
+            addDiagnosticLog("\n[CONTEXTE] [ID: $conversationId] Internet: $internetAvailable | Mode: ${selectedMode ?: "AUCUN"}")
             
             // ⭐ LOG Web Search detection
             val needsSearch = needsWebSearch(userInput)
             Log.i(TAG, "🔍 [ID: $conversationId] Web Search needed: $needsSearch")
             addDiagnosticLog("[WEB SEARCH] Needed: $needsSearch")
             
-            // ⭐ FIX: Vérifier si Hugging Face LLM est activé
+            // ⭐ Vérifier si Hugging Face LLM est activé
             val useHuggingFaceLLM = huggingFaceService.isEnabledForLLM() && huggingFaceService.isConfigured()
             
-            // ⭐ FIX: Vérifier si Ollama Cloud est activé (comme Hugging Face)
+            // ⭐ Vérifier si Ollama Cloud est activé
             val useOllamaCloud = sharedPreferences.getBoolean("use_ollama_cloud", false)
             val ollamaCloudApiKey = keyring.getApiKey("ollama")?.trim()
             val ollamaCloudConfigured = !ollamaCloudApiKey.isNullOrEmpty()
@@ -1128,66 +1153,73 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             Log.i(TAG, "🔧 Configuration: HF=${if(useHuggingFaceLLM)"✅"else"❌"} | Ollama=${if(useOllamaCloudLLM)"✅"else"❌"}")
             addDiagnosticLog("[CONFIG] Hugging Face: $useHuggingFaceLLM | Ollama Cloud: $useOllamaCloudLLM")
             
-            // ⭐ CORRIGÉ: Ordre intelligent (vérifie activation de chaque service)
-            val apiOrder = when (forcedMode) {
-                "cloud_only" -> {
-                    Log.i(TAG, "☁️ MODE FORCÉ: Cloud seulement")
-                    addDiagnosticLog("[MODE] FORCÉ Cloud Only")
-                    // Construire la liste selon ce qui est activé
-                    val cloudApis = mutableListOf<String>()
-                    if (useHuggingFaceLLM) cloudApis.add("huggingface")
-                    if (useOllamaCloudLLM) cloudApis.add("ollama_cloud")
-                    if (cloudApis.isEmpty()) {
-                        Log.w(TAG, "⚠️ Mode cloud_only mais aucun service cloud activé")
-                        cloudApis.add("fallback")
+            // 3 modes (Local GGUF, Hugging Face, Ollama Cloud)
+            val apiOrder = when (selectedMode) {
+                "local_gguf" -> {
+                    // Verifier si llama.cpp est disponible
+                    if (!isLocalGGUFAvailable) {
+                        Log.w(TAG, "[MODE] Local GGUF selected but native library unavailable")
+                        addDiagnosticLog("[MODE] Local GGUF unavailable - llama.cpp not loaded")
+                        emptyList<String>() // Retourner erreur
+                    } else if (!localGGUFService.canUse()) {
+                        Log.w(TAG, "[MODE] Local GGUF selected but service cannot be used")
+                        addDiagnosticLog("[MODE] Local GGUF service not ready")
+                        emptyList<String>()
+                    } else {
+                        Log.i(TAG, "[MODE] Local GGUF (Device)")
+                        addDiagnosticLog("[MODE] Local GGUF (Device)")
+                        listOf("local_gguf")
                     }
-                    cloudApis
                 }
-                "huggingface_only" -> {
-                    Log.i(TAG, "🤗 MODE FORCÉ: Hugging Face seulement")
-                    addDiagnosticLog("[MODE] FORCÉ Hugging Face Only")
-                    listOf("huggingface")
+                "huggingface" -> {
+                    if (!useHuggingFaceLLM) {
+                        Log.w(TAG, "⚠️ Mode Hugging Face sélectionné mais non activé/configuré")
+                        addDiagnosticLog("[MODE] Hugging Face sélectionné mais non activé")
+                        emptyList<String>() // Retourner erreur
+                    } else if (!internetAvailable) {
+                        Log.w(TAG, "⚠️ Mode Hugging Face sélectionné mais pas d'Internet")
+                        addDiagnosticLog("[MODE] Hugging Face sélectionné mais pas d'Internet")
+                        emptyList<String>() // Retourner erreur
+                    } else {
+                        Log.i(TAG, "🤗 MODE: Hugging Face")
+                        addDiagnosticLog("[MODE] Hugging Face")
+                        listOf("huggingface")
+                    }
+                }
+                "ollama_cloud" -> {
+                    if (!useOllamaCloudLLM) {
+                        Log.w(TAG, "⚠️ Mode Ollama Cloud sélectionné mais non activé/configuré")
+                        addDiagnosticLog("[MODE] Ollama Cloud sélectionné mais non activé")
+                        emptyList<String>() // Retourner erreur
+                    } else if (!internetAvailable) {
+                        Log.w(TAG, "⚠️ Mode Ollama Cloud sélectionné mais pas d'Internet")
+                        addDiagnosticLog("[MODE] Ollama Cloud sélectionné mais pas d'Internet")
+                        emptyList<String>() // Retourner erreur
+                    } else {
+                        Log.i(TAG, "☁️ MODE: Ollama Cloud")
+                        addDiagnosticLog("[MODE] Ollama Cloud")
+                        listOf("ollama_cloud")
+                    }
                 }
                 else -> {
-                    // Mode auto (smart fallback) - Vérifie activation de chaque service
-                    val availableApis = mutableListOf<String>()
-                    
-                    // 1. Hugging Face (si activé + Internet)
-                    if (useHuggingFaceLLM && internetAvailable) {
-                        availableApis.add("huggingface")
+                    // Par defaut, utiliser Local si disponible, sinon Hugging Face
+                    if (isLocalGGUFAvailable && localGGUFService.canUse()) {
+                        Log.w(TAG, "[MODE] No mode selected, fallback to Local GGUF")
+                        addDiagnosticLog("[MODE] No mode selected, fallback Local GGUF")
+                        listOf("local_gguf")
+                    } else if (useHuggingFaceLLM && internetAvailable) {
+                        Log.w(TAG, "[MODE] No mode selected, Local unavailable, fallback to Hugging Face")
+                        addDiagnosticLog("[MODE] No mode selected, fallback Hugging Face")
+                        listOf("huggingface")
+                    } else if (useOllamaCloudLLM && internetAvailable) {
+                        Log.w(TAG, "[MODE] No mode selected, fallback to Ollama Cloud")
+                        addDiagnosticLog("[MODE] No mode selected, fallback Ollama Cloud")
+                        listOf("ollama_cloud")
+                    } else {
+                        Log.e(TAG, "[MODE] No mode available - all modes unavailable")
+                        addDiagnosticLog("[MODE] ERROR - No mode available")
+                        emptyList<String>()
                     }
-                    
-                    // 2. Ollama Cloud (si activé + Internet)
-                    if (useOllamaCloudLLM && internetAvailable) {
-                        availableApis.add("ollama_cloud")
-                    }
-                    
-                    // 3. Fallback local (si rien d'autre disponible)
-                    if (availableApis.isEmpty()) {
-                        availableApis.add("fallback")
-                    }
-                    
-                    // Log selon la configuration
-                    when {
-                        useHuggingFaceLLM && useOllamaCloudLLM && internetAvailable -> {
-                            Log.i(TAG, "🤗 Mode Auto: Hugging Face → Ollama Cloud")
-                            addDiagnosticLog("[MODE] Auto - Hugging Face → Ollama Cloud")
-                        }
-                        useHuggingFaceLLM && internetAvailable -> {
-                            Log.i(TAG, "🤗 Mode Auto: Hugging Face seulement")
-                            addDiagnosticLog("[MODE] Auto - Hugging Face Only")
-                        }
-                        useOllamaCloudLLM && internetAvailable -> {
-                            Log.i(TAG, "☁️ Mode Auto: Ollama Cloud seulement")
-                            addDiagnosticLog("[MODE] Auto - Ollama Cloud Only")
-                        }
-                        else -> {
-                            Log.i(TAG, "📵 Mode Offline: Fallback seulement")
-                            addDiagnosticLog("[MODE] Offline - Fallback")
-                        }
-                    }
-                    
-                    availableApis
                 }
             }
             
@@ -1197,47 +1229,98 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             
             // Essayer les APIs dans l'ordre intelligent
             var step = 1
+            var lastError: String? = null
             for (api in apiOrder) {
                 if (response != null) break
                 
                 when (api) {
+                    "local_gguf" -> {
+                        Log.i(TAG, "📱 [ID: $conversationId] Step $step: Trying Local GGUF...")
+                        addDiagnosticLog("\n[$step] [ID: $conversationId] Local GGUF: Attempting...")
+                        val result = tryLocalGGUFWithError(userInput)
+                        response = result.first
+                        if (result.first != null) {
+                            // Inclure le nom du modele dans apiUsed pour l'affichage
+                            val modelName = localGGUFService.getCurrentModelName()
+                            apiUsed = if (modelName != null) "local_gguf ($modelName)" else "local_gguf"
+                            val status = "SUCCESS"
+                            Log.i(TAG, "📱 [ID: $conversationId] Step $step: Local GGUF → $status")
+                            addDiagnosticLog("[$step] Local GGUF: $status")
+                        } else {
+                            lastError = result.second ?: "Local GGUF returned null"
+                            val status = "FAILED: $lastError"
+                            Log.w(TAG, "📱 [ID: $conversationId] Step $step: Local GGUF → $status")
+                            addDiagnosticLog("[$step] Local GGUF: $status")
+                        }
+                    }
                     "huggingface" -> {
                         Log.i(TAG, "🤗 [ID: $conversationId] Step $step: Trying Hugging Face...")
                         addDiagnosticLog("\n[$step] [ID: $conversationId] Hugging Face: Attempting...")
-                        response = tryHuggingFace(userInput)
-                        if (response != null) apiUsed = "huggingface"
-                        val status = if (response != null) "SUCCESS 🤗" else "FAILED"
-                        Log.i(TAG, "🤗 [ID: $conversationId] Step $step: Hugging Face → $status")
-                        addDiagnosticLog("[$step] Hugging Face: $status")
+                        val result = tryHuggingFaceWithError(userInput)
+                        response = result.first
+                        if (result.first != null) {
+                            apiUsed = "huggingface"
+                            val status = "SUCCESS 🤗"
+                            Log.i(TAG, "🤗 [ID: $conversationId] Step $step: Hugging Face → $status")
+                            addDiagnosticLog("[$step] Hugging Face: $status")
+                        } else {
+                            lastError = result.second ?: "Hugging Face API returned null"
+                            val status = "FAILED: $lastError"
+                            Log.w(TAG, "🤗 [ID: $conversationId] Step $step: Hugging Face → $status")
+                            addDiagnosticLog("[$step] Hugging Face: $status")
+                        }
                     }
                     "ollama_cloud" -> {
                         Log.i(TAG, "☁️ [ID: $conversationId] Step $step: Trying Ollama Cloud...")
                         addDiagnosticLog("\n[$step] [ID: $conversationId] Ollama Cloud: Attempting...")
-                        response = tryOllamaCloud(userInput)
-                        if (response != null) apiUsed = "ollama_cloud"
-                        val status = if (response != null) "SUCCESS ☁️" else "FAILED"
-                        Log.i(TAG, "☁️ [ID: $conversationId] Step $step: Ollama Cloud → $status")
-                        addDiagnosticLog("[$step] Ollama Cloud: $status")
+                        val result = tryOllamaCloudWithError(userInput)
+                        response = result.first
+                        if (result.first != null) {
+                            apiUsed = "ollama_cloud"
+                            val status = "SUCCESS ☁️"
+                            Log.i(TAG, "☁️ [ID: $conversationId] Step $step: Ollama Cloud → $status")
+                            addDiagnosticLog("[$step] Ollama Cloud: $status")
+                        } else {
+                            lastError = result.second ?: "Ollama Cloud API returned null"
+                            val status = "FAILED: $lastError"
+                            Log.w(TAG, "☁️ [ID: $conversationId] Step $step: Ollama Cloud → $status")
+                            addDiagnosticLog("[$step] Ollama Cloud: $status")
+                        }
                     }
                 }
                 step++
             }
             
-            // 6. Réponse de fallback locale (si activé)
+            // ⭐ SIMPLIFIÉ: Pas de fallback - retourner l'erreur brute
             if (response == null) {
-                if (disableFallback) {
-                    Log.w(TAG, "⚠️ [ID: $conversationId] Step 6: Fallback DÉSACTIVÉ - Aucune réponse")
-                    addDiagnosticLog("\n[6] FALLBACK: DÉSACTIVÉ par configuration")
-                    response = "Tous les systèmes de communication externe sont hors ligne et le mode fallback est désactivé. Veuillez vérifier votre configuration IA."
-                    apiUsed = "no_fallback"
+                if (apiOrder.isEmpty()) {
+                    // Aucun mode selectionne ou mode non active
+                    val errorMsg = when {
+                        selectedMode == null -> "No mode selected. Please choose 'Local GGUF', 'Hugging Face' or 'Ollama Cloud' in configuration."
+                        selectedMode == "local_gguf" && !isLocalGGUFAvailable -> "Local GGUF mode selected but native library (llama.cpp) is not available. Error: ${LocalGGUFService.getLibraryLoadError() ?: "Unknown"}"
+                        selectedMode == "local_gguf" -> "Local GGUF mode selected but model not found. Make sure a .gguf file exists in /ChatAI-Files/models/"
+                        selectedMode == "huggingface" && !useHuggingFaceLLM -> "Hugging Face mode selected but not configured. Check your Hugging Face API key."
+                        selectedMode == "huggingface" && !internetAvailable -> "Hugging Face mode selected but no Internet connection."
+                        selectedMode == "ollama_cloud" && !useOllamaCloudLLM -> "Ollama Cloud mode selected but not configured. Check your Ollama Cloud API key."
+                        selectedMode == "ollama_cloud" && !internetAvailable -> "Mode Ollama Cloud sélectionné mais pas de connexion Internet."
+                        else -> "Mode sélectionné non disponible."
+                    }
+                    Log.e(TAG, "❌ [ID: $conversationId] $errorMsg")
+                    addDiagnosticLog("\n[ERROR] $errorMsg")
+                    response = "❌ Erreur: $errorMsg"
+                    apiUsed = "error"
                 } else {
-                    Log.w(TAG, "⚠️ [ID: $conversationId] Step 6: Using LOCAL FALLBACK (no APIs responded)")
-                    Log.w(TAG, "   → APIs tried: ${apiOrder.joinToString(", ")}")
-                    Log.w(TAG, "   → All failed, using offline responses")
-                    addDiagnosticLog("\n[6] LOCAL FALLBACK: Used (APIs tried: ${apiOrder.joinToString(", ")} - all failed)")
-                    // ⭐ AMÉLIORÉ: Message contextuel selon la configuration
-                    response = getKittFallbackResponse(userInput, useHuggingFaceLLM, useOllamaCloudLLM, internetAvailable)
-                    apiUsed = "local_fallback"
+                    // Mode sélectionné mais API a échoué
+                    Log.e(TAG, "❌ [ID: $conversationId] API a échoué")
+                    Log.e(TAG, "   → Mode: $selectedMode")
+                    Log.e(TAG, "   → Dernière erreur: $lastError")
+                    addDiagnosticLog("\n[ERROR] API a échoué")
+                    addDiagnosticLog("Mode: $selectedMode")
+                    addDiagnosticLog("Dernière erreur: $lastError")
+                    
+                    // Retourner l'erreur brute
+                    response = "❌ Erreur ${selectedMode ?: "API"}: ${lastError ?: "Aucune réponse de l'API. Vérifiez votre configuration et votre connexion Internet."}"
+                    apiUsed = "error"
                 }
             }
             
@@ -1284,7 +1367,8 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 
                 // ⭐ NOUVEAU: Générer embedding automatiquement (en arrière-plan, non-bloquant)
                 // SELON NOS RULES: Faire en arrière-plan pour ne pas bloquer la réponse
-                if (sharedPreferences.getBoolean("rag_enabled", true)) {
+                // ⭐ RAG désactivé par défaut - Activation manuelle requise
+                if (sharedPreferences.getBoolean("rag_enabled", false)) {
                     GlobalScope.launch(Dispatchers.IO) {
                         try {
                             val embeddingService = EmbeddingService(context)
@@ -1525,6 +1609,290 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
      * Essaie Ollama Cloud (modèles géants cloud)
      * Nécessite une clé API Ollama Cloud
      */
+    /**
+     * ⭐ NOUVEAU: Version avec capture d'erreur pour retourner les erreurs brutes
+     * Retourne Pair<response, error> où error contient le message d'erreur brut
+     */
+    private suspend fun tryOllamaCloudWithError(userInput: String): Pair<String?, String?> = withContext(Dispatchers.IO) {
+        try {
+            // Récupérer la clé API Ollama Cloud depuis KeyringManager
+            val ollamaCloudApiKey = keyring.getApiKey("ollama")?.trim()
+            Log.i(TAG, "Ollama Cloud API key check: ${if (ollamaCloudApiKey.isNullOrEmpty()) "EMPTY/NULL" else "FOUND"}")
+            
+            if (ollamaCloudApiKey.isNullOrEmpty()) {
+                val error = "Ollama Cloud API key not configured"
+                Log.d(TAG, error)
+                addDiagnosticLog("    - Key: Not configured")
+                return@withContext Pair(null, error)
+            }
+            addDiagnosticLog("    - Key: Configured (${ollamaCloudApiKey.length} chars)")
+            
+            // Récupérer le modèle cloud (par défaut: gpt-oss:120b - Modèle stable et performant)
+            val rawModel = sharedPreferences.getString("ollama_cloud_model", null)?.trim()
+                ?: sharedPreferences.getString("selected_model", null)?.trim()
+                ?: "gpt-oss:120b"
+            
+            // ⭐ FIX: Détecter et corriger les modèles Hugging Face (format :hf-inference)
+            // Ollama Cloud n'accepte pas ce format, utiliser un modèle Ollama par défaut
+            // ⭐ FIX: Gérer aussi le cas où rawModel est vide (chaîne vide "")
+            val ollamaCloudModel = when {
+                rawModel.isEmpty() -> {
+                    Log.w(TAG, "⚠️ Modèle Ollama Cloud vide, utilisation du modèle par défaut: gpt-oss:120b")
+                    addDiagnosticLog("    - ⚠️ Modèle vide, fallback vers gpt-oss:120b")
+                    "gpt-oss:120b"
+                }
+                rawModel.contains(":hf-inference") || rawModel.contains("HuggingFaceTB/") || rawModel.contains("/") -> {
+                    Log.w(TAG, "⚠️ Modèle Hugging Face détecté pour Ollama Cloud: $rawModel")
+                    Log.w(TAG, "   → Ollama Cloud n'accepte pas les modèles Hugging Face")
+                    Log.w(TAG, "   → Utilisation du modèle Ollama par défaut: gpt-oss:120b")
+                    Log.w(TAG, "   → Pour utiliser Hugging Face, configurez HuggingFaceService (mode LLM)")
+                    addDiagnosticLog("    - ⚠️ Modèle Hugging Face détecté, fallback vers gpt-oss:120b")
+                    "gpt-oss:120b" // Fallback vers modèle Ollama valide
+                }
+                else -> rawModel
+            }
+            addDiagnosticLog("    - Model: $ollamaCloudModel")
+            
+            Log.d(TAG, "Trying Ollama Cloud API...")
+            
+            // ⭐ WEB SEARCH - Appeler API séparée si nécessaire
+            var searchContext = ""
+            if (needsWebSearch(userInput)) {
+                Log.i(TAG, "🌐 Calling Web Search API before chat...")
+                addDiagnosticLog("    - 🌐 Web Search: Calling API...")
+                
+                try {
+                    val searchResults = callWebSearchAPI(userInput, ollamaCloudApiKey)
+                    if (searchResults.isNotEmpty()) {
+                        searchContext = "\n\n[CONTEXTE WEB SEARCH]\n$searchResults\n[FIN CONTEXTE]"
+                        Log.i(TAG, "✅ Web Search results added to context (${searchResults.length} chars)")
+                        addDiagnosticLog("    - ✅ Web Search: ${searchResults.length} chars added to context")
+                    } else {
+                        Log.w(TAG, "⚠️ Web Search returned no results")
+                        addDiagnosticLog("    - ⚠️ Web Search: No results")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Web Search failed: ${e.message}")
+                    addDiagnosticLog("    - ❌ Web Search error: ${e.message}")
+                }
+            }
+            
+            // Construire les messages (format OpenAI-compatible)
+            val messages = JSONArray()
+            
+            // System prompt
+            messages.put(JSONObject().apply {
+                put("role", "system")
+                put("content", getSystemPrompt())
+            })
+            
+            // ⭐ CONTEXTE SYSTÈME - Info temps réel device Android
+            val systemContext = buildSystemContext()
+            messages.put(JSONObject().apply {
+                put("role", "system")
+                put("content", systemContext)
+            })
+            
+            // Historique de conversation (derniers N échanges depuis la BD)
+            val historyToInclude = conversationHistory.takeLast(CONTEXT_WINDOW_SIZE)
+            Log.d(TAG, "📚 Including ${historyToInclude.size} history messages in request (total history: ${conversationHistory.size}, isHistoryLoaded: $isHistoryLoaded)")
+            historyToInclude.forEach { (user, assistant) ->
+                if (user.isNotEmpty()) {
+                    messages.put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", user)
+                    })
+                }
+                if (assistant.isNotEmpty()) {
+                    messages.put(JSONObject().apply {
+                        put("role", "assistant")
+                        put("content", assistant)
+                    })
+                }
+            }
+            
+            // Message actuel (avec contexte web search si disponible)
+            messages.put(JSONObject().apply {
+                put("role", "user")
+                put("content", userInput + searchContext)
+            })
+            
+            // Format natif Ollama (pas OpenAI)
+            // Voir: https://docs.ollama.com/cloud#python
+            val requestBody = JSONObject().apply {
+                put("model", ollamaCloudModel)
+                put("messages", messages)
+                put("stream", false) // Pas de streaming pour l'instant
+                put("think", true) // ⭐ ACTIVER THINKING pour apprentissage
+            }
+            
+            Log.i(TAG, "Request to Ollama Cloud: model=$ollamaCloudModel")
+            Log.d(TAG, "Ollama Cloud API key length: ${ollamaCloudApiKey.length} chars")
+            Log.d(TAG, "Ollama Cloud API key preview: ${ollamaCloudApiKey.take(10)}...${ollamaCloudApiKey.takeLast(4)}")
+            Log.d(TAG, "Ollama Cloud URL: $OLLAMA_CLOUD_API_URL")
+            
+            // Nettoyer la clé API (enlever espaces, retours à la ligne, caractères invisibles, etc.)
+            // IMPORTANT: Ne pas supprimer les caractères valides des clés base64 (+, /, =)
+            // Les clés API Ollama Cloud sont généralement en base64, donc elles peuvent contenir: A-Z, a-z, 0-9, +, /, =
+            val cleanApiKey = ollamaCloudApiKey
+                .trim()
+                .replace(Regex("\\s+"), "") // Espaces, tabs, newlines uniquement
+                .replace(Regex("[\\x00-\\x08\\x0B-\\x0C\\x0E-\\x1F\\x7F]"), "") // Caractères de contrôle (sauf \t, \n, \r déjà supprimés)
+                // Ne PAS filtrer davantage - garder tous les caractères restants (base64 valide: A-Z, a-z, 0-9, +, /, =)
+            
+            Log.d(TAG, "Ollama Cloud API key after cleaning: length=${cleanApiKey.length} chars")
+            Log.d(TAG, "Ollama Cloud API key cleaned preview: ${cleanApiKey.take(10)}...${cleanApiKey.takeLast(4)}")
+            Log.d(TAG, "Ollama Cloud API key full (for debugging): $cleanApiKey")
+            
+            val originalTrimmed = ollamaCloudApiKey.trim().replace(Regex("\\s+"), "")
+            if (cleanApiKey.length != originalTrimmed.length) {
+                Log.w(TAG, "⚠️ Clé API nettoyée: ${originalTrimmed.length} → ${cleanApiKey.length} chars (caractères de contrôle supprimés)")
+                Log.w(TAG, "⚠️ Clé originale (trimmed): $originalTrimmed")
+                Log.w(TAG, "⚠️ Clé nettoyée: $cleanApiKey")
+            }
+            
+            if (cleanApiKey.isEmpty()) {
+                val error = "Clé API invalide (vide après nettoyage)"
+                Log.e(TAG, "❌ $error! Clé originale: ${ollamaCloudApiKey.length} chars")
+                addDiagnosticLog("    - ❌ Error: $error")
+                return@withContext Pair(null, error)
+            }
+            
+            val authHeader = "Bearer $cleanApiKey"
+            Log.d(TAG, "Authorization header length: ${authHeader.length} chars")
+            Log.d(TAG, "Authorization header preview: ${authHeader.take(20)}...")
+            
+            val request = Request.Builder()
+                .url(OLLAMA_CLOUD_API_URL)
+                .addHeader("Authorization", authHeader)
+                .addHeader("Content-Type", "application/json")
+                .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            
+            Log.d(TAG, "Request body preview: ${requestBody.toString().take(200)}...")
+            
+            Log.d(TAG, "Sending request to Ollama Cloud...")
+            val response = httpClient.newCall(request).execute()
+            
+            Log.d(TAG, "Ollama Cloud HTTP response code: ${response.code}")
+            addDiagnosticLog("    - HTTP response: ${response.code}")
+            
+            val responseBody = response.body?.string()
+            
+            // Log du message d'erreur si 401
+            if (response.code == 401) {
+                val error = "Ollama Cloud HTTP 401 Unauthorized: ${responseBody?.take(200) ?: "Invalid API key"}"
+                Log.e(TAG, "═══════════════════════════════════════════════════════════")
+                Log.e(TAG, "❌ $error")
+                Log.e(TAG, "Response body: $responseBody")
+                Log.e(TAG, "API Key length: ${cleanApiKey.length} chars")
+                Log.e(TAG, "API Key preview: ${cleanApiKey.take(10)}...${cleanApiKey.takeLast(4)}")
+                Log.e(TAG, "URL: $OLLAMA_CLOUD_API_URL")
+                Log.e(TAG, "Model: $ollamaCloudModel")
+                Log.e(TAG, "═══════════════════════════════════════════════════════════")
+                addDiagnosticLog("    - Error: unauthorized")
+                addDiagnosticLog("    - 💡 Vérifiez que la clé API est valide sur ollama.com/account")
+                addDiagnosticLog("    - 💡 Vérifiez que la clé n'a pas expiré")
+                addDiagnosticLog("    - 💡 Vérifiez que vous avez un compte Ollama Cloud actif")
+                return@withContext Pair(null, error)
+            }
+            
+            if (response.isSuccessful && responseBody != null) {
+                Log.d(TAG, "Ollama Cloud raw response body length: ${responseBody.length}")
+                try {
+                    val jsonResponse = JSONObject(responseBody)
+                    // Format natif Ollama: { "message": { "content": "...", "thinking": "..." } }
+                    // PAS format OpenAI: { "choices": [{ "message": { "content": "..." } }] }
+                    val messageObj = jsonResponse.getJSONObject("message")
+                    val content = messageObj.getString("content")
+                    
+                    // ⭐ EXTRAIRE LE THINKING pour apprentissage
+                    val thinking = messageObj.optString("thinking", "")
+                    if (thinking.isNotEmpty()) {
+                        Log.d(TAG, "🧠 Thinking received: ${thinking.take(100)}...")
+                        addDiagnosticLog("    - 🧠 Thinking: ${thinking.take(150)}")
+                        // Stocker temporairement pour sauvegarde BD
+                        lastThinkingTrace = thinking
+                    }
+                    
+                    // ⭐ EXTRAIRE LES CITATIONS WEB (si web search activé)
+                    val citations = messageObj.optJSONArray("citations")
+                    if (citations != null && citations.length() > 0) {
+                        Log.d(TAG, "🌐 Web Search citations received: ${citations.length()} sources")
+                        addDiagnosticLog("    - 🌐 Citations: ${citations.length()} sources")
+                        
+                        // Optionnel: Ajouter les sources à la réponse
+                        val citationsText = buildString {
+                            append("\n\n📚 Sources:")
+                            for (i in 0 until citations.length()) {
+                                val cite = citations.getJSONObject(i)
+                                val url = cite.optString("url", "")
+                                val title = cite.optString("title", "Source ${i+1}")
+                                append("\n  ${i+1}. $title")
+                                if (url.isNotEmpty()) append(" - $url")
+                            }
+                        }
+                        
+                        // Ajouter les citations au thinking trace
+                        if (lastThinkingTrace.isNullOrEmpty()) {
+                            lastThinkingTrace = "Web Search: ${citations.length()} sources consultées$citationsText"
+                        } else {
+                            lastThinkingTrace += citationsText
+                        }
+                    }
+                    
+                    Log.d(TAG, "Ollama Cloud response received successfully: ${content.take(50)}...")
+                    addDiagnosticLog("    - Response: ${content.take(100)}")
+                    return@withContext Pair(content.trim(), null)
+                } catch (e: Exception) {
+                    val error = "Erreur parsing réponse Ollama Cloud: ${e.message}"
+                    Log.e(TAG, error, e)
+                    addDiagnosticLog("    - Parse error: ${e.message}")
+                    return@withContext Pair(null, error)
+                }
+            } else {
+                val errorBody = responseBody
+                val httpCode = response.code
+                
+                // Détection spécifique des erreurs de quota
+                val isQuotaError = when (httpCode) {
+                    429 -> true  // Too Many Requests
+                    502 -> errorBody?.contains("upstream error", ignoreCase = true) == true || 
+                           errorBody?.contains("quota", ignoreCase = true) == true ||
+                           errorBody?.contains("rate limit", ignoreCase = true) == true
+                    503 -> true  // Service Unavailable
+                    else -> false
+                }
+                
+                val error = if (isQuotaError) {
+                    "Ollama Cloud QUOTA/RATE LIMIT ERROR (HTTP $httpCode): ${errorBody?.take(200) ?: "Quota dépassé"}"
+                } else {
+                    "Ollama Cloud HTTP $httpCode ERROR: ${errorBody?.take(200) ?: "Unknown error"}"
+                }
+                
+                if (isQuotaError) {
+                    Log.w(TAG, "⚠️ $error")
+                    addDiagnosticLog("    - ⚠️ QUOTA/RATE LIMIT ERROR (HTTP $httpCode)")
+                    addDiagnosticLog("    - Error: ${errorBody?.take(200)}")
+                    addDiagnosticLog("    - 💡 Solution: Vérifier votre quota Ollama Cloud sur ollama.com/account")
+                    addDiagnosticLog("    - 💡 Solution: Attendre quelques minutes et réessayer")
+                    addDiagnosticLog("    - 💡 Solution: Essayer un autre modèle cloud")
+                } else {
+                    Log.e(TAG, "$error")
+                    addDiagnosticLog("    - HTTP ${httpCode} ERROR: ${errorBody?.take(100)}")
+                }
+                
+                return@withContext Pair(null, error)
+            }
+            
+        } catch (e: Exception) {
+            val error = "Ollama Cloud exception: ${e.message ?: e.javaClass.simpleName}"
+            Log.e(TAG, error, e)
+            addDiagnosticLog("    - Exception: ${e.message}")
+            return@withContext Pair(null, error)
+        }
+    }
+    
     private suspend fun tryOllamaCloud(userInput: String): String? = withContext(Dispatchers.IO) {
         try {
             // Récupérer la clé API Ollama Cloud depuis KeyringManager
@@ -1539,20 +1907,27 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
             }
             addDiagnosticLog("    - Key: Configured (${ollamaCloudApiKey.length} chars)")
             
-            // Récupérer le modèle cloud (par défaut: qwen3 - Petit modèle rapide pour tests)
-            val rawModel = sharedPreferences.getString("ollama_cloud_model", "qwen3")?.trim() ?: "qwen3"
+            // Récupérer le modèle cloud (par défaut: gpt-oss:120b - Modèle stable et performant)
+            val rawModel = sharedPreferences.getString("ollama_cloud_model", "gpt-oss:120b")?.trim() ?: "gpt-oss:120b"
             
             // ⭐ FIX: Détecter et corriger les modèles Hugging Face (format :hf-inference)
             // Ollama Cloud n'accepte pas ce format, utiliser un modèle Ollama par défaut
-            val ollamaCloudModel = if (rawModel.contains(":hf-inference") || rawModel.contains("HuggingFaceTB/") || rawModel.contains("/")) {
-                Log.w(TAG, "⚠️ Modèle Hugging Face détecté pour Ollama Cloud: $rawModel")
-                Log.w(TAG, "   → Ollama Cloud n'accepte pas les modèles Hugging Face")
-                Log.w(TAG, "   → Utilisation du modèle Ollama par défaut: qwen3")
-                Log.w(TAG, "   → Pour utiliser Hugging Face, configurez HuggingFaceService (mode LLM)")
-                addDiagnosticLog("    - ⚠️ Modèle Hugging Face détecté, fallback vers qwen3")
-                "qwen3" // Fallback vers modèle Ollama valide
-            } else {
-                rawModel
+            // ⭐ FIX: Gérer aussi le cas où rawModel est vide (chaîne vide "")
+            val ollamaCloudModel = when {
+                rawModel.isEmpty() -> {
+                    Log.w(TAG, "⚠️ Modèle Ollama Cloud vide, utilisation du modèle par défaut: gpt-oss:120b")
+                    addDiagnosticLog("    - ⚠️ Modèle vide, fallback vers gpt-oss:120b")
+                    "gpt-oss:120b"
+                }
+                rawModel.contains(":hf-inference") || rawModel.contains("HuggingFaceTB/") || rawModel.contains("/") -> {
+                    Log.w(TAG, "⚠️ Modèle Hugging Face détecté pour Ollama Cloud: $rawModel")
+                    Log.w(TAG, "   → Ollama Cloud n'accepte pas les modèles Hugging Face")
+                    Log.w(TAG, "   → Utilisation du modèle Ollama par défaut: gpt-oss:120b")
+                    Log.w(TAG, "   → Pour utiliser Hugging Face, configurez HuggingFaceService (mode LLM)")
+                    addDiagnosticLog("    - ⚠️ Modèle Hugging Face détecté, fallback vers gpt-oss:120b")
+                    "gpt-oss:120b" // Fallback vers modèle Ollama valide
+                }
+                else -> rawModel
             }
             addDiagnosticLog("    - Model: $ollamaCloudModel")
             
@@ -1795,12 +2170,62 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
     /**
      * ⭐ REFACTORISÉ: Essaie l'API Hugging Face via HuggingFaceService
      */
-    private suspend fun tryHuggingFace(userInput: String): String? = withContext(Dispatchers.IO) {
+    // ⭐ NOUVEAU: Service Local GGUF (llama.cpp)
+    private val localGGUFService: LocalGGUFService = LocalGGUFService(context)
+    
+    /**
+     * Essaie le modele Local GGUF (device) avec gestion d'erreur
+     * INTEGRATION COMPLETE: Utilise llama.cpp via LocalGGUFService
+     * 
+     * Utilise les parametres configures dans l'interface (system prompt, temperature, max tokens, etc.)
+     * Les parametres sont lus depuis SharedPreferences par LocalGGUFService
+     */
+    private suspend fun tryLocalGGUFWithError(userInput: String): Pair<String?, String?> = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Trying Local GGUF (device) via llama.cpp...")
+            
+            // Charger les parametres depuis la config
+            val params = localGGUFService.loadGGUFParams()
+            val systemPrompt = params.systemPrompt
+            
+            // Construire le prompt complet
+            val fullPrompt = "$systemPrompt\n\nUser: $userInput\nAssistant:"
+            
+            Log.d(TAG, "Local GGUF prompt length: ${fullPrompt.length} chars")
+            Log.d(TAG, "Local GGUF params: temp=${params.temperature}, maxTokens=${params.maxTokens}, topK=${params.topK}")
+            
+            // Generer la reponse via llama.cpp
+            // Les parametres (temperature, maxTokens, etc.) sont lus par processUserInput depuis la config
+            val response = localGGUFService.processUserInput(prompt = fullPrompt)
+            
+            if (response != null && response.isNotEmpty()) {
+                Log.i(TAG, "Local GGUF response generated via llama.cpp")
+                return@withContext Pair(response, null)
+            } else {
+                Log.w(TAG, "Local GGUF returned empty response")
+                return@withContext Pair(null, "Local GGUF returned empty response. Verifiez que le modele est initialise.")
+            }
+        } catch (e: UnsatisfiedLinkError) {
+            val error = "Bibliotheque native llama_jni non chargee. Assurez-vous que llama.cpp est compile pour Android."
+            Log.e(TAG, error, e)
+            return@withContext Pair(null, error)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in Local GGUF", e)
+            return@withContext Pair(null, "Local GGUF error: ${e.message}")
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU: Version avec capture d'erreur pour retourner les erreurs brutes
+     * Retourne Pair<response, error> où error contient le message d'erreur brut
+     */
+    private suspend fun tryHuggingFaceWithError(userInput: String): Pair<String?, String?> = withContext(Dispatchers.IO) {
         try {
             if (!huggingFaceService.isConfigured()) {
-                Log.w(TAG, "Hugging Face API key not configured")
+                val error = "Hugging Face API key not configured"
+                Log.w(TAG, error)
                 addDiagnosticLog("    - Key: Not configured")
-                return@withContext null
+                return@withContext Pair(null, error)
             }
             
             addDiagnosticLog("    - Key: Configured")
@@ -1818,18 +2243,25 @@ Tu peux les utiliser pour répondre aux questions sur l'heure, la date, l'état 
                 val kittStyled = addKittStyle(response)
                 Log.i(TAG, "Hugging Face SUCCESS: $kittStyled")
                 addDiagnosticLog("    - Generated text: ${response.take(100)}")
-                return@withContext kittStyled
+                return@withContext Pair(kittStyled, null)
             } else {
-                Log.w(TAG, "Hugging Face API returned null")
+                val error = "Hugging Face API returned null"
+                Log.w(TAG, error)
                 addDiagnosticLog("    - Response: null")
-                return@withContext null
+                return@withContext Pair(null, error)
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Hugging Face API error", e)
+            val error = "Hugging Face API error: ${e.message ?: e.javaClass.simpleName}"
+            Log.e(TAG, error, e)
             addDiagnosticLog("    - Exception: ${e.message}")
-            return@withContext null
+            return@withContext Pair(null, error)
         }
+    }
+    
+    private suspend fun tryHuggingFace(userInput: String): String? = withContext(Dispatchers.IO) {
+        val result = tryHuggingFaceWithError(userInput)
+        return@withContext result.first
     }
     
     /**

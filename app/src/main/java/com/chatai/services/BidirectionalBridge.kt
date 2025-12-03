@@ -73,13 +73,9 @@ class BidirectionalBridge private constructor(private val context: Context) {
         Log.i(TAG, "🌉 BidirectionalBridge initialized")
         ollamaThinkingService = OllamaThinkingService(context)
         
-        // ⭐ NOUVEAU: Auto-configurer RAG au démarrage
-        try {
-            RAGAutoConfigurator.autoConfigure(context)
-        } catch (e: Exception) {
-            Log.w(TAG, "Erreur auto-configuration RAG: ${e.message}")
-            // Ne pas bloquer si auto-config échoue
-        }
+        // ⭐ DÉSACTIVÉ: Auto-configuration RAG supprimée
+        // RAG doit être activé manuellement par l'utilisateur dans la configuration
+        // Log.d(TAG, "Auto-configuration RAG désactivée - Activation manuelle requise")
         
         // ⭐ NOUVEAU: Initialiser services RAG (selon Nos Rules: non-bloquant)
         try {
@@ -468,7 +464,8 @@ class BidirectionalBridge private constructor(private val context: Context) {
                         Log.i(TAG, "✅ Conversation saved (platform=$platform, personality=$personality, DB row ID: $dbRowId)")
                         
                         // ⭐ NOUVEAU: Générer embedding automatiquement (en arrière-plan, non-bloquant)
-                        if (sharedPreferences.getBoolean("rag_enabled", true)) {
+                        // ⭐ RAG désactivé par défaut - Activation manuelle requise
+                        if (sharedPreferences.getBoolean("rag_enabled", false)) {
                             GlobalScope.launch(Dispatchers.IO) {
                                 try {
                                     if (embeddingService?.isAvailable() == true) {

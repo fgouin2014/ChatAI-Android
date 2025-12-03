@@ -298,6 +298,9 @@ public class HttpServer {
         else if (cleanPath.equals("/api/files/list")) {
             return handleListFiles();
         }
+        else if (cleanPath.equals("/api/scan-gguf-models")) {
+            return handleScanGGUFModels();
+        }
         else if (cleanPath.equals("/api/files/storage/info")) {
             return handleStorageInfo();
         }
@@ -813,6 +816,155 @@ public class HttpServer {
     }
     
     /**
+     * ⭐ NOUVEAU : API pour scanner les modèles GGUF dans /storage/emulated/0/ChatAI-Files/models/
+     * Retourne une liste JSON des fichiers .gguf trouvés
+     */
+    private String handleScanGGUFModels() {
+        try {
+            String modelsPath = "/storage/emulated/0/ChatAI-Files/models";
+            java.io.File modelsDir = new java.io.File(modelsPath);
+            java.util.List<java.util.Map<String, String>> models = new java.util.ArrayList<>();
+            
+            Log.i(TAG, "🔍 [scan-gguf-models] START - Scanning directory: " + modelsPath);
+            
+            // ⭐ PROTECTION: Vérifications sécurisées avec try-catch individuels
+            boolean dirExists = false;
+            boolean isDir = false;
+            boolean canRead = false;
+            
+            try {
+                dirExists = modelsDir.exists();
+                Log.d(TAG, "🔍 [scan-gguf-models] Directory exists: " + dirExists);
+            } catch (Exception e) {
+                Log.e(TAG, "❌ [scan-gguf-models] Error checking exists()", e);
+            }
+            
+            try {
+                isDir = modelsDir.isDirectory();
+                Log.d(TAG, "🔍 [scan-gguf-models] Is directory: " + isDir);
+            } catch (Exception e) {
+                Log.e(TAG, "❌ [scan-gguf-models] Error checking isDirectory()", e);
+            }
+            
+            try {
+                canRead = modelsDir.canRead();
+                Log.d(TAG, "🔍 [scan-gguf-models] Can read: " + canRead);
+            } catch (Exception e) {
+                Log.e(TAG, "❌ [scan-gguf-models] Error checking canRead()", e);
+            }
+            
+            if (!dirExists) {
+                Log.w(TAG, "⚠️ [scan-gguf-models] Directory does not exist: " + modelsPath);
+                Log.w(TAG, "💡 [scan-gguf-models] Creating directory...");
+                try {
+                    boolean created = modelsDir.mkdirs();
+                    Log.d(TAG, "📁 [scan-gguf-models] Directory created: " + created);
+                    if (!created) {
+                        Log.e(TAG, "❌ [scan-gguf-models] Failed to create directory: " + modelsPath);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "❌ [scan-gguf-models] Exception creating directory", e);
+                }
+            }
+            
+            if (dirExists && isDir && canRead) {
+                java.io.File[] files = null;
+                try {
+                    files = modelsDir.listFiles();
+                    Log.d(TAG, "📂 [scan-gguf-models] Found " + (files != null ? files.length : 0) + " file(s) in directory");
+                } catch (Exception e) {
+                    Log.e(TAG, "❌ [scan-gguf-models] Exception calling listFiles()", e);
+                }
+                
+                if (files != null) {
+                    for (java.io.File file : files) {
+                        try {
+                            String fileName = file.getName();
+                            boolean isGGUF = fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".gguf");
+                            boolean isFile = file.isFile();
+                            long fileSize = file.length();
+                            
+                            Log.d(TAG, "   - " + fileName + " (isFile: " + isFile + ", isGGUF: " + isGGUF + ", size: " + fileSize + " bytes)");
+                            
+                            if (isFile && isGGUF) {
+                                java.util.Map<String, String> modelInfo = new java.util.HashMap<>();
+                                modelInfo.put("name", fileName);
+                                modelInfo.put("size", formatFileSize(fileSize));
+                                modelInfo.put("path", file.getAbsolutePath());
+                                models.add(modelInfo);
+                                Log.d(TAG, "✅ [scan-gguf-models] Added model: " + fileName);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "❌ [scan-gguf-models] Exception processing file: " + (file != null ? file.getName() : "null"), e);
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "⚠️ [scan-gguf-models] listFiles() returned null - permission issue?");
+                }
+            } else {
+                Log.w(TAG, "⚠️ [scan-gguf-models] Directory is not accessible (exists: " + dirExists + ", isDir: " + isDir + ", canRead: " + canRead + ")");
+            }
+            
+            // Créer la réponse JSON avec protection
+            JSONObject response = new JSONObject();
+            try {
+                JSONArray modelsArray = new JSONArray();
+                for (java.util.Map<String, String> model : models) {
+                    try {
+                        JSONObject modelObj = new JSONObject();
+                        String name = model.get("name");
+                        String size = model.get("size");
+                        String path = model.get("path");
+                        
+                        if (name != null) modelObj.put("name", name);
+                        if (size != null) modelObj.put("size", size);
+                        if (path != null) modelObj.put("path", path);
+                        
+                        modelsArray.put(modelObj);
+                    } catch (Exception e) {
+                        Log.e(TAG, "❌ [scan-gguf-models] Error creating model JSON object", e);
+                    }
+                }
+                response.put("models", modelsArray);
+                response.put("count", models.size());
+                response.put("directory", modelsPath);
+                response.put("directoryExists", dirExists);
+                response.put("directoryReadable", canRead);
+                
+                String jsonString = response.toString();
+                Log.i(TAG, "✅ [scan-gguf-models] SUCCESS - Scanned " + models.size() + " GGUF model(s), JSON length: " + jsonString.length());
+                return createApiResponse(jsonString);
+                
+            } catch (org.json.JSONException e) {
+                Log.e(TAG, "❌ [scan-gguf-models] JSON creation error", e);
+                // Réponse d'erreur JSON minimale
+                JSONObject errorResponse = new JSONObject();
+                try {
+                    errorResponse.put("error", "JSON creation failed: " + e.getMessage());
+                    errorResponse.put("models", new JSONArray());
+                    errorResponse.put("count", 0);
+                } catch (org.json.JSONException ignored) {}
+                return createApiResponse(errorResponse.toString());
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "❌ [scan-gguf-models] FATAL ERROR scanning GGUF models", e);
+            e.printStackTrace();
+            // Réponse d'erreur minimale
+            try {
+                JSONObject errorResponse = new JSONObject();
+                errorResponse.put("error", "Internal Server Error: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+                errorResponse.put("models", new JSONArray());
+                errorResponse.put("count", 0);
+                return createApiResponse(errorResponse.toString());
+            } catch (Exception e2) {
+                Log.e(TAG, "❌ [scan-gguf-models] Even error response failed!", e2);
+                return createHttpErrorResponse(500, "Internal Server Error");
+            }
+        }
+    }
+    
+    /**
      * ⭐ NOUVEAU : Gère les requêtes pour les fichiers de logs (/logs/)
      * Sert les fichiers depuis /storage/emulated/0/ChatAI-Files/logs/
      */
@@ -1078,14 +1230,27 @@ public class HttpServer {
     }
     
     private String createApiResponse(String jsonBody) {
-        return "HTTP/1.1 200 OK\r\n" +
-               "Content-Type: application/json\r\n" +
-               "Access-Control-Allow-Origin: *\r\n" +
-               "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
-               "Access-Control-Allow-Headers: Content-Type\r\n" +
-               "Content-Length: " + jsonBody.length() + "\r\n" +
-               "\r\n" +
-               jsonBody;
+        try {
+            // ⭐ FIX UTF-8: Content-Length doit être en bytes, pas en caractères
+            byte[] jsonBytes = jsonBody.getBytes("UTF-8");
+            return "HTTP/1.1 200 OK\r\n" +
+                   "Content-Type: application/json; charset=utf-8\r\n" +
+                   "Access-Control-Allow-Origin: *\r\n" +
+                   "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
+                   "Access-Control-Allow-Headers: Content-Type\r\n" +
+                   "Content-Length: " + jsonBytes.length + "\r\n" +
+                   "\r\n" +
+                   jsonBody;
+        } catch (java.io.UnsupportedEncodingException e) {
+            Log.e(TAG, "UTF-8 encoding error", e);
+            // Fallback sur length() si UTF-8 échoue (ne devrait jamais arriver)
+            return "HTTP/1.1 200 OK\r\n" +
+                   "Content-Type: application/json\r\n" +
+                   "Access-Control-Allow-Origin: *\r\n" +
+                   "Content-Length: " + jsonBody.length() + "\r\n" +
+                   "\r\n" +
+                   jsonBody;
+        }
     }
     
     private String createHttpErrorResponse(int code, String message) {

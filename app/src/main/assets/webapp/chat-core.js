@@ -121,11 +121,30 @@
             this.navButtons = Array.from(document.querySelectorAll('.main-nav-btn')) || Array.from(document.querySelectorAll('.nav-btn'));
             this.views = Array.from(document.querySelectorAll('.view'));
             
-            // Config DOM - Mode & Models (Tab General)
+            // Config DOM - Mode API & Models (Tab General) - 3 modes explicites
             this.configModeSelect = document.getElementById('configModeSelect');
-            this.configSelectedModel = document.getElementById('configSelectedModel');
-            this.configSelectedModelCustom = document.getElementById('configSelectedModelCustom');
-            this.configLocalDeviceModel = document.getElementById('configLocalDeviceModel'); // ⭐ NOUVEAU: Modèle local dans Général
+            // Modeles selon le mode API
+            this.configLocalGGUFModel = document.getElementById('configLocalGGUFModel');
+            this.generalLocalGGUFModelSection = document.getElementById('generalLocalGGUFModelSection');
+            // GGUF Inference Parameters
+            this.configGGUFSystemPrompt = document.getElementById('configGGUFSystemPrompt');
+            this.configGGUFTemperature = document.getElementById('configGGUFTemperature');
+            this.configGGUFMaxTokens = document.getElementById('configGGUFMaxTokens');
+            this.configGGUFContextSize = document.getElementById('configGGUFContextSize');
+            this.configGGUFThreads = document.getElementById('configGGUFThreads');
+            this.configGGUFTopK = document.getElementById('configGGUFTopK');
+            this.configGGUFTopP = document.getElementById('configGGUFTopP');
+            this.configGGUFFlashAttention = document.getElementById('configGGUFFlashAttention');
+            this.configGGUFBatchSize = document.getElementById('configGGUFBatchSize');
+            this.configGGUFRepeatPenalty = document.getElementById('configGGUFRepeatPenalty');
+            // Other model sections
+            this.configHuggingFaceLLMModel = document.getElementById('configHuggingFaceLLMModel');
+            this.configHuggingFaceLLMModelCustom = document.getElementById('configHuggingFaceLLMModelCustom');
+            this.configOllamaCloudModel = document.getElementById('configOllamaCloudModel');
+            this.configOllamaCloudModelCustom = document.getElementById('configOllamaCloudModelCustom');
+            // Compatibilité (anciens noms)
+            this.configSelectedModel = this.configHuggingFaceLLMModel; // Fallback
+            this.configSelectedModelCustom = this.configHuggingFaceLLMModelCustom; // Fallback
             this.saveModeConfigBtn = document.getElementById('saveModeConfigBtn');
             
             // Config DOM - Cloud (sections séparées)
@@ -144,9 +163,11 @@
             this.saveCloudConfigBtn = document.getElementById('saveCloudConfigBtn');
             
             // Config DOM - Local
-            this.configLocalUrl = document.getElementById('configLocalUrl');
-            this.configLocalModel = document.getElementById('configLocalModel');
-            this.configLocalModelCustom = document.getElementById('configLocalModelCustom');
+            // ⭐ SIMPLIFIÉ: Plus de configLocalUrl (Ollama PC supprimé)
+            // this.configLocalUrl = document.getElementById('configLocalUrl');
+            // ⭐ SIMPLIFIÉ: Plus de configLocalModel (Ollama PC supprimé)
+            // this.configLocalModel = document.getElementById('configLocalModel');
+            // this.configLocalModelCustom = document.getElementById('configLocalModelCustom');
             this.saveLocalConfigBtn = document.getElementById('saveLocalConfigBtn');
             
             // Config DOM - RAG (maintenant dans tab General)
@@ -159,6 +180,7 @@
             this.configOnnxTranslationModel = document.getElementById('configOnnxTranslationModel');
             
             // Config DOM - Thinking & WebSearch
+            this.configWebSearchEnabled = document.getElementById('configWebSearchEnabled');
             this.configWebSearchProvider = document.getElementById('configWebSearchProvider');
             this.configThinkingEnabled = document.getElementById('configThinkingEnabled');
             this.saveWebThinkingBtn = document.getElementById('saveWebThinkingBtn');

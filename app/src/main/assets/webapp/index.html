@@ -27,7 +27,7 @@
                     <button class="header-btn" id="kittBtn" title="Interface KITT">🚗</button>
                     <button class="header-btn" id="infoBtn" title="Informations">ℹ️</button>
                     <button class="header-btn" id="langBtn" title="Langue">🌍</button>
-                    <button class="header-btn" id="clearBtn" title="Effacer">🗑️</button>
+                    <button class="header-btn" id="clearBtn" title="Effacer">🗑</button>
                 </div>
             </div>
             <div class="personality-selector">
@@ -60,7 +60,7 @@
                         <div class="message-bubble">
                             Salut ! Je suis ton assistant IA décontracté ! 😊 Comment ça va aujourd'hui ?
                             <div class="message-actions">
-                                <button class="message-btn" title="Écouter">🔊</button>
+                                <button class="message-btn" title="Écouter">��</button>
                                 <button class="message-btn" title="Copier">📋</button>
                             </div>
                         </div>
@@ -103,11 +103,11 @@
                     <!-- Tabs Navigation -->
                     <div class="config-tabs" id="configTabs">
                         <button class="config-tab active" data-tab="general">⚙️ Général</button>
-                        <button class="config-tab" data-tab="cloud">☁️ Cloud</button>
+                        <button class="config-tab" data-tab="cloud">☁ Cloud</button>
                         <button class="config-tab" data-tab="local">💻 Local</button>
                         <button class="config-tab" data-tab="audio">🎤 AV</button>
-                        <button class="config-tab" data-tab="hotword">🔊 Hotword</button>
-                        <button class="config-tab" data-tab="tts">🗣️ TTS</button>
+                        <button class="config-tab" data-tab="hotword">�� Hotword</button>
+                        <button class="config-tab" data-tab="tts">🗣 TTS</button>
                         <button class="config-tab" data-tab="advanced">🔧 Avancé</button>
                     </div>
                     
@@ -116,62 +116,173 @@
                     <div class="panel-section">
                         <h3>⚙️ Configuration générale</h3>
                         
-                        <!-- Section 1: Mode actif -->
+                        <!-- Section 1: Mode API (simplifié - 2 options explicites) -->
                         <div class="form-grid" style="margin-bottom: 24px;">
                             <label style="grid-column: 1 / -1;">
-                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Mode actif</span>
-                                <select id="configModeSelect">
-                                    <option value="cloud">☁️ Cloud</option>
-                                    <option value="local">💻 Local (Device)</option>
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Mode API [*] Requis</span>
+                                <select id="configModeSelect" required>
+                                    <option value="">- Choisir un mode -</option>
+                                    <option value="local_gguf">📱 Local GGUF (Device)</option>
+                                    <option value="huggingface">🤗 Hugging Face</option>
+                                    <option value="ollama_cloud">☁ Ollama Cloud</option>
                                 </select>
                                 <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
-                                    <strong>☁️ Cloud:</strong> Utilise les services cloud (Ollama Cloud, OpenAI, Hugging Face, etc.) via Internet.<br>
-                                    <strong>💻 Local (Device):</strong> Utilise les modèles installés directement sur votre téléphone Android (GGUF, ONNX).
+                                    <strong>📱 Local GGUF:</strong> Utilise gemma3-270m.gguf sur le device (100% offline, pas besoin d'Internet).<br>
+                                    <strong>🤗 Hugging Face:</strong> Utilise Hugging Face Inference API pour générer les réponses (nécessite clé API configurée dans l'onglet <strong>Cloud</strong>).<br>
+                                    <strong>☁ Ollama Cloud:</strong> Utilise Ollama Cloud pour générer les réponses (nécessite clé API configurée dans l'onglet <strong>Cloud</strong>).<br>
+                                    <strong>⚠️ Important:</strong> Vous devez sélectionner un mode. Local GGUF fonctionne offline, les autres nécessitent Internet.
                                 </small>
                             </label>
                         </div>
                         
-                        <!-- Section 2: Sélection de modèle (dynamique selon mode) -->
+                        <!-- Section 2: Sélection de modèle (selon mode API) -->
                         <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
                             <h4>🤖 Modèle IA</h4>
                             <p style="font-size: 12px; color: #64748b; margin-bottom: 16px; padding: 10px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
-                                Sélection du modèle à utiliser selon le mode actif. Configurez vos comptes cloud dans l'onglet <strong>Cloud</strong>.
+                                Sélection du modèle à utiliser selon le mode API sélectionné. Configurez vos comptes cloud dans l'onglet <strong>Cloud</strong>.
                             </p>
                             
-                            <!-- Modèle Cloud (affiché si mode Cloud) -->
-                            <div id="generalCloudModelSection" class="form-grid">
+                            <!-- Modele Local GGUF (affiche si mode Local GGUF) -->
+                            <div id="generalLocalGGUFModelSection" class="form-grid" style="display: none;">
                                 <label style="grid-column: 1 / -1;">
-                                    <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle Cloud</span>
-                                    <select id="configSelectedModel">
-                                        <option value="">– Choisir –</option>
-                                        <option value="qwen3">Qwen3</option>
-                                        <option value="deepseek-r1:7b">DeepSeek R1 7B</option>
-                                        <option value="gpt-oss:120b">GPT-OSS 120B</option>
-                                        <option value="deepseek-v3.1:671b">DeepSeek V3.1 671B</option>
-                                        <option value="gpt-4o-mini">GPT-4o Mini</option>
-                                        <option value="llama3.2">Llama 3.2</option>
-                                        <option value="mistral-nemo">Mistral Nemo</option>
+                                    <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modele GGUF Local (Device)</span>
+                                    <div style="display: flex; gap: 8px; align-items: flex-start;">
+                                        <select id="configLocalGGUFModel" style="flex: 1;">
+                                            <option value="">-- Scanner les modeles --</option>
+                                        </select>
+                                        <button id="refreshLocalGGUFModelsBtn" class="panel-button secondary" style="padding: 8px 16px; font-size: 12px; white-space: nowrap; flex-shrink: 0;">
+                                            Scanner
+                                        </button>
+                                    </div>
+                                    <small style="font-size: 11px; color: #64748b; margin-top: 8px; display: block;">
+                                        <strong>Repertoire:</strong> <code>/storage/emulated/0/ChatAI-Files/models/</code><br>
+                                        <strong>Format:</strong> GGUF (supporte par llama.cpp)
+                                    </small>
+                                </label>
+                                
+                                <!-- Parametres avances GGUF -->
+                                <div style="grid-column: 1 / -1; margin-top: 12px; padding: 12px; background: rgba(59, 130, 246, 0.05); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.15);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <span style="font-size: 12px; font-weight: 600; color: var(--text-primary);">Parametres Inference</span>
+                                        <button id="toggleGGUFAdvanced" type="button" class="panel-button secondary" style="padding: 4px 10px; font-size: 10px;">Avance</button>
+                                    </div>
+                                    
+                                    <!-- Parametres de base (toujours visibles) -->
+                                    <div class="form-grid" style="gap: 10px;">
+                                        <label style="grid-column: 1 / -1;">
+                                            <span style="font-size: 11px; color: var(--text-secondary);">System Prompt</span>
+                                            <textarea id="configGGUFSystemPrompt" rows="2" style="font-size: 11px; resize: vertical;" placeholder="You are a helpful AI assistant."></textarea>
+                                        </label>
+                                        
+                                        <label>
+                                            <span style="font-size: 11px; color: var(--text-secondary);">Temperature</span>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <input type="range" id="configGGUFTemperature" min="0" max="2" step="0.1" value="0.7" style="flex: 1;">
+                                                <span id="configGGUFTemperatureValue" style="font-size: 11px; min-width: 30px; text-align: right;">0.7</span>
+                                            </div>
+                                        </label>
+                                        
+                                        <label>
+                                            <span style="font-size: 11px; color: var(--text-secondary);">Max Tokens</span>
+                                            <select id="configGGUFMaxTokens" style="font-size: 11px;">
+                                                <option value="64">64 (rapide)</option>
+                                                <option value="128" selected>128 (defaut)</option>
+                                                <option value="256">256</option>
+                                                <option value="512">512</option>
+                                                <option value="1024">1024 (lent)</option>
+                                            </select>
+                                        </label>
+                                    </div>
+                                    
+                                    <!-- Parametres avances (caches par defaut) -->
+                                    <div id="ggufAdvancedParams" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(59, 130, 246, 0.15);">
+                                        <div class="form-grid" style="gap: 10px;">
+                                            <label>
+                                                <span style="font-size: 11px; color: var(--text-secondary);">Context Size</span>
+                                                <select id="configGGUFContextSize" style="font-size: 11px;">
+                                                    <option value="512">512</option>
+                                                    <option value="1024">1024</option>
+                                                    <option value="2048" selected>2048 (defaut)</option>
+                                                    <option value="4096">4096</option>
+                                                    <option value="8192">8192 (si supporte)</option>
+                                                </select>
+                                            </label>
+                                            
+                                            <label>
+                                                <span style="font-size: 11px; color: var(--text-secondary);">Threads CPU</span>
+                                                <select id="configGGUFThreads" style="font-size: 11px;">
+                                                    <option value="2">2</option>
+                                                    <option value="4" selected>4 (defaut)</option>
+                                                    <option value="6">6</option>
+                                                    <option value="8">8</option>
+                                                </select>
+                                            </label>
+                                            
+                                            <label>
+                                                <span style="font-size: 11px; color: var(--text-secondary);">Top-K</span>
+                                                <input type="number" id="configGGUFTopK" value="40" min="1" max="100" style="font-size: 11px;">
+                                            </label>
+                                            
+                                            <label>
+                                                <span style="font-size: 11px; color: var(--text-secondary);">Top-P</span>
+                                                <input type="number" id="configGGUFTopP" value="0.95" min="0" max="1" step="0.05" style="font-size: 11px;">
+                                            </label>
+                                            
+                                            <label style="grid-column: 1 / -1; display: flex; align-items: center; gap: 8px;">
+                                                <input type="checkbox" id="configGGUFFlashAttention" style="width: auto;">
+                                                <span style="font-size: 11px; color: var(--text-secondary);">Flash Attention (optimisation memoire)</span>
+                                            </label>
+                                            
+                                            <label>
+                                                <span style="font-size: 11px; color: var(--text-secondary);">Batch Size</span>
+                                                <select id="configGGUFBatchSize" style="font-size: 11px;">
+                                                    <option value="128">128</option>
+                                                    <option value="256">256</option>
+                                                    <option value="512" selected>512 (defaut)</option>
+                                                    <option value="1024">1024</option>
+                                                </select>
+                                            </label>
+                                            
+                                            <label>
+                                                <span style="font-size: 11px; color: var(--text-secondary);">Repeat Penalty</span>
+                                                <input type="number" id="configGGUFRepeatPenalty" value="1.1" min="1" max="2" step="0.05" style="font-size: 11px;">
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Modèle Hugging Face (affiché si mode Hugging Face) -->
+                            <div id="generalHuggingFaceModelSection" class="form-grid" style="display: none;">
+                                <label style="grid-column: 1 / -1;">
+                                    <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle Hugging Face</span>
+                                    <select id="configHuggingFaceLLMModel">
+                                        <option value="">- Choisir -</option>
+                                        <option value="HuggingFaceTB/SmolLM3-3B-Instruct:hf-inference">SmolLM3-3B-Instruct</option>
+                                        <option value="microsoft/Phi-3-mini-4k-instruct">Phi-3-mini-4k-instruct</option>
                                         <option value="custom">Autre (personnalisé)</option>
                                     </select>
-                                    <input type="text" id="configSelectedModelCustom" class="custom-input hidden" placeholder="Nom du modèle personnalisé">
+                                    <input type="text" id="configHuggingFaceLLMModelCustom" class="custom-input hidden" placeholder="Nom du modèle Hugging Face (ex: HuggingFaceTB/SmolLM3-3B-Instruct:hf-inference)">
                                     <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
-                                        Modèle utilisé en mode Cloud. Les modèles disponibles dépendent des providers configurés dans l'onglet <strong>Cloud</strong>.
+                                        Modèle utilisé avec Hugging Face. Configurez votre clé API dans l'onglet <strong>Cloud</strong> -> <strong>Hugging Face</strong>.
                                     </small>
                                 </label>
                             </div>
                             
-                            <!-- Modèle Local (affiché si mode Local) -->
-                            <div id="generalLocalModelSection" class="form-grid" style="display: none;">
+                            <!-- Modèle Ollama Cloud (affiché si mode Ollama Cloud) -->
+                            <div id="generalOllamaCloudModelSection" class="form-grid" style="display: none;">
                                 <label style="grid-column: 1 / -1;">
-                                    <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle Local (Device)</span>
-                                    <select id="configLocalDeviceModel">
-                                        <option value="">– Scanner les modèles –</option>
+                                    <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle Ollama Cloud</span>
+                                    <select id="configOllamaCloudModel">
+                                        <option value="">- Choisir -</option>
+                                        <option value="gpt-oss:120b">GPT-OSS 120B</option>
+                                        <option value="qwen3-coder:480b-cloud">Qwen3-Coder 480B</option>
+                                        <option value="deepseek-v3.1:671b-cloud">DeepSeek V3.1 671B</option>
+                                        <option value="custom">Autre (personnalisé)</option>
                                     </select>
-                                    <button id="refreshLocalDeviceModelsBtn" class="panel-button secondary" style="margin-top: 8px; padding: 6px 12px; font-size: 11px;">
-                                        🔄 Scanner modèles device
-                                    </button>
+                                    <input type="text" id="configOllamaCloudModelCustom" class="custom-input hidden" placeholder="Nom du modèle Ollama Cloud (ex: gpt-oss:120b)">
                                     <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
-                                        Modèles GGUF installés sur le device. Localisation: <code>/storage/emulated/0/ChatAI-Files/models/</code>
+                                        Modèle utilisé avec Ollama Cloud. Configurez votre clé API dans l'onglet <strong>Cloud</strong> -> <strong>Ollama Cloud</strong>.
                                     </small>
                                 </label>
                             </div>
@@ -190,7 +301,7 @@
                                     <select id="configEmbeddingSource">
                                         <option value="huggingface">Hugging Face (Cloud)</option>
                                         <option value="ollama_cloud">Ollama Cloud</option>
-                                        <option value="onnx_local">ONNX Local (Device) ⭐ Offline</option>
+                                        <option value="onnx_local">ONNX Local (Device) [*] Offline</option>
                                     </select>
                                     <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
                                         <strong>Hugging Face:</strong> Utilise Hugging Face Inference API pour générer les embeddings (nécessite clé API).<br>
@@ -214,15 +325,16 @@
                                 </div>
                                 
                                 <!-- Section Ollama Cloud Embeddings -->
-                                <div id="ollamaEmbeddingSection" class="form-grid" style="grid-column: 1 / -1; margin-top: 12px; padding: 12px; background: rgba(148, 163, 184, 0.05); border-radius: 6px; display: none;">
+                                <div id="ollamaEmbeddingSection" class="form-grid" style="grid-column: 1 / -1; margin-top: 12px; padding: 12px; background: rgba(251, 191, 36, 0.1); border-radius: 6px; border-left: 3px solid #fbbf24; display: none;">
                                     <label>
                                         Modèle d'embedding Ollama Cloud
-                                        <select id="configEmbeddingModel">
+                                        <select id="configEmbeddingModel" disabled>
                                             <option value="nomic-embed-text">Nomic Embed Text (768 dim)</option>
                                             <option value="mxbai-embed-large">MXBAI Embed Large (1024 dim)</option>
                                         </select>
-                                        <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
-                                            Configurez votre clé API Ollama Cloud dans l'onglet <strong>Cloud</strong>.
+                                        <small style="font-size: 11px; color: #fbbf24; margin-top: 4px; display: block;">
+                                            <strong>⚠️ Non disponible:</strong> Ollama Cloud ne supporte pas encore l'endpoint <code>/api/embeddings</code> (HTTP 404).<br>
+                                            Utilisez <strong>Hugging Face</strong> ou <strong>ONNX Local</strong> pour les embeddings.
                                         </small>
                                     </label>
                                 </div>
@@ -232,7 +344,7 @@
                                     <label>
                                         Modèle ONNX Local
                                         <select id="configOnnxEmbeddingModel">
-                                            <option value="">– Scanner les modèles –</option>
+                                            <option value="">- Scanner les modèles -</option>
                                         </select>
                                         <button id="refreshOnnxEmbeddingsBtn" class="panel-button secondary" style="margin-top: 8px; padding: 6px 12px; font-size: 11px;">
                                             🔄 Scanner modèles ONNX
@@ -269,7 +381,7 @@
                     <!-- Tab Content: Cloud -->
                     <div class="config-tab-content" data-content="cloud">
                     <div class="panel-section">
-                        <h3>☁️ Comptes Cloud</h3>
+                        <h3>☁ Comptes Cloud</h3>
                         <p style="font-size: 12px; color: #64748b; margin-bottom: 24px; padding: 10px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
                             Configurez vos comptes cloud pour utiliser les services IA en ligne. Les modèles sont sélectionnés dans l'onglet <strong>Général</strong>.
                         </p>
@@ -297,7 +409,7 @@
                         
                         <!-- Section Ollama Cloud -->
                         <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
-                            <h4>☁️ Ollama Cloud</h4>
+                            <h4>☁ Ollama Cloud</h4>
                             <div class="form-grid">
                                 <label style="grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
                                     <input type="checkbox" id="configUseOllamaCloud" style="width: auto; margin: 0;">
@@ -316,48 +428,9 @@
                             </div>
                         </div>
                         
-                        <!-- Section OpenAI -->
-                        <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
-                            <h4>🔷 OpenAI</h4>
-                            <div class="form-grid">
-                                <label style="grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                                    <input type="checkbox" id="configUseOpenAI" style="width: auto; margin: 0;">
-                                    <span style="font-weight: 500;">Activer OpenAI</span>
-                                </label>
-                                <label style="grid-column: 1 / -1;">
-                                    <span style="font-weight: 500; margin-bottom: 4px;">🔑 API Key OpenAI</span>
-                                    <input type="text" id="configOpenAIApiKey" placeholder="sk-xxxxxxxxxxxxxxxxxxxx">
-                                    <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
-                                        Obtenez votre clé sur <a href="https://platform.openai.com/api-keys" target="_blank" style="color: #667eea;">platform.openai.com/api-keys</a>
-                                    </small>
-                                </label>
-                            </div>
-                            <div class="config-actions-group" style="margin-top: 12px;">
-                                <button class="panel-button secondary" id="testOpenAIBtn" style="padding: 6px 12px; font-size: 11px;">🧪 Tester connexion</button>
-                            </div>
-                        </div>
-                        
-                        <!-- Section Autres Providers -->
-                        <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
-                            <h4>🌐 Autres Providers</h4>
-                            <div class="form-grid">
-                                <label>
-                                    <span style="font-weight: 500; margin-bottom: 4px;">Provider</span>
-                                    <select id="configCloudProvider">
-                                        <option value="">– Choisir –</option>
-                                        <option value="groq">Groq</option>
-                                        <option value="perplexity">Perplexity</option>
-                                        <option value="anthropic">Anthropic (Claude)</option>
-                                        <option value="custom">Autre (personnalisé)</option>
-                                    </select>
-                                    <input type="text" id="configCloudProviderCustom" class="custom-input hidden" placeholder="Provider personnalisé">
-                                </label>
-                                <label>
-                                    <span style="font-weight: 500; margin-bottom: 4px;">🔑 API Key</span>
-                                    <input type="text" id="configCloudApiKey" placeholder="Entrez votre clé API">
-                                </label>
-                            </div>
-                        </div>
+                        <!-- [*] SUPPRIMÉ: OpenAI, Anthropic, Groq, Perplexity (non utilisés dans flow principal) -->
+                        <!-- Ces providers existent dans le code mais ne sont JAMAIS appelés dans processUserInput() -->
+                        <!-- Seuls Hugging Face et Ollama Cloud sont utilisés dans le flow principal -->
                         
                         <!-- Zone de résultats des modèles disponibles -->
                         <div id="cloudModelsResult" style="display: none; margin-top: 12px; max-height: 200px; overflow-y: auto; overflow-x: hidden; padding: 12px; border-radius: 8px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); scrollbar-width: thin; scrollbar-color: rgba(100, 116, 139, 0.5) transparent;">
@@ -437,26 +510,27 @@
                     <!-- Tab Content: Local -->
                     <div class="config-tab-content" data-content="local">
                     
-                    <!-- ⭐ SECTION 1: MODÈLES LOCAUX (DEVICE) -->
+                    <!-- [*] SECTION 1: MODÈLES LOCAUX (DEVICE) - MAINTENANT FONCTIONNEL -->
                     <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid rgba(148, 163, 184, 0.3);">
-                        <h4>📱 Modèles Locaux (Device) - Par défaut</h4>
-                        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
-                            <strong>💡 Utilisation:</strong> Modèles GGUF installés directement sur votre device Android. Fonctionne sans connexion réseau ni PC requis.<br>
+                        <h4>📱 Modèles GGUF (Device) <span style="font-size: 11px; color: #10b981; font-weight: normal;">✅ Fonctionnel</span></h4>
+                        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 6px; border-left: 3px solid #10b981;">
+                            <strong>✅ Maintenant disponible:</strong> Les modèles GGUF sur device sont <strong>FONCTIONNELS</strong> pour le LLM principal via llama.cpp !<br>
+                            <strong>💡 Utilisation:</strong> Sélectionnez "📱 Local GGUF (Device)" dans l'onglet <strong>Général</strong> -> Mode API pour utiliser ces modèles.<br>
                             <strong>📁 Localisation:</strong> <code>/storage/emulated/0/ChatAI-Files/models/</code><br>
-                            <strong>✅ Avantages:</strong> Fonctionne partout, pas besoin de PC, pas de dépendance réseau.<br>
-                            <strong>⚠️ Limitations:</strong> Modèles généralement plus petits et moins performants que sur PC (contraintes de mémoire/CPU du device).
+                            <strong>🚀 Avantages:</strong> 100% offline, pas besoin d'Internet, confidentialité totale, latence faible.
                         </p>
                         
                         <div class="form-grid">
                             <label>
-                                Modèles disponibles sur device
+                                Modèles GGUF détectés sur device
                                 <div id="localDeviceModelsList" style="min-height: 60px; padding: 12px; background: rgba(148, 163, 184, 0.05); border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.2);">
                                     <div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 20px;">
                                         ⏳ Chargement des modèles...
                                     </div>
                                 </div>
                                 <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
-                                    Scanner automatique depuis <code>/storage/emulated/0/ChatAI-Files/models/</code>
+                                    Scanner automatique depuis <code>/storage/emulated/0/ChatAI-Files/models/</code><br>
+                                    <strong>✅ Utilisation:</strong> Ces modèles peuvent être utilisés pour le LLM en sélectionnant "Local GGUF" dans l'onglet Général.
                                 </small>
                             </label>
                         </div>
@@ -468,18 +542,40 @@
                         </div>
                     </div>
                     
-                    <!-- ⭐ SECTION 2: MODÈLES ONNX (Vision) -->
+                    <!-- [*] SECTION 2: VISION (Cloud + ONNX) -->
                     <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
-                        <h4>👁️ Vision ONNX (CLIP) <span id="visionOnnxStatusBadge" style="font-size: 12px; font-weight: normal; margin-left: 8px;"></span></h4>
+                        <h4>👁 Vision (Analyse d'images) <span id="visionOnnxStatusBadge" style="font-size: 12px; font-weight: normal; margin-left: 8px;"></span></h4>
                         <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(168, 85, 247, 0.1); border-radius: 6px;">
-                            <strong>💡 Vision ONNX:</strong> Analyse d'images via CLIP (100% offline).<br>
-                            <strong>📁 Fichiers requis:</strong> <code>vision_model.onnx</code> et <code>text_model.onnx</code>
+                            <strong>💡 Vision:</strong> Permet à l'IA de comprendre et décrire des images.<br>
+                            <strong>📁 Vision ONNX:</strong> Analyse d'images via CLIP (100% offline).<br>
+                            <strong>☁ Vision Cloud:</strong> Utilise les modèles cloud (LLaVA, GPT-4o Vision, etc.)
                         </p>
-                        <div class="form-grid">
+                        
+                        <!-- Vision Cloud (modèles cloud) -->
+                        <div class="form-grid" style="margin-bottom: 20px;">
                             <label style="grid-column: 1 / -1;">
-                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle Vision ONNX</span>
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle Vision Cloud</span>
+                                <select id="configVisionModel">
+                                    <option value="">Désactivé</option>
+                                    <option value="llava:13b">LLaVA 13B</option>
+                                    <option value="gpt-4o-mini-vision">GPT-4o Mini Vision</option>
+                                    <option value="pixtral-12b">Pixtral 12B</option>
+                                    <option value="ideogram-v1">Ideogram V1</option>
+                                    <option value="custom">Autre (personnalisé)</option>
+                                </select>
+                                <input type="text" id="configVisionModelCustom" class="custom-input hidden" placeholder="Modèle vision personnalisé">
+                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
+                                    Modèle cloud utilisé pour analyser les images. Nécessite le mode API correspondant activé.
+                                </small>
+                            </label>
+                        </div>
+                        
+                        <!-- Vision ONNX (modèles locaux) -->
+                        <div class="form-grid" style="padding-top: 16px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
+                            <label style="grid-column: 1 / -1;">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle Vision ONNX (Local)</span>
                                 <select id="configOnnxVisionModel">
-                                    <option value="">– Scanner les modèles –</option>
+                                    <option value="">- Scanner les modèles -</option>
                                 </select>
                                 <button id="refreshOnnxVisionBtn" class="panel-button secondary" style="margin-top: 8px; padding: 6px 12px; font-size: 11px;">
                                     🔄 Scanner modèles ONNX Vision
@@ -492,18 +588,18 @@
                         </div>
                     </div>
                     
-                    <!-- ⭐ SECTION 5: MODÈLES ONNX (Translation) -->
+                    <!-- [*] SECTION 5: MODÈLES ONNX (Translation) -->
                     <div class="panel-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
                         <h4>🌐 Traduction ONNX (MarianMT) <span id="translationOnnxStatusBadge" style="font-size: 12px; font-weight: normal; margin-left: 8px;"></span></h4>
                         <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; padding: 10px; background: rgba(236, 72, 153, 0.1); border-radius: 6px;">
-                            <strong>💡 Traduction ONNX:</strong> Traduction français → anglais via MarianMT (100% offline).<br>
+                            <strong>💡 Traduction ONNX:</strong> Traduction français -> anglais via MarianMT (100% offline).<br>
                             <strong>📁 Fichiers requis:</strong> <code>encoder_model.onnx</code> et <code>decoder_model.onnx</code>
                         </p>
                         <div class="form-grid">
                             <label style="grid-column: 1 / -1;">
                                 <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle Traduction ONNX</span>
                                 <select id="configOnnxTranslationModel">
-                                    <option value="">– Scanner les modèles –</option>
+                                    <option value="">- Scanner les modèles -</option>
                                 </select>
                                 <button id="refreshOnnxTranslationBtn" class="panel-button secondary" style="margin-top: 8px; padding: 6px 12px; font-size: 11px;">
                                     🔄 Scanner modèles ONNX Traduction
@@ -516,7 +612,7 @@
                         </div>
                     </div>
                     
-                    <!-- ⭐ BOUTONS DE SAUVEGARDE -->
+                    <!-- [*] BOUTONS DE SAUVEGARDE -->
                     <div class="config-actions-group" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid rgba(148, 163, 184, 0.3);">
                         <div class="action-section">
                             <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">💾 Sauvegarde</div>
@@ -528,41 +624,8 @@
                     
                     <!-- Tab Content: Audio -->
                     <div class="config-tab-content" data-content="audio">
+                    <!-- [*] RÉORGANISÉ: Vision déplacée vers onglet Local (cohérent avec Vision ONNX) -->
                     <!-- Audio/STT uniquement - Web Search & Thinking déplacé vers onglet Avancé -->
-                    <div class="panel-section">
-                        <h4>👁️ Vision</h4>
-                        <p style="font-size: 12px; color: #64748b; margin-bottom: 16px; padding: 10px; background: rgba(148, 163, 184, 0.1); border-radius: 6px;">
-                            Configuration pour l'analyse d'images (vision) par l'IA. Permet à l'IA de comprendre et décrire des images.
-                        </p>
-                        <div class="form-grid">
-                            <label style="grid-column: 1 / -1;">
-                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Modèle vision</span>
-                                <select id="configVisionModel">
-                                    <option value="">Désactivé</option>
-                                    <option value="llava:13b">LLaVA 13B</option>
-                                    <option value="gpt-4o-mini-vision">GPT-4o Mini Vision</option>
-                                    <option value="pixtral-12b">Pixtral 12B</option>
-                                    <option value="ideogram-v1">Ideogram V1</option>
-                                    <option value="custom">Autre (personnalisé)</option>
-                                </select>
-                                <input type="text" id="configVisionModelCustom" class="custom-input hidden" placeholder="Modèle vision personnalisé">
-                                <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
-                                    Modèle utilisé pour analyser les images envoyées à l'IA.<br>
-                                    <strong>Désactivé:</strong> L'IA ne pourra pas analyser les images.<br>
-                                    <strong>LLaVA 13B:</strong> Modèle open-source populaire pour la vision.<br>
-                                    <strong>GPT-4o Mini Vision:</strong> Modèle OpenAI optimisé pour la vision.
-                                </small>
-                            </label>
-                        </div>
-                        <div class="config-actions-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
-                            <div class="action-section">
-                                <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">💾 Sauvegarde</div>
-                                <div class="button-grid" style="display: grid; grid-template-columns: 1fr; gap: 8px;">
-                                    <button class="panel-button" id="saveVisionBtn">💾 Sauvegarder</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- Audio -->
                     <div class="panel-section">
@@ -587,7 +650,7 @@
                                         <select id="configAudioModel">
                                             <option value="">Désactivé</option>
                                             <option value="ggml-small.bin">GGML Small (465 MB)</option>
-                                            <option value="ggml-medium-q5_0.bin">GGML Medium Q5_0 (514 MB) ⭐ Recommandé</option>
+                                            <option value="ggml-medium-q5_0.bin">GGML Medium Q5_0 (514 MB) [*] Recommandé</option>
                                             <option value="ggml-small-q8_0.bin">GGML Small Q8_0 (252 MB)</option>
                                             <option value="ggml-medium.bin">GGML Medium (non quantifié)</option>
                                             <option value="ggml-large.bin">GGML Large</option>
@@ -682,7 +745,7 @@
                                 </label>
                                 <label style="min-height: auto;">
                                     <input type="checkbox" id="configHotwordAutoListen">
-                                    <span>Ecoute auto après hotword (STT → IA → TTS)</span>
+                                    <span>Ecoute auto après hotword (STT -> IA -> TTS)</span>
                                 </label>
                                 <label style="min-height: auto;">
                                     <input type="checkbox" id="configHotwordDebugScores">
@@ -715,8 +778,8 @@
                                 <div class="action-section" style="margin-bottom: 16px;">
                                     <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">⚡ Contrôles</div>
                                     <div class="button-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
-                                        <button class="panel-button" id="hotwordStartBtn">▶️ Démarrer</button>
-                                        <button class="panel-button secondary" id="hotwordStopBtn">⏹️ Arrêter</button>
+                                        <button class="panel-button" id="hotwordStartBtn">▶ Démarrer</button>
+                                        <button class="panel-button secondary" id="hotwordStopBtn">⏹ Arrêter</button>
                                         <button class="panel-button" id="hotwordRestartBtn">🔄 Redémarrer</button>
                                     </div>
                                 </div>
@@ -774,7 +837,7 @@
                     <!-- Tab Content: TTS -->
                     <div class="config-tab-content" data-content="tts">
                     <div class="panel-section">
-                        <h4>🎙️ TTS (Text-to-Speech)</h4>
+                        <h4>🎙 TTS (Text-to-Speech)</h4>
                         
                         <!-- Moteur TTS -->
                         <div class="form-grid">
@@ -790,10 +853,10 @@
                             </label>
                         </div>
                         
-                        <!-- ⭐ SECTION 1: ONNX TTS (Recommandé) - TEMPORAIREMENT DÉSACTIVÉ -->
+                        <!-- [*] SECTION 1: ONNX TTS (Recommandé) - TEMPORAIREMENT DÉSACTIVÉ -->
                         <div id="onnxTtsSection" style="margin-top: 20px; padding: 16px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.3); display: none;">
                             <h5 style="font-size: 14px; margin: 0 0 12px 0; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
-                                <span>⭐ ONNX TTS Server</span>
+                                <span>[*] ONNX TTS Server</span>
                                 <span style="font-size: 11px; color: #64748b; font-weight: normal;">(Recommandé - Synthèse locale haute qualité)</span>
                             </h5>
                             
@@ -850,7 +913,7 @@
                             </div>
                         </div>
                         
-                        <!-- ⭐ SECTION 2: Android TTS (Fallback) - ACTIF PAR DÉFAUT -->
+                        <!-- [*] SECTION 2: Android TTS (Fallback) - ACTIF PAR DÉFAUT -->
                         <div id="androidTtsSection" style="margin-top: 20px; padding: 16px; background: rgba(148, 163, 184, 0.05); border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.2); display: block;">
                             <h5 style="font-size: 14px; margin: 0 0 12px 0; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
                                 <span>📱 Android TTS</span>
@@ -873,7 +936,7 @@
                                 <label>
                                     Voix
                                     <select id="configTtsVoice">
-                                        <option value="">– Choisir –</option>
+                                        <option value="">- Choisir -</option>
                                         <option value="kitt">KITT</option>
                                         <option value="glados">GLaDOS</option>
                                         <option value="karr">KARR</option>
@@ -898,7 +961,7 @@
                                     Testez la synthèse vocale avec le moteur sélectionné.
                                 </small>
                             </label>
-                            <button id="testTtsBtn" class="panel-button" style="grid-column: 1 / -1; margin-top: 8px;">🔊 Tester TTS</button>
+                            <button id="testTtsBtn" class="panel-button" style="grid-column: 1 / -1; margin-top: 8px;">�� Tester TTS</button>
                             <audio id="ttsTestAudio" controls style="grid-column: 1 / -1; margin-top: 8px; display: none; width: 100%;"></audio>
                         </div>
                         
@@ -987,11 +1050,15 @@
                         </p>
                         <div class="form-grid">
                             <label style="grid-column: 1 / -1;">
-                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Provider Web Search</span>
-                                <input type="text" id="configWebSearchProvider" placeholder="ollama">
+                                <span style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Recherche Web (Ollama uniquement)</span>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                    <input type="checkbox" id="configWebSearchEnabled" style="width: auto; margin: 0;">
+                                    <span style="font-weight: 500;">Activer la recherche web</span>
+                                </div>
+                                <input type="text" id="configWebSearchProvider" placeholder="ollama" value="ollama" readonly style="background: rgba(148, 163, 184, 0.1);">
                                 <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">
-                                    <strong>Provider:</strong> Service cloud à utiliser pour la recherche web (ex: "ollama", "perplexity").<br>
-                                    <strong>Laisser vide pour désactiver</strong> la recherche web.
+                                    <strong>Provider:</strong> Ollama Web Search uniquement (nécessite Ollama Cloud activé dans l'onglet <strong>Cloud</strong>).<br>
+                                    <strong>Désactiver:</strong> Décochez la case ci-dessus pour désactiver la recherche web.
                                 </small>
                             </label>
                             <label style="grid-column: 1 / -1;">
@@ -1025,7 +1092,7 @@
                                 <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">⚡ Actions</div>
                                 <div class="button-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
                                     <button class="panel-button" id="aiConfigReloadBtn">🔄 Recharger</button>
-                                    <button class="panel-button secondary" id="aiConfigEditBtn">✏️ Modifier JSON</button>
+                                    <button class="panel-button secondary" id="aiConfigEditBtn">✏ Modifier JSON</button>
                                 </div>
                             </div>
                         </div>
@@ -1066,7 +1133,7 @@
                         </div>
                     </div>
                     
-                    <!-- ⭐ NOUVEAU: Section RAG/Ollama -->
+                    <!-- [*] NOUVEAU: Section RAG/Ollama -->
                     <div class="panel-section">
                         <h4>🔍 RAG & Ollama</h4>
                         <div class="status-grid" id="ragStatusGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 16px;">
@@ -1077,7 +1144,7 @@
                         </div>
                     </div>
                     
-                    <!-- ⭐ NOUVEAU: Section Statistiques Conversations -->
+                    <!-- [*] NOUVEAU: Section Statistiques Conversations -->
                     <div class="panel-section">
                         <h4>📊 Statistiques Conversations</h4>
                         <div class="status-grid" id="conversationsStatsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 16px;">
@@ -1123,7 +1190,7 @@
                 </div>
             </div>
 
-            <!-- ⭐ NOUVEAU: Vue Historique -->
+            <!-- [*] NOUVEAU: Vue Historique -->
             <div class="view" id="view-history">
                 <div class="panel">
                     <div class="panel-section">
@@ -1156,7 +1223,7 @@
                             </label>
                             <div class="button-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
                                 <button class="panel-button" id="historySearchBtn" style="padding: 10px 16px;">🔍 Rechercher</button>
-                                <button class="panel-button secondary" id="historyClearBtn" style="padding: 10px 16px;">🗑️ Effacer</button>
+                                <button class="panel-button secondary" id="historyClearBtn" style="padding: 10px 16px;">🗑 Effacer</button>
                             </div>
                         </div>
                         
@@ -1183,7 +1250,7 @@
                             <div class="action-section">
                                 <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">⚠️ Danger</div>
                                 <div class="button-grid" style="display: grid; grid-template-columns: 1fr; gap: 8px;">
-                                    <button class="panel-button danger" id="historyDeleteAllBtn" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">🗑️ Effacer tout l'historique</button>
+                                    <button class="panel-button danger" id="historyDeleteAllBtn" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">🗑 Effacer tout l'historique</button>
                                 </div>
                             </div>
                         </div>
@@ -1210,7 +1277,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="modalTitle">Plugin</h3>
-                <button class="close-btn" onclick="closePlugin()">×</button>
+                <button class="close-btn" onclick="closePlugin()">x</button>
             </div>
             <div id="modalContent"></div>
         </div>
@@ -1220,7 +1287,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>🚀 Informations Système</h3>
-                <button class="close-btn" onclick="closeInfo()">×</button>
+                <button class="close-btn" onclick="closeInfo()">x</button>
             </div>
             <div id="infoContent">
                 <div style="padding: 20px; text-align: center;">
@@ -1257,7 +1324,7 @@
         <div class="modal-content large">
             <div class="modal-header">
                 <h3>Éditeur ai_config.json</h3>
-                <button class="close-btn" id="closeJsonModal">×</button>
+                <button class="close-btn" id="closeJsonModal">x</button>
             </div>
             <div class="modal-body">
                 <p style="margin-bottom: 10px; font-size: 12px; color: #94a3b8;">Chemin: /storage/emulated/0/ChatAI-Files/config/ai_config.json</p>
@@ -1276,7 +1343,8 @@
         </div>
     </div>
 
-    <!-- Modules modulaires (refactorisation) - ACTIVÉS -->
+    <!-- Modules modulaires (refactorisation) -->
+    <script src="chat-errors.js"></script>
     <script src="chat-utils.js"></script>
     <script src="chat-ui.js"></script>
     <script src="chat-config.js"></script>
@@ -1286,360 +1354,36 @@
     <script src="chat-hotword.js"></script>
     <script src="chat-history.js"></script>
     <script src="chat-diagnostics.js"></script>
+    <script src="chat-plugins.js"></script>
+    <script src="chat-models.js"></script>
     <script src="chat-core.js"></script>
-    <!-- <script src="chat.js"></script> --> <!-- DÉSACTIVÉ - Remplacé par modules modulaires -->
     <script>
-        // Fonctions utilitaires globales pour les plugins
+        // Functions extracted to chat-plugins.js and chat-models.js
+        // Remaining inline functions that are specific to this page
         
-        function speakText(button) {
-            if ('speechSynthesis' in window && window.secureChatApp) {
-                const messageText = button.closest('.message-bubble').textContent.replace(/[🔊📋]/g, '').trim();
-                window.secureChatApp.speakText(messageText);
-            }
-        }
-
-        function openPlugin(pluginType) {
-            const modal = document.getElementById('pluginModal');
-            const title = document.getElementById('modalTitle');
-            const content = document.getElementById('modalContent');
-            
-            const plugins = {
-                websearch: {
-                    title: '🔍 Recherche Web',
-                    content: `<div style="text-align: center;">
-                        <input type="text" id="searchQuery" placeholder="Bitcoin, météo, actualités..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; font-size: 14px;">
-                        <button onclick="performWebSearch()" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🔍 Rechercher sur le web</button>
-                        <div id="searchResults" style="background: #f8f9fa; padding: 15px; border-radius: 8px; display: none; margin-top: 10px; max-height: 300px; overflow-y: auto; text-align: left; font-size: 13px; line-height: 1.6;"></div>
-                    </div>`
-                },
-                calculator: {
-                    title: '🔢 Calculette',
-                    content: `<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
-                        <input type="text" id="calcDisplay" readonly style="grid-column: span 4; padding: 15px; font-size: 18px; text-align: right; border: 1px solid #ddd; border-radius: 8px; background: #f8f9fa;">
-                        <button onclick="clearCalc()" style="grid-column: span 2; padding: 15px; background: #ff4757; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">C</button>
-                        <button onclick="deleteLast()" style="grid-column: span 2; padding: 15px; background: #ffa502; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">⌫</button>
-                        <button onclick="addToCalc('7')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">7</button>
-                        <button onclick="addToCalc('8')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">8</button>
-                        <button onclick="addToCalc('9')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">9</button>
-                        <button onclick="addToCalc('/')" style="padding: 15px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">/</button>
-                        <button onclick="addToCalc('4')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">4</button>
-                        <button onclick="addToCalc('5')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">5</button>
-                        <button onclick="addToCalc('6')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">6</button>
-                        <button onclick="addToCalc('*')" style="padding: 15px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">*</button>
-                        <button onclick="addToCalc('1')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">1</button>
-                        <button onclick="addToCalc('2')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">2</button>
-                        <button onclick="addToCalc('3')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">3</button>
-                        <button onclick="addToCalc('-')" style="padding: 15px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">-</button>
-                        <button onclick="addToCalc('0')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">0</button>
-                        <button onclick="addToCalc('.')" style="padding: 15px; background: #f1f2f6; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">.</button>
-                        <button onclick="calculate()" style="padding: 15px; background: #4ECDC4; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold;">=</button>
-                        <button onclick="addToCalc('+')" style="padding: 15px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">+</button>
-                    </div>`
-                },
-                weather: {
-                    title: '🌤️ Météo',
-                    content: `<div style="text-align: center;">
-                        <input type="text" id="cityInput" placeholder="Entrez une ville..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; font-size: 14px;">
-                        <button onclick="getWeather()" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #4ECDC4, #44A08D); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Obtenir la météo</button>
-                        <div id="weatherResult" style="background: #f8f9fa; padding: 15px; border-radius: 8px; display: none; margin-top: 10px;"></div>
-                    </div>`
-                },
-                jokes: {
-                    title: '😂 Générateur de Blagues',
-                    content: `<div style="text-align: center;">
-                        <button onclick="getRandomJoke()" style="width: 100%; padding: 15px; background: linear-gradient(135deg, #ff6b6b, #ee5a6f); color: white; border: none; border-radius: 8px; margin-bottom: 15px; font-weight: bold; cursor: pointer;">🎲 Blague aléatoire</button>
-                        <div id="jokeResult" style="background: #f8f9fa; padding: 20px; border-radius: 8px; min-height: 80px; display: flex; align-items: center; justify-content: center; font-style: italic; color: #666; line-height: 1.6;">Cliquez pour une blague ! 😄</div>
-                    </div>`
-                },
-                tips: {
-                    title: '💡 Conseils du Jour',
-                    content: `<div style="text-align: center;">
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px;">
-                            <button onclick="getTip('productivity')" style="padding: 12px; background: #4ECDC4; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">📈 Productivité</button>
-                            <button onclick="getTip('health')" style="padding: 12px; background: #ff6b6b; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🏃‍♂️ Santé</button>
-                            <button onclick="getTip('tech')" style="padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">💻 Tech</button>
-                            <button onclick="getTip('lifestyle')" style="padding: 12px; background: #ffa502; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🌟 Lifestyle</button>
-                        </div>
-                        <div id="tipResult" style="background: #f8f9fa; padding: 20px; border-radius: 8px; min-height: 100px; display: flex; align-items: center; justify-content: center; font-style: italic; color: #666; line-height: 1.6;">Choisissez une catégorie ! 💡</div>
-                    </div>`
-                }
-            };
-            
-            const plugin = plugins[pluginType];
-            if (plugin) {
-                title.textContent = plugin.title;
-                content.innerHTML = plugin.content;
-                modal.style.display = 'block';
-            }
-        }
-
-        function closePlugin() {
-            document.getElementById('pluginModal').style.display = 'none';
-        }
-
-        // Fonctions de la calculatrice
-        function addToCalc(value) { 
-            const display = document.getElementById('calcDisplay');
-            if (display) display.value += value; 
-        }
-
-        function clearCalc() { 
-            const display = document.getElementById('calcDisplay');
-            if (display) display.value = ''; 
-        }
-
-        function deleteLast() { 
-            const display = document.getElementById('calcDisplay');
-            if (display) display.value = display.value.slice(0, -1); 
-        }
-
-        function calculate() {
-            const display = document.getElementById('calcDisplay');
-            if (!display) return;
-            
-            try {
-                const expression = display.value;
-                if (!/^[0-9+\-*/.() ]+$/.test(expression)) {
-                    display.value = 'Erreur';
-                    return;
-                }
-                
-                const result = Function('"use strict"; return (' + expression + ')')();
-                display.value = result;
-            } catch (error) {
-                display.value = 'Erreur';
-            }
-        }
-
-        // Fonction de recherche web
-        function performWebSearch() {
-            const searchQuery = document.getElementById('searchQuery');
-            const searchResults = document.getElementById('searchResults');
-            if (!searchQuery || !searchResults) return;
-            
-            const query = searchQuery.value.trim();
-            if (!query) return;
-            
-            const safeQuery = query.replace(/[<>]/g, '');
-            
-            searchResults.innerHTML = '<div style="text-align: center; padding: 20px;">🔄 Recherche en cours...</div>';
-            searchResults.style.display = 'block';
-            
-            fetch(`/api/search?q=${encodeURIComponent(safeQuery)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        searchResults.innerHTML = `
-                            <h4 style="margin-bottom: 10px;">🔍 Résultats pour "${data.query}":</h4>
-                            <div style="white-space: pre-wrap;">${data.results}</div>
-                        `;
-                    } else {
-                        searchResults.innerHTML = `<p style="color: #999;">Aucun résultat trouvé pour "${data.query}"</p>`;
-                    }
-                })
-                .catch(error => {
-                    console.error('Erreur recherche web:', error);
-                    searchResults.innerHTML = `<p style="color: #ff4757;">❌ Erreur: ${error.message}</p>`;
-                });
-        }
-
-        // Fonction météo
-        function getWeather() {
-            const cityInput = document.getElementById('cityInput');
-            const weatherResult = document.getElementById('weatherResult');
-            if (!cityInput || !weatherResult) return;
-            
-            const city = cityInput.value.trim();
-            if (!city) return;
-            
-            const safeCity = city.replace(/[<>]/g, '');
-            
-            if (window.secureChatApp?.androidInterface?.getHttpServerUrl) {
-                const serverUrl = window.secureChatApp.androidInterface.getHttpServerUrl();
-                fetch(`${serverUrl}/api/weather/${encodeURIComponent(safeCity)}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        weatherResult.innerHTML = `
-                            <h3 style="margin-bottom: 10px;">📍 ${data.city}</h3>
-                            <div style="font-size: 32px; margin: 10px 0;">🌡️ ${data.temperature}°C</div>
-                            <div style="font-size: 18px; margin: 5px 0;">${data.condition}</div>
-                            <div style="font-size: 13px; color: #666; margin-top: 10px;">Humidité: ${data.humidity}% | Vent: ${data.wind}</div>
-                        `;
-                        weatherResult.style.display = 'block';
-                    })
-                    .catch(error => {
-                        console.error('Erreur API météo:', error);
-                        getWeatherFallback(safeCity, weatherResult);
+        // GGUF Advanced Settings Toggle - attach event listener when DOM is ready
+        (function() {
+            function setupGGUFToggle() {
+                var btn = document.getElementById('toggleGGUFAdvanced');
+                var params = document.getElementById('ggufAdvancedParams');
+                if (btn && params) {
+                    btn.addEventListener('click', function() {
+                        var isHidden = params.style.display === 'none' || params.style.display === '';
+                        params.style.display = isHidden ? 'block' : 'none';
+                        btn.textContent = isHidden ? 'Masquer' : 'Avance';
+                        console.log('[GGUF] Advanced params toggled:', isHidden ? 'visible' : 'hidden');
                     });
-            } else {
-                getWeatherFallback(safeCity, weatherResult);
-            }
-        }
-
-        function getWeatherFallback(city, resultElement) {
-            const temp = Math.floor(Math.random() * 25) + 5;
-            const conditions = ['Ensoleillé ☀️', 'Nuageux ☁️', 'Pluvieux 🌧️'];
-            const condition = conditions[Math.floor(Math.random() * conditions.length)];
-            
-            resultElement.innerHTML = `
-                <h3 style="margin-bottom: 10px;">📍 ${city}</h3>
-                <div style="font-size: 32px; margin: 10px 0;">🌡️ ${temp}°C</div>
-                <div style="font-size: 18px;">${condition}</div>
-            `;
-            resultElement.style.display = 'block';
-        }
-
-        // Fonction blagues
-        function getRandomJoke() {
-            const jokeResult = document.getElementById('jokeResult');
-            if (!jokeResult) return;
-            
-            if (window.secureChatApp?.androidInterface?.getHttpServerUrl) {
-                const serverUrl = window.secureChatApp.androidInterface.getHttpServerUrl();
-                fetch(`${serverUrl}/api/jokes/random`)
-                    .then(response => response.json())
-                    .then(data => {
-                        jokeResult.innerHTML = data.joke;
-                    })
-                    .catch(error => {
-                        console.error('Erreur API blagues:', error);
-                        getRandomJokeFallback(jokeResult);
-                    });
-            } else {
-                getRandomJokeFallback(jokeResult);
-            }
-        }
-
-        function getRandomJokeFallback(resultElement) {
-            const jokes = [
-                "Pourquoi les plongeurs plongent-ils toujours en arrière ? Parce que sinon, ils tombent dans le bateau ! 😂",
-                "Comment appelle-t-on un chat tombé dans un pot de peinture ? Un chat-mallow ! 🎨",
-                "Que dit un escargot quand il croise une limace ? 'Regarde le nudiste !' 🐌",
-                "Qu'est-ce qu'un crocodile qui surveille une école ? Un Lacoste Gardien ! 🐊",
-                "Pourquoi les poissons n'aiment pas jouer au tennis ? Parce qu'ils ont peur du filet ! 🐟"
-            ];
-            resultElement.innerHTML = jokes[Math.floor(Math.random() * jokes.length)];
-        }
-
-        // Fonction conseils
-        function getTip(category) {
-            const tipResult = document.getElementById('tipResult');
-            if (!tipResult) return;
-            
-            if (window.secureChatApp?.androidInterface?.getHttpServerUrl) {
-                const serverUrl = window.secureChatApp.androidInterface.getHttpServerUrl();
-                fetch(`${serverUrl}/api/tips/${encodeURIComponent(category)}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        tipResult.innerHTML = data.tip;
-                    })
-                    .catch(error => {
-                        console.error('Erreur API conseils:', error);
-                        getTipFallback(category, tipResult);
-                    });
-            } else {
-                getTipFallback(category, tipResult);
-            }
-        }
-
-        function getTipFallback(category, resultElement) {
-            const tips = {
-                productivity: "🏆 Technique Pomodoro : Travaillez 25 minutes, puis faites une pause de 5 minutes. Répétez 4 fois, puis prenez une pause de 15-30 minutes.",
-                health: "💧 Buvez un grand verre d'eau dès le réveil pour réhydrater votre corps après la nuit. Votre cerveau vous remerciera !",
-                tech: "🔐 Utilisez un gestionnaire de mots de passe pour créer et stocker des mots de passe uniques et forts pour chaque compte.",
-                lifestyle: "📚 Lisez 10 pages par jour. En un an, vous aurez lu environ 3650 pages, soit environ 12 livres !"
-            };
-            resultElement.innerHTML = tips[category] || "Conseil non disponible";
-        }
-
-        // Fonctions de navigation
-        function showInfo() {
-            const modal = document.getElementById('infoModal');
-            modal.style.display = 'block';
-            checkServerStatus();
-        }
-
-        function closeInfo() {
-            document.getElementById('infoModal').style.display = 'none';
-        }
-
-        function checkServerStatus() {
-            const httpStatus = document.getElementById('httpStatus');
-            const wsStatus = document.getElementById('wsStatus');
-            const aiStatus = document.getElementById('aiStatus');
-            
-            if (window.secureChatApp?.androidInterface) {
-                try {
-                    const httpUrl = window.secureChatApp.androidInterface.getHttpServerUrl?.();
-                    if (httpUrl) {
-                        httpStatus.innerHTML = '✅ Actif (' + httpUrl + ')';
-                        httpStatus.style.color = 'green';
-                    } else {
-                        httpStatus.innerHTML = '❌ Inactif';
-                        httpStatus.style.color = 'red';
-                    }
-                } catch (e) {
-                    httpStatus.innerHTML = '❌ Erreur';
-                    httpStatus.style.color = 'red';
+                    console.log('[GGUF] Toggle button initialized');
                 }
-                
-                try {
-                    const wsCount = window.secureChatApp.androidInterface.getWebSocketClientsCount?.() || 'N/A';
-                    wsStatus.innerHTML = '✅ Actif (' + wsCount + ' clients)';
-                    wsStatus.style.color = 'green';
-                } catch (e) {
-                    wsStatus.innerHTML = '❌ Erreur';
-                    wsStatus.style.color = 'red';
-                }
-                
-                try {
-                    const aiStats = window.secureChatApp.androidInterface.getAIServiceStats?.();
-                    if (aiStats && aiStats.includes('healthy')) {
-                        aiStatus.innerHTML = '✅ Actif';
-                        aiStatus.style.color = 'green';
-                    } else {
-                        aiStatus.innerHTML = '❌ Inactif';
-                        aiStatus.style.color = 'red';
-                    }
-                } catch (e) {
-                    aiStatus.innerHTML = '❌ Erreur';
-                    aiStatus.style.color = 'red';
-                }
-            } else {
-                httpStatus.innerHTML = '❌ Interface non disponible';
-                wsStatus.innerHTML = '❌ Interface non disponible';
-                aiStatus.innerHTML = '❌ Interface non disponible';
             }
-        }
-
-        function testServers() {
-            const button = event.target;
-            button.innerHTML = '🔄 Test en cours...';
-            button.disabled = true;
-            
-            setTimeout(() => {
-                if (window.secureChatApp?.androidInterface) {
-                    const httpUrl = window.secureChatApp.androidInterface.getHttpServerUrl?.();
-                    if (httpUrl) {
-                        fetch(httpUrl + '/api/status')
-                            .then(response => response.json())
-                            .then(data => {
-                                alert('✅ Serveur HTTP : ' + data.server + ' (Version ' + data.version + ')');
-                            })
-                            .catch(error => {
-                                alert('❌ Erreur serveur HTTP : ' + error.message);
-                            });
-                    } else {
-                        alert('❌ Serveur HTTP non disponible');
-                    }
-                } else {
-                    alert('❌ Interface Android non disponible');
-                }
-                
-                button.innerHTML = '🧪 Tester les Serveurs';
-                button.disabled = false;
-            }, 1000);
-        }
+            // Try immediately, or wait for DOM
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', setupGGUFToggle);
+            } else {
+                // DOM already loaded, try with a small delay for dynamic content
+                setTimeout(setupGGUFToggle, 100);
+            }
+        })();
 
         function openSettings() {
             if (window.secureChatApp?.androidInterface?.openSettingsActivity) {
@@ -1712,13 +1456,13 @@
                 serverBtn.addEventListener('click', openServers);
             }
             
-          // ⭐ MODIFIÉ: Lister les modèles (fonctionne avec Hugging Face ou Ollama selon provider)
+          // [*] MODIFIÉ: Lister les modèles (fonctionne avec Hugging Face ou Ollama selon provider)
           const listModelsBtn = document.getElementById('listCloudModelsBtn');
           if (listModelsBtn) {
               listModelsBtn.addEventListener('click', listCloudModels);
           }
           
-          // ⭐ MODIFIÉ: Test de connexion Cloud (router selon provider sélectionné)
+          // [*] MODIFIÉ: Test de connexion Cloud (router selon provider sélectionné)
           // Note: Les boutons de test individuels (testHuggingFaceBtn, etc.) sont gérés plus haut
           const testCloudBtn = document.getElementById('testCloudConnectionBtn');
           if (testCloudBtn) {
@@ -1737,7 +1481,7 @@
               });
           }
           
-          // ⭐ NOUVEAU: Test serveur TTS
+          // [*] NOUVEAU: Test serveur TTS
           const testTtsServerBtn = document.getElementById('testTtsServerBtn');
           if (testTtsServerBtn) {
               testTtsServerBtn.addEventListener('click', async function() {
@@ -1745,7 +1489,7 @@
               });
           }
           
-          // ⭐ NOUVEAU: Test synthèse TTS
+          // [*] NOUVEAU: Test synthèse TTS
           const testTtsBtn = document.getElementById('testTtsBtn');
           if (testTtsBtn) {
               testTtsBtn.addEventListener('click', async function() {
@@ -1754,7 +1498,7 @@
               });
           }
           
-          // ⭐ NOUVEAU: Vérifier fichiers TTS ONNX
+          // [*] NOUVEAU: Vérifier fichiers TTS ONNX
           const checkTtsFilesBtn = document.getElementById('checkTtsFilesBtn');
           if (checkTtsFilesBtn) {
               checkTtsFilesBtn.addEventListener('click', async function() {
@@ -1762,44 +1506,209 @@
               });
           }
           
-          // ⭐ NOUVEAU: Vérifier statut serveur TTS au chargement
+          // [*] NOUVEAU: Vérifier statut serveur TTS au chargement
           checkTtsServerStatus();
           
-          // ⭐ NOUVEAU: Gestion dynamique de l'affichage selon le mode (Cloud/Local) dans Général
+          // [*] SIMPLIFIÉ: Gestion dynamique de l'affichage selon le mode API (Hugging Face / Ollama Cloud)
           const modeSelect = document.getElementById('configModeSelect');
-          const cloudModelSection = document.getElementById('generalCloudModelSection');
-          const localModelSection = document.getElementById('generalLocalModelSection');
+          const localGGUFModelSection = document.getElementById('generalLocalGGUFModelSection');
+          const huggingFaceModelSection = document.getElementById('generalHuggingFaceModelSection');
+          const ollamaCloudModelSection = document.getElementById('generalOllamaCloudModelSection');
           
-          function updateModelSectionVisibility() {
-              if (!modeSelect || !cloudModelSection || !localModelSection) return;
+          // [*] FIX: Flag pour éviter les scans multiples simultanés
+          let isScanningGGUF = false;
+          
+          // [*] FIX: Rendre la fonction globale pour qu'elle puisse être appelée depuis chat-config.js
+          window.updateModelSectionVisibility = function updateModelSectionVisibility() {
+              if (!modeSelect) return;
               
               const mode = modeSelect.value;
-              if (mode === 'cloud') {
-                  cloudModelSection.style.display = 'block';
-                  localModelSection.style.display = 'none';
-              } else if (mode === 'local') {
-                  cloudModelSection.style.display = 'none';
-                  localModelSection.style.display = 'block';
-                  // Scanner les modèles locaux si pas déjà fait
-                  if (document.getElementById('configLocalDeviceModel')?.options.length <= 1) {
-                      loadLocalDeviceModels();
+              
+              // Masquer toutes les sections par défaut
+              if (localGGUFModelSection) localGGUFModelSection.style.display = 'none';
+              if (huggingFaceModelSection) huggingFaceModelSection.style.display = 'none';
+              if (ollamaCloudModelSection) ollamaCloudModelSection.style.display = 'none';
+              
+              // Afficher la section correspondante au mode sélectionné
+              if (mode === 'local_gguf') {
+                  if (localGGUFModelSection) {
+                      localGGUFModelSection.style.display = 'block';
+                      // S'assurer que le bouton est visible
+                      const refreshBtn = document.getElementById('refreshLocalGGUFModelsBtn');
+                      if (refreshBtn) {
+                          refreshBtn.style.display = 'inline-block';
+                      }
+                  }
+                  // [*] FIX: Scanner UNE SEULE FOIS avec un délai pour éviter les scans multiples
+                  if (!isScanningGGUF && typeof window.scanLocalGGUFModels === 'function') {
+                      setTimeout(() => {
+                          if (!isScanningGGUF) {
+                              console.log('🔄 Mode Local GGUF sélectionné, scan automatique...');
+                              window.scanLocalGGUFModels();
+                          }
+                      }, 200);
+                  }
+              } else if (mode === 'huggingface') {
+                  if (huggingFaceModelSection) huggingFaceModelSection.style.display = 'block';
+              } else if (mode === 'ollama_cloud') {
+                  if (ollamaCloudModelSection) ollamaCloudModelSection.style.display = 'block';
+              }
+          };
+          
+          // GGUF Advanced Settings Toggle - fonction globale
+          window.toggleGGUFAdvancedParams = function() {
+              const btn = document.getElementById('toggleGGUFAdvanced');
+              const params = document.getElementById('ggufAdvancedParams');
+              if (btn && params) {
+                  const isHidden = params.style.display === 'none' || params.style.display === '';
+                  params.style.display = isHidden ? 'block' : 'none';
+                  btn.textContent = isHidden ? 'Masquer' : 'Avance';
+                  console.log('[GGUF] Advanced params toggled:', isHidden ? 'visible' : 'hidden');
+              }
+          };
+          
+          // GGUF Temperature Slider - update value display
+          const tempSlider = document.getElementById('configGGUFTemperature');
+          const tempValue = document.getElementById('configGGUFTemperatureValue');
+          if (tempSlider && tempValue) {
+              tempSlider.addEventListener('input', function() {
+                  tempValue.textContent = this.value;
+              });
+          }
+          
+          // Scanner les modeles GGUF locaux
+          // Rendre la fonction globale pour qu'elle puisse être appelée depuis d'autres scripts
+          window.scanLocalGGUFModels = async function scanLocalGGUFModels() {
+              // [*] FIX: Éviter les scans multiples simultanés
+              if (isScanningGGUF) {
+                  console.log('⏳ Scan déjà en cours, ignoré...');
+                  return;
+              }
+              
+              const select = document.getElementById('configLocalGGUFModel');
+              const refreshBtn = document.getElementById('refreshLocalGGUFModelsBtn');
+              
+              if (!select) {
+                  console.warn('⚠️ Élément configLocalGGUFModel non trouvé');
+                  return;
+              }
+              
+              isScanningGGUF = true;
+              
+              // Feedback visuel
+              select.innerHTML = '<option value="">⏳ Scanner en cours...</option>';
+              select.disabled = true;
+              if (refreshBtn) {
+                  refreshBtn.disabled = true;
+                  refreshBtn.textContent = '⏳ Scan...';
+              }
+              
+              try {
+                  console.log('🔍 Appel /api/scan-gguf-models...');
+                  
+                  // [*] FIX: Vérifier si le serveur est disponible
+                  let apiUrl = '/api/scan-gguf-models';
+                  if (window.secureChatApp?.androidInterface?.getHttpServerUrl) {
+                      const serverUrl = window.secureChatApp.androidInterface.getHttpServerUrl();
+                      apiUrl = `${serverUrl}/api/scan-gguf-models`;
+                      console.log('🌐 Utilisation URL serveur:', apiUrl);
+                  } else {
+                      console.log('⚠️ getHttpServerUrl non disponible, utilisation URL relative');
+                  }
+                  
+                  // [*] FIX: Vérifier le statut du serveur avant de scanner
+                  try {
+                      const statusUrl = apiUrl.replace('/api/scan-gguf-models', '/api/status');
+                      const statusResponse = await fetch(statusUrl, { method: 'HEAD', timeout: 2000 }).catch(() => null);
+                      if (!statusResponse || !statusResponse.ok) {
+                          throw new Error('Serveur HTTP non disponible. Vérifiez que l\'application est démarrée.');
+                      }
+                  } catch (statusError) {
+                      console.warn('⚠️ Serveur HTTP non disponible:', statusError.message);
+                      // Continuer quand même, le serveur pourrait être en train de démarrer
+                  }
+                  
+                  const response = await fetch(apiUrl);
+                  
+                  if (!response.ok) {
+                      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                  }
+                  
+                  const data = await response.json();
+                  console.log('📦 Données reçues:', data);
+                  
+                  select.innerHTML = '<option value="">- Choisir un modèle -</option>';
+                  
+                  if (data.models && data.models.length > 0) {
+                      data.models.forEach(model => {
+                          const option = document.createElement('option');
+                          option.value = model.name;
+                          option.textContent = `${model.name} (${model.size})`;
+                          select.appendChild(option);
+                      });
+                      console.log(`✅ ${data.models.length} modèle(s) GGUF trouvé(s) et ajouté(s) à la liste`);
+                      
+                      // Afficher un message de succès visuel
+                      if (refreshBtn) {
+                          const originalText = refreshBtn.textContent;
+                          refreshBtn.textContent = '✅ ' + data.models.length + ' modèle(s)';
+                          setTimeout(() => {
+                              refreshBtn.textContent = '🔄 Scanner';
+                          }, 2000);
+                      }
+                  } else {
+                      select.innerHTML = '<option value="">- Aucun modèle GGUF trouvé -</option>';
+                      console.warn('⚠️ Aucun modèle GGUF trouvé dans /storage/emulated/0/ChatAI-Files/models/');
+                      
+                      if (refreshBtn) {
+                          refreshBtn.textContent = '⚠️ Aucun modèle';
+                          setTimeout(() => {
+                              refreshBtn.textContent = '🔄 Scanner';
+                          }, 2000);
+                      }
+                  }
+              } catch (error) {
+                  console.error('❌ Erreur scan modèles GGUF:', error);
+                  const errorMsg = error.message || 'Erreur inconnue';
+                  select.innerHTML = '<option value="">- Erreur: ' + errorMsg.substring(0, 50) + ' -</option>';
+                  
+                  if (refreshBtn) {
+                      refreshBtn.textContent = '❌ Erreur';
+                      setTimeout(() => {
+                          refreshBtn.textContent = '🔄 Scanner';
+                      }, 2000);
+                  }
+              } finally {
+                  isScanningGGUF = false;
+                  select.disabled = false;
+                  if (refreshBtn) {
+                      refreshBtn.disabled = false;
                   }
               }
+          };
+          
+          // [*] NOUVEAU: Bouton scanner modèles GGUF
+          const refreshLocalGGUFModelsBtn = document.getElementById('refreshLocalGGUFModelsBtn');
+          if (refreshLocalGGUFModelsBtn) {
+              refreshLocalGGUFModelsBtn.addEventListener('click', () => {
+                  console.log('🔄 Scan manuel des modèles GGUF demandé...');
+                  scanLocalGGUFModels();
+              });
           }
           
           if (modeSelect) {
               modeSelect.addEventListener('change', updateModelSectionVisibility);
               // Initialiser au chargement
               updateModelSectionVisibility();
+              
+              // [*] FIX: Si le mode est déjà "local_gguf" au chargement, le scan sera fait par updateModelSectionVisibility()
+              // Pas besoin de scan supplémentaire ici pour éviter les doublons
           }
           
-          // ⭐ NOUVEAU: Event listener pour scanner les modèles locaux depuis Général
-          const refreshLocalDeviceModelsBtnGeneral = document.getElementById('refreshLocalDeviceModelsBtn');
-          if (refreshLocalDeviceModelsBtnGeneral) {
-              refreshLocalDeviceModelsBtnGeneral.addEventListener('click', loadLocalDeviceModels);
-          }
+          // [*] SUPPRIMÉ: refreshLocalDeviceModelsBtnGeneral n'existe pas dans le HTML
+          // Le bouton refreshDeviceModelsBtn dans l'onglet Local gère déjà loadLocalDeviceModels()
           
-          // ⭐ NOUVEAU: Event listeners pour les boutons de test des providers cloud
+          // [*] NOUVEAU: Event listeners pour les boutons de test des providers cloud
           const testHuggingFaceBtn = document.getElementById('testHuggingFaceBtn');
           if (testHuggingFaceBtn) {
               testHuggingFaceBtn.addEventListener('click', async function() {
@@ -1817,7 +1726,7 @@
           const testOpenAIBtn = document.getElementById('testOpenAIBtn');
           if (testOpenAIBtn) {
               testOpenAIBtn.addEventListener('click', async function() {
-                  // TODO: Implémenter test connexion OpenAI
+                  // [*] NOTE: Test connexion OpenAI - À implémenter si nécessaire
                   alert('Test de connexion OpenAI - À implémenter');
               });
           }
@@ -1844,7 +1753,7 @@
               const cfg = chatConfig?.aiConfigObject;
               const previousProvider = cfg?.cloud?.provider || 'ollama';
               
-              // ⭐ ÉTAPE 1: Si une clé est saisie dans le champ, la sauvegarder AVANT de changer de provider
+              // [*] ÉTAPE 1: Si une clé est saisie dans le champ, la sauvegarder AVANT de changer de provider
               if (previousProvider && previousProvider !== provider && chatConfig && cfg) {
                   const currentApiKey = apiKeyInput.value?.trim() || '';
                   
@@ -1853,7 +1762,7 @@
                       // Sauvegarder avec le provider actuel
                       if (!cfg.cloud) cfg.cloud = {};
                       cfg.cloud.provider = previousProvider;
-                      cfg.cloud.apiKey = currentApiKey; // ⭐ TOUJOURS inclure apiKey
+                      cfg.cloud.apiKey = currentApiKey; // [*] TOUJOURS inclure apiKey
                       await chatConfig.persistAiConfig(`Clé ${previousProvider} préservée`);
                       console.log(`✅ [updateCloudProviderUI] Clé ${previousProvider} sauvegardée`);
                   } else {
@@ -1861,7 +1770,7 @@
                   }
               }
               
-              // ⭐ ÉTAPE 2: Mettre à jour les labels
+              // [*] ÉTAPE 2: Mettre à jour les labels
               switch(provider) {
                   case 'huggingface':
                       apiKeyLabel.textContent = '🔑 API Key Hugging Face';
@@ -1901,7 +1810,7 @@
                       break;
               }
               
-              // ⭐ ÉTAPE 3: Changer le provider SEULEMENT (sans modifier apiKey)
+              // [*] ÉTAPE 3: Changer le provider SEULEMENT (sans modifier apiKey)
               // On sauvegarde directement le provider sans passer par saveConfigSection
               // pour éviter d'envoyer apiKey = "" qui supprimerait la clé
               if (chatConfig && cfg) {
@@ -1909,7 +1818,7 @@
                   const oldProvider = cfg.cloud.provider;
                   cfg.cloud.provider = provider;
                   
-                  // ⭐ FIX CRITIQUE: Sauvegarder SEULEMENT le provider, sans apiKey
+                  // [*] FIX CRITIQUE: Sauvegarder SEULEMENT le provider, sans apiKey
                   // On construit un JSON minimal avec seulement le provider
                   // Android va voir que apiKey est absent, et va conserver la clé existante
                   // du nouveau provider (si elle existe) ou ne rien faire (si elle n'existe pas)
@@ -1922,10 +1831,10 @@
                   // Sauvegarder directement via writeAiConfigJson
                   if (chatConfig.androidInterface?.writeAiConfigJson) {
                       const jsonStr = JSON.stringify(minimalConfig, null, 2);
-                      console.log(`💾 [updateCloudProviderUI] Sauvegarde provider: ${oldProvider} → ${provider} (sans apiKey)`);
+                      console.log(`💾 [updateCloudProviderUI] Sauvegarde provider: ${oldProvider} -> ${provider} (sans apiKey)`);
                       const result = chatConfig.androidInterface.writeAiConfigJson(jsonStr);
                       if (result === 'OK' || result === true) {
-                          console.log(`✅ [updateCloudProviderUI] Provider changé: ${oldProvider} → ${provider}`);
+                          console.log(`✅ [updateCloudProviderUI] Provider changé: ${oldProvider} -> ${provider}`);
                       } else {
                           console.error('❌ [updateCloudProviderUI] Erreur sauvegarde provider:', result);
                       }
@@ -1936,14 +1845,14 @@
                   }
               }
               
-              // ⭐ ÉTAPE 4: Recharger la config depuis Android
+              // [*] ÉTAPE 4: Recharger la config depuis Android
               // buildJsonFromPreferences() récupère automatiquement la bonne clé selon le provider
               if (chatConfig) {
                   console.log(`🔄 [updateCloudProviderUI] Rechargement config pour provider ${provider}...`);
                   await chatConfig.loadAiConfigPreview(true);
                   await new Promise(resolve => setTimeout(resolve, 300));
                   
-                  // ⭐ FIX: Forcer la mise à jour du champ API key après rechargement
+                  // [*] FIX: Forcer la mise à jour du champ API key après rechargement
                   const updatedCfg = chatConfig.aiConfigObject;
                   console.log(`🔍 [updateCloudProviderUI] DEBUG config après rechargement:`, {
                       hasCloud: !!updatedCfg?.cloud,
@@ -2011,20 +1920,10 @@
               }
           }
           
-          // Gérer l'affichage/masquage de l'input personnalisé pour le modèle Local
-          const localModelSelect = document.getElementById('configLocalModel');
-          const localModelCustomInput = document.getElementById('configLocalModelCustom');
-          if (localModelSelect && localModelCustomInput) {
-              localModelSelect.addEventListener('change', function() {
-                  if (this.value === 'custom') {
-                      localModelCustomInput.classList.remove('hidden');
-                      localModelCustomInput.focus();
-                  } else {
-                      localModelCustomInput.classList.add('hidden');
-                      localModelCustomInput.value = '';
-                  }
-              });
-          }
+          // [*] SUPPRIMÉ: Gestion modèle Local (Ollama PC supprimé)
+          // Plus de configLocalModel dans l'interface
+          // const localModelSelect = document.getElementById('configLocalModel');
+          // const localModelCustomInput = document.getElementById('configLocalModelCustom');
           
           // Gérer l'affichage/masquage des sections TTS selon le moteur sélectionné
           const ttsEngineSelect = document.getElementById('configTtsEngine');
@@ -2034,7 +1933,7 @@
           function updateTtsEngineUI() {
               if (!ttsEngineSelect || !onnxTtsSection || !androidTtsSection) return;
               
-              // ⭐ MODIFIÉ: Android TTS est la seule option disponible (ONNX désactivé temporairement)
+              // [*] MODIFIÉ: Android TTS est la seule option disponible (ONNX désactivé temporairement)
               // Toujours afficher Android TTS, masquer ONNX
               onnxTtsSection.style.display = 'none';
               androidTtsSection.style.display = 'block';
@@ -2046,7 +1945,7 @@
               updateTtsEngineUI();
           }
           
-          // ⭐ MODIFIÉ: Gérer l'affichage/masquage des sections Embeddings selon la source sélectionnée
+          // [*] MODIFIÉ: Gérer l'affichage/masquage des sections Embeddings selon la source sélectionnée
           const embeddingSourceSelect = document.getElementById('configEmbeddingSource');
           const huggingfaceEmbeddingSection = document.getElementById('huggingfaceEmbeddingSection');
           const ollamaEmbeddingSection = document.getElementById('ollamaEmbeddingSection');
@@ -2079,7 +1978,7 @@
               updateEmbeddingSourceUI();
           }
           
-          // ⭐ NOUVEAU: Scanner les modèles ONNX d'embeddings
+          // [*] NOUVEAU: Scanner les modèles ONNX d'embeddings
           function scanOnnxEmbeddingModels() {
               const select = document.getElementById('configOnnxEmbeddingModel');
               if (!select) return;
@@ -2087,10 +1986,10 @@
               // Afficher "Chargement..."
               select.innerHTML = '<option value="">⏳ Scanner en cours...</option>';
               
-              // ⭐ TIMEOUT: Réinitialiser après 5 secondes si le scan échoue
+              // [*] TIMEOUT: Réinitialiser après 5 secondes si le scan échoue
               const timeoutId = setTimeout(() => {
                   if (select.innerHTML.includes('⏳ Scanner en cours...')) {
-                      select.innerHTML = '<option value="">– Scanner les modèles –</option>';
+                      select.innerHTML = '<option value="">- Scanner les modèles -</option>';
                       console.warn('Timeout lors du scan des modèles Embeddings ONNX');
                   }
               }, 5000);
@@ -2109,7 +2008,7 @@
                           m.name.toLowerCase().endsWith('.onnx')
                       );
                       
-                      select.innerHTML = '<option value="">– Choisir un modèle –</option>';
+                      select.innerHTML = '<option value="">- Choisir un modèle -</option>';
                       
                       if (embeddingModels.length === 0) {
                           select.innerHTML += '<option value="" disabled>Aucun modèle Embeddings ONNX trouvé</option>';
@@ -2139,7 +2038,7 @@
               refreshOnnxEmbeddingsBtn.addEventListener('click', scanOnnxEmbeddingModels);
           }
           
-          // ⭐ SUPPRIMÉ: Event listeners pour Ollama PC (plus de support)
+          // [*] SUPPRIMÉ: Event listeners pour Ollama PC (plus de support)
           // const listLocalModelsBtn = document.getElementById('listLocalModelsBtn');
           // if (listLocalModelsBtn) {
           //     listLocalModelsBtn.addEventListener('click', listLocalModels);
@@ -2150,17 +2049,17 @@
           //     testLocalServerBtn.addEventListener('click', testLocalServerConnection);
           // }
           
-          // ⭐ NOUVEAU: Scanner les modèles ONNX Vision
+          // [*] NOUVEAU: Scanner les modèles ONNX Vision
           function scanOnnxVisionModels() {
               const select = document.getElementById('configOnnxVisionModel');
               if (!select) return;
               
               select.innerHTML = '<option value="">⏳ Scanner en cours...</option>';
               
-              // ⭐ TIMEOUT: Réinitialiser après 5 secondes si le scan échoue
+              // [*] TIMEOUT: Réinitialiser après 5 secondes si le scan échoue
               const timeoutId = setTimeout(() => {
                   if (select.innerHTML.includes('⏳ Scanner en cours...')) {
-                      select.innerHTML = '<option value="">– Scanner les modèles –</option>';
+                      select.innerHTML = '<option value="">- Scanner les modèles -</option>';
                       console.warn('Timeout lors du scan des modèles Vision ONNX');
                   }
               }, 5000);
@@ -2179,7 +2078,7 @@
                           (m.name.toLowerCase().includes('vision_model') || m.name.toLowerCase().includes('text_model'))
                       );
                       
-                      select.innerHTML = '<option value="">– Choisir un modèle –</option>';
+                      select.innerHTML = '<option value="">- Choisir un modèle -</option>';
                       
                       if (visionModels.length === 0) {
                           select.innerHTML += '<option value="" disabled>Aucun modèle Vision ONNX trouvé</option>';
@@ -2218,21 +2117,21 @@
           const refreshOnnxVisionBtn = document.getElementById('refreshOnnxVisionBtn');
           if (refreshOnnxVisionBtn) {
               refreshOnnxVisionBtn.addEventListener('click', scanOnnxVisionModels);
-              // ⭐ MODIFIÉ: Ne pas scanner automatiquement au chargement, attendre l'action de l'utilisateur
+              // [*] MODIFIÉ: Ne pas scanner automatiquement au chargement, attendre l'action de l'utilisateur
               // scanOnnxVisionModels();
           }
           
-          // ⭐ NOUVEAU: Scanner les modèles ONNX Translation
+          // [*] NOUVEAU: Scanner les modèles ONNX Translation
           function scanOnnxTranslationModels() {
               const select = document.getElementById('configOnnxTranslationModel');
               if (!select) return;
               
               select.innerHTML = '<option value="">⏳ Scanner en cours...</option>';
               
-              // ⭐ TIMEOUT: Réinitialiser après 5 secondes si le scan échoue
+              // [*] TIMEOUT: Réinitialiser après 5 secondes si le scan échoue
               const timeoutId = setTimeout(() => {
                   if (select.innerHTML.includes('⏳ Scanner en cours...')) {
-                      select.innerHTML = '<option value="">– Scanner les modèles –</option>';
+                      select.innerHTML = '<option value="">- Scanner les modèles -</option>';
                       console.warn('Timeout lors du scan des modèles Translation ONNX');
                   }
               }, 5000);
@@ -2251,7 +2150,7 @@
                           (m.name.toLowerCase().includes('encoder_model') || m.name.toLowerCase().includes('decoder_model'))
                       );
                       
-                      select.innerHTML = '<option value="">– Choisir un modèle –</option>';
+                      select.innerHTML = '<option value="">- Choisir un modèle -</option>';
                       
                       if (translationModels.length === 0) {
                           select.innerHTML += '<option value="" disabled>Aucun modèle Traduction ONNX trouvé</option>';
@@ -2290,11 +2189,11 @@
           const refreshOnnxTranslationBtn = document.getElementById('refreshOnnxTranslationBtn');
           if (refreshOnnxTranslationBtn) {
               refreshOnnxTranslationBtn.addEventListener('click', scanOnnxTranslationModels);
-              // ⭐ MODIFIÉ: Ne pas scanner automatiquement au chargement, attendre l'action de l'utilisateur
+              // [*] MODIFIÉ: Ne pas scanner automatiquement au chargement, attendre l'action de l'utilisateur
               // scanOnnxTranslationModels();
           }
           
-          // ⭐ SUPPRIMÉ: Validation de l'URL Ollama PC (plus de support Ollama PC)
+          // [*] SUPPRIMÉ: Validation de l'URL Ollama PC (plus de support Ollama PC)
           // const localUrlInput = document.getElementById('configLocalUrl');
           // if (localUrlInput) {
           //     localUrlInput.addEventListener('input', validateLocalServerUrl);
@@ -2316,7 +2215,7 @@
 
         // Fonction pour lister les modèles disponibles (sans test de connexion)
         async function listCloudModels() {
-            // ⭐ FIX: Vérifier le provider sélectionné
+            // [*] FIX: Vérifier le provider sélectionné
             const providerSelect = document.getElementById('configCloudProvider');
             const provider = providerSelect ? providerSelect.value : 'ollama';
             
@@ -2445,7 +2344,7 @@
             }
         }
         
-        // ⭐ NOUVEAU: Fonction pour lister les modèles Hugging Face (sans test de connexion)
+        // [*] NOUVEAU: Fonction pour lister les modèles Hugging Face (sans test de connexion)
         async function listHuggingFaceModels() {
             const apiKeyField = document.getElementById('configCloudApiKey');
             const apiKey = apiKeyField.value.trim();
@@ -2596,11 +2495,11 @@
         
         // Fonction de test de connexion Hugging Face
         async function testHuggingFaceConnection() {
-            // ⭐ FIX: Utiliser le bon champ API Key (configHuggingFaceApiKey)
+            // [*] FIX: Utiliser le bon champ API Key (configHuggingFaceApiKey)
             const apiKeyField = document.getElementById('configHuggingFaceApiKey');
             let apiKey = apiKeyField?.value?.trim() || '';
             
-            // ⭐ FIX: Si le champ est vide, essayer de récupérer depuis la config Android
+            // [*] FIX: Si le champ est vide, essayer de récupérer depuis la config Android
             if (!apiKey && window.secureChatApp?.chatConfig) {
                 try {
                     const config = JSON.parse(window.secureChatApp.chatConfig.androidInterface.readAiConfigJson());
@@ -2617,11 +2516,11 @@
             const resultDiv = document.getElementById('cloudTestResult');
             const statusDiv = document.getElementById('cloudTestStatus');
             const detailsDiv = document.getElementById('cloudTestDetails');
-            // ⭐ FIX: Utiliser le bon bouton (testHuggingFaceBtn au lieu de testCloudConnectionBtn)
+            // [*] FIX: Utiliser le bon bouton (testHuggingFaceBtn au lieu de testCloudConnectionBtn)
             const testBtn = document.getElementById('testHuggingFaceBtn');
             const modelsResultDiv = document.getElementById('cloudModelsResult');
             
-            // ⭐ FIX: Vérifier que les éléments DOM existent
+            // [*] FIX: Vérifier que les éléments DOM existent
             if (!resultDiv || !statusDiv || !detailsDiv) {
                 alert('❌ Erreur: Éléments DOM manquants pour afficher les résultats du test');
                 return;
@@ -2669,7 +2568,7 @@
             
             const startTime = Date.now();
             
-            // ⭐ Documentation officielle Hugging Face (Nov 2025):
+            // [*] Documentation officielle Hugging Face (Nov 2025):
             // - Endpoint OpenAI-compatible: https://router.huggingface.co/v1/chat/completions
             // - Endpoint direct models: https://router.huggingface.co/hf-inference/models/{model}
             // Utiliser l'endpoint OpenAI-compatible pour le test (plus standard)
@@ -2819,7 +2718,7 @@
                     }
                 }
                 
-                // ⭐ NOUVEAU: Peupler le dropdown avec les modèles vérifiés ou disponibles
+                // [*] NOUVEAU: Peupler le dropdown avec les modèles vérifiés ou disponibles
                 const modelsToUse = verifiedModels.length > 0 ? verifiedModels : availableModels;
                 if (modelsToUse.length > 0) {
                     // Sauvegarder dans localStorage
@@ -2839,13 +2738,13 @@
                 if (verifiedModels.length > 0) {
                     modelsListHtml = `<br><strong style="color: #059669; margin-top: 8px; display: block;">Modèles disponibles (${verifiedModels.length}):</strong>` +
                         `<div style="max-height: 200px; overflow-y: auto; margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.05); border-radius: 4px;">` +
-                        verifiedModels.map(m => `<div style="padding: 4px 0; font-family: monospace; font-size: 0.9em;">• ${m}</div>`).join('') +
+                        verifiedModels.map(m => `<div style="padding: 4px 0; font-family: monospace; font-size: 0.9em;">- ${m}</div>`).join('') +
                         `</div>` +
                         `<small style="color: #059669; margin-top: 8px; display: block;">✨ ${verifiedModels.length} modèle(s) ajouté(s) au dropdown</small>`;
                 } else if (availableModels.length > 0) {
                     modelsListHtml = `<br><strong style="color: #64748b; margin-top: 8px; display: block;">Modèles populaires (${availableModels.length}):</strong>` +
                         `<div style="max-height: 200px; overflow-y: auto; margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.05); border-radius: 4px;">` +
-                        availableModels.slice(0, 10).map(m => `<div style="padding: 4px 0; font-family: monospace; font-size: 0.9em;">• ${m}</div>`).join('') +
+                        availableModels.slice(0, 10).map(m => `<div style="padding: 4px 0; font-family: monospace; font-size: 0.9em;">- ${m}</div>`).join('') +
                         `</div>` +
                         `<small style="color: #64748b; margin-top: 8px; display: block;">✨ ${availableModels.length} modèle(s) ajouté(s) au dropdown</small>`;
                 }
@@ -2901,7 +2800,7 @@
         }
         
         // Fonction de test de connexion Ollama Cloud (liste + test chat)
-        // ⭐ NOUVEAU: Vérifier statut serveur TTS
+        // [*] NOUVEAU: Vérifier statut serveur TTS
         async function checkTtsServerStatus() {
             const statusText = document.getElementById('ttsServerStatusText');
             if (!statusText) return;
@@ -2914,7 +2813,7 @@
                         statusText.textContent = '✅ Disponible';
                         statusText.style.background = 'rgba(16, 185, 129, 0.2)';
                         statusText.style.color = '#10b981';
-                        // ⭐ NOUVEAU: Mettre à jour les statuts des modèles individuels
+                        // [*] NOUVEAU: Mettre à jour les statuts des modèles individuels
                         await updateOnnxModelsStatus();
                     } else {
                         statusText.textContent = '⚠️ Modèle non chargé';
@@ -2935,7 +2834,7 @@
             }
         }
         
-        // ⭐ NOUVEAU: Mettre à jour les statuts individuels des modèles ONNX
+        // [*] NOUVEAU: Mettre à jour les statuts individuels des modèles ONNX
         async function updateOnnxModelsStatus() {
             const encoderStatus = document.getElementById('encoderStatus');
             const decoderStatus = document.getElementById('decoderStatus');
@@ -2988,7 +2887,7 @@
             }
         }
         
-        // ⭐ NOUVEAU: Mettre à jour les statuts en cas d'erreur
+        // [*] NOUVEAU: Mettre à jour les statuts en cas d'erreur
         function updateOnnxModelsStatusError() {
             const encoderStatus = document.getElementById('encoderStatus');
             const decoderStatus = document.getElementById('decoderStatus');
@@ -3008,7 +2907,7 @@
             }
         }
         
-        // ⭐ NOUVEAU: Vérifier les fichiers TTS ONNX requis
+        // [*] NOUVEAU: Vérifier les fichiers TTS ONNX requis
         async function checkTtsOnnxFiles() {
             const checkBtn = document.getElementById('checkTtsFilesBtn');
             const filesStatusDiv = document.getElementById('ttsFilesStatus');
@@ -3108,7 +3007,7 @@
             }
         }
         
-        // ⭐ NOUVEAU: Tester connexion serveur TTS
+        // [*] NOUVEAU: Tester connexion serveur TTS
         async function testTtsServerConnection() {
             const testBtn = document.getElementById('testTtsServerBtn');
             const statusText = document.getElementById('ttsServerStatusText');
@@ -3128,7 +3027,7 @@
                             statusText.style.background = 'rgba(16, 185, 129, 0.2)';
                             statusText.style.color = '#10b981';
                         }
-                        // ⭐ NOUVEAU: Mettre à jour les statuts des modèles individuels
+                        // [*] NOUVEAU: Mettre à jour les statuts des modèles individuels
                         await updateOnnxModelsStatus();
                         alert('✅ Serveur TTS disponible\n\nModèle chargé: ' + (data.model_loaded ? 'Oui' : 'Non'));
                     } else {
@@ -3155,8 +3054,8 @@
             }
         }
         
-        // ⭐ NOUVEAU: Tester synthèse vocale
-        // ⭐ MODIFIÉ: Meilleure gestion erreurs et vérifications
+        // [*] NOUVEAU: Tester synthèse vocale
+        // [*] MODIFIÉ: Meilleure gestion erreurs et vérifications
         async function testTtsSynthesis(text) {
             const testBtn = document.getElementById('testTtsBtn');
             const voiceSelect = document.getElementById('configOnnxTtsVoice');
@@ -3174,7 +3073,7 @@
             }
             
             try {
-                console.log('🔊 Test TTS: "' + text.trim() + '" (voix: ' + selectedVoice + ')');
+                console.log('�� Test TTS: "' + text.trim() + '" (voix: ' + selectedVoice + ')');
                 
                 const response = await fetch('http://127.0.0.1:11401/synthesize', {
                     method: 'POST',
@@ -3190,7 +3089,7 @@
                 if (response.ok) {
                     const audioBlob = await response.blob();
                     
-                    // ⭐ NOUVEAU: Vérifier taille audio
+                    // [*] NOUVEAU: Vérifier taille audio
                     if (audioBlob.size < 1000) {
                         throw new Error('Audio trop petit (' + audioBlob.size + ' bytes) - probablement une erreur de synthèse');
                     }
@@ -3204,7 +3103,7 @@
                         audioElement.style.display = 'block';
                         audioElement.volume = 1.0; // Forcer volume max
                         
-                        // ⭐ NOUVEAU: Meilleure gestion de la lecture audio
+                        // [*] NOUVEAU: Meilleure gestion de la lecture audio
                         const playPromise = audioElement.play();
                         
                         if (playPromise !== undefined) {
@@ -3221,7 +3120,7 @@
                                         if (testBtn) {
                                             testBtn.textContent = '✅ Synthèse réussie';
                                             setTimeout(() => {
-                                                testBtn.textContent = '🔊 Tester TTS';
+                                                testBtn.textContent = '�� Tester TTS';
                                             }, 2000);
                                         }
                                     }, { once: true });
@@ -3232,7 +3131,7 @@
                                         console.error('❌ Erreur lecture audio:', e);
                                         alert('❌ Erreur lecture audio\n\nVérifiez:\n- Volume système\n- Permissions audio\n- Format audio supporté');
                                         if (testBtn) {
-                                            testBtn.textContent = '🔊 Tester TTS';
+                                            testBtn.textContent = '�� Tester TTS';
                                         }
                                     }, { once: true });
                                 })
@@ -3241,16 +3140,16 @@
                                     let errorMsg = '❌ Erreur lecture audio\n\n' + e.message;
                                     
                                     if (e.name === 'NotAllowedError') {
-                                        errorMsg += '\n\n→ Permission audio refusée\n→ Cliquez sur la page pour autoriser la lecture audio';
+                                        errorMsg += '\n\n-> Permission audio refusée\n-> Cliquez sur la page pour autoriser la lecture audio';
                                     } else if (e.name === 'NotSupportedError') {
-                                        errorMsg += '\n\n→ Format audio non supporté';
+                                        errorMsg += '\n\n-> Format audio non supporté';
                                     } else {
                                         errorMsg += '\n\nVérifiez:\n- Volume système\n- Permissions audio';
                                     }
                                     
                                     alert(errorMsg);
                                     if (testBtn) {
-                                        testBtn.textContent = '🔊 Tester TTS';
+                                        testBtn.textContent = '�� Tester TTS';
                                     }
                                 });
                         } else {
@@ -3258,7 +3157,7 @@
                             if (testBtn) {
                                 testBtn.textContent = '✅ Synthèse réussie';
                                 setTimeout(() => {
-                                    testBtn.textContent = '🔊 Tester TTS';
+                                    testBtn.textContent = '�� Tester TTS';
                                 }, 2000);
                             }
                         }
@@ -3271,11 +3170,11 @@
                     
                     if (response.status === 503) {
                         errorMsg += ': Service TTS non disponible\n\n';
-                        errorMsg += '→ Modèles ONNX non chargés\n';
-                        errorMsg += '→ Vérifiez que les modèles sont dans: /storage/emulated/0/ChatAI-Files/models/tts/';
+                        errorMsg += '-> Modèles ONNX non chargés\n';
+                        errorMsg += '-> Vérifiez que les modèles sont dans: /storage/emulated/0/ChatAI-Files/models/tts/';
                     } else if (response.status === 500) {
                         errorMsg += ': Erreur synthèse vocale\n\n';
-                        errorMsg += '→ Vérifiez les logs Android (logcat)';
+                        errorMsg += '-> Vérifiez les logs Android (logcat)';
                     } else {
                         errorMsg += ': ' + errorText;
                     }
@@ -3288,8 +3187,8 @@
                 let errorMsg = '❌ Erreur synthèse vocale\n\n' + e.message;
                 
                 if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
-                    errorMsg += '\n\n→ Serveur TTS non accessible\n';
-                    errorMsg += '→ Vérifiez que le serveur TTS est démarré (port 11401)';
+                    errorMsg += '\n\n-> Serveur TTS non accessible\n';
+                    errorMsg += '-> Vérifiez que le serveur TTS est démarré (port 11401)';
                 }
                 
                 alert(errorMsg);
@@ -3297,13 +3196,13 @@
                 if (testBtn) {
                     testBtn.disabled = false;
                     if (testBtn.textContent === '🔄 Synthèse en cours...') {
-                        testBtn.textContent = '🔊 Tester TTS';
+                        testBtn.textContent = '�� Tester TTS';
                     }
                 }
             }
         }
         
-        // ⭐ SUPPRIMÉ: Fonction pour lister les modèles Ollama PC (plus de support)
+        // [*] SUPPRIMÉ: Fonction pour lister les modèles Ollama PC (plus de support)
         /*
         async function listLocalModels() {
             const urlField = document.getElementById('configLocalUrl');
@@ -3382,7 +3281,8 @@
                 saveLocalModelsToStorage(availableModels);
                 
                 // Peupler le dropdown avec les modèles découverts
-                populateLocalModelDropdown(availableModels);
+                // [*] SUPPRIMÉ: populateLocalModelDropdown (Ollama PC supprimé)
+                // populateLocalModelDropdown(availableModels);
                 
                 // Afficher les modèles disponibles
                 modelsResultDiv.style.background = 'rgba(139, 92, 246, 0.1)';
@@ -3399,7 +3299,8 @@
                     // Rendre les modèles cliquables
                     modelsListDiv.querySelectorAll('.clickable-local-model').forEach(span => {
                         span.addEventListener('click', function() {
-                            selectLocalModelFromList(this.getAttribute('data-model'));
+                            // [*] SUPPRIMÉ: selectLocalModelFromList (Ollama PC supprimé)
+                            // selectLocalModelFromList(this.getAttribute('data-model'));
                         });
                     });
                 } else {
@@ -3430,7 +3331,8 @@
             }
         }
         
-        // ⭐ NOUVEAU: Fonction pour sauvegarder la liste des modèles locaux dans localStorage
+        // [*] SUPPRIMÉ: Fonctions pour sauvegarder/charger modèles Ollama PC (plus de support)
+        /*
         function saveLocalModelsToStorage(models) {
             try {
                 localStorage.setItem('ollama_local_models', JSON.stringify(models));
@@ -3440,7 +3342,6 @@
             }
         }
         
-        // ⭐ NOUVEAU: Fonction pour charger la liste des modèles locaux depuis localStorage
         function loadLocalModelsFromStorage() {
             try {
                 const modelsJson = localStorage.getItem('ollama_local_models');
@@ -3465,8 +3366,10 @@
             }
             return null;
         }
+        */
         
-        // ⭐ NOUVEAU: Fonction pour peupler le dropdown local avec les modèles découverts
+        // [*] SUPPRIMÉ: Fonction pour peupler le dropdown local (Ollama PC supprimé)
+        /*
         function populateLocalModelDropdown(models) {
             const dropdown = document.getElementById('configLocalModel');
             if (!dropdown) return;
@@ -3474,15 +3377,15 @@
             // Sauvegarder la valeur actuelle si elle existe
             const currentValue = dropdown.value;
             
-            // Vider le dropdown (garder seulement "– Choisir –" et "Autre (personnalisé)")
+            // Vider le dropdown (garder seulement "- Choisir -" et "Autre (personnalisé)")
             while (dropdown.children.length > 0) {
                 dropdown.removeChild(dropdown.firstChild);
             }
             
-            // Ajouter "– Choisir –"
+            // Ajouter "- Choisir -"
             const chooseOption = document.createElement('option');
             chooseOption.value = '';
-            chooseOption.textContent = '– Choisir –';
+            chooseOption.textContent = '- Choisir -';
             dropdown.appendChild(chooseOption);
             
             // Ajouter tous les modèles découverts
@@ -3506,8 +3409,9 @@
                 dropdown.value = 'custom';
             }
         }
+        */
         
-        // ⭐ SUPPRIMÉ: Fonction pour valider l'URL Ollama PC (plus de support)
+        // [*] SUPPRIMÉ: Fonction pour valider l'URL Ollama PC (plus de support)
         /*
         function validateLocalServerUrl() {
             const urlField = document.getElementById('configLocalUrl');
@@ -3546,7 +3450,7 @@
             }
         }
         
-        // ⭐ SUPPRIMÉ: Fonction pour tester la connexion Ollama PC (plus de support)
+        // [*] SUPPRIMÉ: Fonction pour tester la connexion Ollama PC (plus de support)
         async function testLocalServerConnection() {
             const urlField = document.getElementById('configLocalUrl');
             const serverUrl = urlField.value.trim();
@@ -3684,8 +3588,9 @@
                 testBtn.innerHTML = '🔍 Tester connexion serveur';
             }
         }
+        */
         
-        // ⭐ NOUVEAU: Fonction pour mettre à jour le statut visuel du serveur
+        // [*] NOUVEAU: Fonction pour mettre à jour le statut visuel du serveur
         function updateLocalServerStatus(status, url = '') {
             const statusDot = document.getElementById('localServerStatusDot');
             const statusText = document.getElementById('localServerStatusText');
@@ -3715,28 +3620,72 @@
             }
         }
         
-        // ⭐ NOUVEAU: Fonction pour charger les modèles locaux du device
-        async function loadLocalDeviceModels() {
+        // [*] NOUVEAU: Fonction pour charger les modèles locaux du device
+        // Rendre la fonction globale pour qu'elle puisse être appelée depuis chat-config.js
+        window.loadLocalDeviceModels = async function loadLocalDeviceModels() {
             const modelsListDiv = document.getElementById('localDeviceModelsList');
             if (!modelsListDiv) return;
             
             modelsListDiv.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 20px;">⏳ Chargement des modèles...</div>';
             
             try {
-                // Appel Android pour scanner les modèles
-                if (window.AndroidApp && window.AndroidApp.scanLocalDeviceModels) {
-                    const modelsJson = window.AndroidApp.scanLocalDeviceModels();
-                    const models = JSON.parse(modelsJson || '[]');
+                // [*] UTILISER L'ENDPOINT HTTP /api/scan-gguf-models
+                // [*] FIX: Utiliser l'URL du serveur HTTP (port 8080) si disponible
+                let apiUrl = '/api/scan-gguf-models';
+                if (window.secureChatApp?.androidInterface?.getHttpServerUrl) {
+                    const serverUrl = window.secureChatApp.androidInterface.getHttpServerUrl();
+                    apiUrl = `${serverUrl}/api/scan-gguf-models`;
+                    console.log('🌐 [loadLocalDeviceModels] Utilisation URL serveur:', apiUrl);
+                } else {
+                    console.log('⚠️ [loadLocalDeviceModels] getHttpServerUrl non disponible, utilisation URL relative');
+                }
+                
+                console.log('📡 [loadLocalDeviceModels] Appel API:', apiUrl);
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    const errorText = await response.text().catch(() => 'Pas de détails');
+                    console.error('❌ [loadLocalDeviceModels] Erreur HTTP:', response.status, errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}. Détails: ${errorText.substring(0, 200)}`);
+                }
+                
+                const data = await response.json();
+                console.log('✅ [loadLocalDeviceModels] Données reçues:', data);
+                const models = data.models || [];
                     
-                    if (models.length === 0) {
-                        modelsListDiv.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 20px;">Aucun modèle GGUF trouvé sur le device.<br>Localisation: <code>/storage/emulated/0/ChatAI-Files/models/</code></div>';
-                        return;
-                    }
+                if (models.length === 0) {
+                    modelsListDiv.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 20px;">Aucun modèle GGUF trouvé sur le device.<br>Localisation: <code>/storage/emulated/0/ChatAI-Files/models/</code><br><br>💡 <strong>Astuce:</strong> Placez vos fichiers .gguf dans ce répertoire et cliquez sur "🔄 Actualiser liste".</div>';
+                    return;
+                }
+                
+                // Fonction helper pour convertir "278.5 MB" en bytes
+                function parseFileSize(sizeStr) {
+                    if (typeof sizeStr !== 'string') return 0;
+                    const match = sizeStr.match(/([\d.]+)\s*(MB|GB|KB|bytes?)/i);
+                    if (!match) return 0;
+                    const value = parseFloat(match[1]);
+                    const unit = match[2].toUpperCase();
+                    if (unit === 'GB') return value * 1024 * 1024 * 1024;
+                    if (unit === 'MB') return value * 1024 * 1024;
+                    if (unit === 'KB') return value * 1024;
+                    return value;
+                }
+                
+                // Convertir les modèles au format attendu
+                // Le serveur retourne size comme string formatée (ex: "278.5 MB")
+                const formattedModels = models.map(m => ({
+                    name: m.name,
+                    size: m.size, // Garder la string formatée pour l'affichage
+                    sizeBytes: parseFileSize(m.size), // Convertir en bytes pour les calculs
+                    category: 'GGUF',
+                    type: 'GGUF',
+                    path: m.path
+                }));
                     
                     // Grouper par catégorie
                     const groupedByCategory = {};
-                    models.forEach(m => {
-                        const cat = m.category || 'Autre';
+                    formattedModels.forEach(m => {
+                        const cat = m.category || 'GGUF';
                         if (!groupedByCategory[cat]) {
                             groupedByCategory[cat] = [];
                         }
@@ -3746,8 +3695,9 @@
                     // Afficher les modèles groupés par catégorie
                     modelsListDiv.innerHTML = Object.keys(groupedByCategory).sort().map(category => {
                         const categoryModels = groupedByCategory[category];
-                        const totalSize = categoryModels.reduce((sum, m) => sum + m.size, 0);
-                        const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(1);
+                        // Calculer la taille totale en utilisant sizeBytes
+                        const totalSizeBytes = categoryModels.reduce((sum, m) => sum + (m.sizeBytes || 0), 0);
+                        const totalSizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(1);
                         
                         return `
                             <div style="margin-bottom: 12px;">
@@ -3755,30 +3705,43 @@
                                     ${category} (${categoryModels.length} modèle${categoryModels.length > 1 ? 's' : ''}, ${totalSizeMB} MB)
                                 </div>
                                 ${categoryModels.map(m => {
-                                    const size = (m.size / (1024 * 1024)).toFixed(1); // MB
+                                    // Utiliser la taille formatée directement (ex: "278.5 MB")
+                                    const sizeDisplay = m.size || '0 MB';
                                     const typeBadge = m.type ? `<span style="font-size: 9px; padding: 2px 6px; background: rgba(59, 130, 246, 0.2); border-radius: 3px; color: #3b82f6; margin-left: 6px;">${m.type}</span>` : '';
-                                    return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; margin-left: 12px; margin-bottom: 3px; background: rgba(148, 163, 184, 0.05); border-radius: 4px;">
+                                    return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; margin-left: 12px; margin-bottom: 3px; background: rgba(148, 163, 184, 0.05); border-radius: 4px; cursor: pointer;" onclick="selectGGUFModel('${m.name.replace(/'/g, "\\'")}')" title="Cliquer pour sélectionner ce modèle">
                                         <span style="font-size: 11px; font-weight: 500; display: flex; align-items: center;">
                                             ${m.name}
                                             ${typeBadge}
                                         </span>
-                                        <span style="font-size: 10px; color: #94a3b8;">${size} MB</span>
+                                        <span style="font-size: 10px; color: #94a3b8;">${sizeDisplay}</span>
                                     </div>`;
                                 }).join('')}
                             </div>
                         `;
                     }).join('');
-                } else {
-                    // Fallback: Afficher message si API non disponible
-                    modelsListDiv.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 20px;">API Android non disponible. Scanner manuel requis.</div>';
-                }
+                // Plus de fallback nécessaire, on utilise toujours l'endpoint HTTP
             } catch (error) {
                 console.error('Erreur lors du chargement des modèles device:', error);
-                modelsListDiv.innerHTML = `<div style="font-size: 11px; color: #f87171; text-align: center; padding: 20px;">❌ Erreur: ${error.message}</div>`;
+                modelsListDiv.innerHTML = `<div style="font-size: 11px; color: #f87171; text-align: center; padding: 20px;">❌ Erreur: ${error.message}<br><br>💡 Vérifiez que le serveur HTTP (port 8080) est démarré et que le répertoire /storage/emulated/0/ChatAI-Files/models/ existe.<br><br>🔍 Détails: ${error.stack || 'Aucun détail disponible'}</div>`;
+            }
+        };
+        
+        // [*] NOUVEAU: Fonction pour sélectionner un modèle GGUF depuis la liste
+        function selectGGUFModel(modelName) {
+            const configLocalGGUFModel = document.getElementById('configLocalGGUFModel');
+            if (configLocalGGUFModel) {
+                configLocalGGUFModel.value = modelName;
+                console.log(`✅ Modèle GGUF sélectionné: ${modelName}`);
+                // Optionnel: Afficher une notification
+                if (window.showNotification) {
+                    showNotification(`Modèle sélectionné: ${modelName}`, 'success');
+                }
             }
         }
         
-        // ⭐ NOUVEAU: Fonction pour sélectionner un modèle local depuis la liste
+        // [*] NOUVEAU: Fonction pour sélectionner un modèle local depuis la liste
+        // [*] SUPPRIMÉ: Fonction selectLocalModelFromList (Ollama PC supprimé)
+        /*
         function selectLocalModelFromList(modelName) {
             const dropdown = document.getElementById('configLocalModel');
             const customInput = document.getElementById('configLocalModelCustom');
@@ -3834,13 +3797,14 @@
                 });
             }
         }
+        */
         
         async function testOllamaCloudConnection() {
-            // ⭐ FIX: Utiliser le bon champ API Key (configOllamaCloudApiKey)
+            // [*] FIX: Utiliser le bon champ API Key (configOllamaCloudApiKey)
             const apiKeyField = document.getElementById('configOllamaCloudApiKey');
             let apiKey = apiKeyField?.value?.trim() || '';
             
-            // ⭐ FIX: Si le champ est vide, essayer de récupérer depuis la config Android
+            // [*] FIX: Si le champ est vide, essayer de récupérer depuis la config Android
             if (!apiKey && window.secureChatApp?.chatConfig) {
                 try {
                     const config = JSON.parse(window.secureChatApp.chatConfig.androidInterface.readAiConfigJson());
@@ -3867,10 +3831,10 @@
             const resultDiv = document.getElementById('cloudTestResult');
             const statusDiv = document.getElementById('cloudTestStatus');
             const detailsDiv = document.getElementById('cloudTestDetails');
-            // ⭐ FIX: Utiliser le bon bouton (testOllamaCloudBtn)
+            // [*] FIX: Utiliser le bon bouton (testOllamaCloudBtn)
             const testBtn = document.getElementById('testOllamaCloudBtn');
             
-            // ⭐ FIX: Vérifier que les éléments DOM existent
+            // [*] FIX: Vérifier que les éléments DOM existent
             if (!resultDiv || !statusDiv || !detailsDiv) {
                 alert('❌ Erreur: Éléments DOM manquants pour afficher les résultats du test');
                 return;
@@ -4178,15 +4142,15 @@
             // Sauvegarder la valeur actuelle si elle existe
             const currentValue = dropdown.value;
             
-            // Vider le dropdown (garder seulement "– Choisir –" et "Autre (personnalisé)")
+            // Vider le dropdown (garder seulement "- Choisir -" et "Autre (personnalisé)")
             while (dropdown.children.length > 0) {
                 dropdown.removeChild(dropdown.firstChild);
             }
             
-            // Ajouter "– Choisir –"
+            // Ajouter "- Choisir -"
             const chooseOption = document.createElement('option');
             chooseOption.value = '';
-            chooseOption.textContent = '– Choisir –';
+            chooseOption.textContent = '- Choisir -';
             dropdown.appendChild(chooseOption);
             
             // Ajouter tous les modèles découverts

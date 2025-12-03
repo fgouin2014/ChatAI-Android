@@ -330,6 +330,12 @@ public class WebServer {
                 serveLogsFile(outputStream, cleanPath, method, enableSharedArrayBuffer);
                 return;
             }
+            
+            // ⭐ NOUVEAU : API pour scanner les modèles GGUF
+            if (cleanPath.equals("/api/scan-gguf-models")) {
+                serveScanGGUFModels(outputStream);
+                return;
+            }
 
             
             // Construire le chemin complet
@@ -399,6 +405,64 @@ public class WebServer {
         } catch (IOException e) {
             Log.e(TAG, "Erreur lors du service du fichier relax: " + path, e);
             sendErrorResponse(outputStream, 404, "Not Found");
+        }
+    }
+    
+    /**
+     * ⭐ NOUVEAU : API pour scanner les modèles GGUF dans /storage/emulated/0/ChatAI-Files/models/
+     * Retourne une liste JSON des fichiers .gguf trouvés
+     */
+    private void serveScanGGUFModels(OutputStream outputStream) throws IOException {
+        try {
+            File modelsDir = new File("/storage/emulated/0/ChatAI-Files/models");
+            java.util.List<java.util.Map<String, String>> models = new java.util.ArrayList<>();
+            
+            if (modelsDir.exists() && modelsDir.isDirectory()) {
+                File[] files = modelsDir.listFiles();
+                if (files != null) {
+                    for (File file : files) {
+                        if (file.isFile() && file.getName().toLowerCase().endsWith(".gguf")) {
+                            java.util.Map<String, String> modelInfo = new java.util.HashMap<>();
+                            modelInfo.put("name", file.getName());
+                            modelInfo.put("size", formatFileSize(file.length()));
+                            modelInfo.put("path", file.getAbsolutePath());
+                            models.add(modelInfo);
+                        }
+                    }
+                }
+            }
+            
+            // Créer la réponse JSON
+            org.json.JSONObject response = new org.json.JSONObject();
+            org.json.JSONArray modelsArray = new org.json.JSONArray();
+            for (java.util.Map<String, String> model : models) {
+                org.json.JSONObject modelObj = new org.json.JSONObject();
+                modelObj.put("name", model.get("name"));
+                modelObj.put("size", model.get("size"));
+                modelObj.put("path", model.get("path"));
+                modelsArray.put(modelObj);
+            }
+            response.put("models", modelsArray);
+            response.put("count", models.size());
+            
+            String jsonContent = response.toString();
+            byte[] jsonBytes = jsonContent.getBytes("UTF-8");
+            
+            String httpResponse = "HTTP/1.1 200 OK\r\n" +
+                    "Content-Type: application/json; charset=utf-8\r\n" +
+                    "Content-Length: " + jsonBytes.length + "\r\n" +
+                    "Access-Control-Allow-Origin: *\r\n" +
+                    "\r\n";
+            
+            outputStream.write(httpResponse.getBytes());
+            outputStream.write(jsonBytes);
+            outputStream.flush();
+            
+            Log.d(TAG, "✅ Scanned " + models.size() + " GGUF model(s)");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error scanning GGUF models", e);
+            sendErrorResponse(outputStream, 500, "Internal Server Error: " + e.getMessage());
         }
     }
     

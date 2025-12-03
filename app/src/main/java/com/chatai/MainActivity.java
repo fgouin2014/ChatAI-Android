@@ -101,8 +101,9 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
                 // Initialiser le fichier de log (I/O - peut être lent)
                 initializeLogFile();
                 
-                // Auto-configurer RAG (peut charger des modèles)
-                autoConfigureRAG();
+                // ⭐ DÉSACTIVÉ: Auto-configuration RAG supprimée
+                // RAG doit être activé manuellement par l'utilisateur
+                // autoConfigureRAG();
                 
                 // Initialiser TTS (peut être lourd)
                 runOnUiThread(() -> initializeGlobalTTS());
@@ -586,17 +587,12 @@ public class MainActivity extends FragmentActivity implements com.chatai.fragmen
     }
 
     /**
-     * ⭐ NOUVEAU : Auto-configurer RAG au démarrage
-     * Configure automatiquement le RAG si ONNX est disponible
+     * ⭐ DÉSACTIVÉ : Auto-configuration RAG supprimée
+     * RAG doit être activé manuellement par l'utilisateur dans la configuration
      */
     private void autoConfigureRAG() {
-        try {
-            Log.i(TAG, "🔧 Auto-configuration RAG...");
-            com.chatai.services.RAGAutoConfigurator.autoConfigure(this);
-        } catch (Exception e) {
-            Log.e(TAG, "Erreur auto-configuration RAG: " + e.getMessage(), e);
-            // Ne pas bloquer si auto-config échoue
-        }
+        // Auto-configuration RAG désactivée - Activation manuelle requise
+        // Log.d(TAG, "Auto-configuration RAG désactivée");
     }
     
     private void initializeGlobalTTS() {

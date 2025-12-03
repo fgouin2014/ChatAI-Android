@@ -171,16 +171,16 @@ class OllamaThinkingService(private val context: Context) {
         // Récupérer le modèle Ollama Cloud
         val rawModel = sharedPreferences.getString("ollama_cloud_model", null)?.trim()
             ?: sharedPreferences.getString("selected_model", null)?.trim()
-            ?: "qwen3"
+            ?: "gpt-oss:120b"
         
         // ⭐ FIX: Détecter et corriger les modèles Hugging Face (format :hf-inference)
         // Ollama Cloud n'accepte pas ce format, utiliser un modèle Ollama par défaut
-        val modelName = if (rawModel.contains(":hf-inference") || rawModel.contains("HuggingFaceTB/") || rawModel.contains("/")) {
-            Log.w(TAG, "⚠️ Modèle Hugging Face détecté pour Ollama Cloud: $rawModel")
+        val modelName = if (rawModel.isEmpty() || rawModel.contains(":hf-inference") || rawModel.contains("HuggingFaceTB/") || rawModel.contains("/")) {
+            Log.w(TAG, "⚠️ Modèle Hugging Face ou vide détecté pour Ollama Cloud: $rawModel")
             Log.w(TAG, "   → Ollama Cloud n'accepte pas les modèles Hugging Face")
-            Log.w(TAG, "   → Utilisation du modèle Ollama par défaut: qwen3")
+            Log.w(TAG, "   → Utilisation du modèle Ollama par défaut: gpt-oss:120b")
             Log.w(TAG, "   → Pour utiliser Hugging Face, configurez HuggingFaceService (mode LLM)")
-            "qwen3" // Fallback vers modèle Ollama valide
+            "gpt-oss:120b" // Fallback vers modèle Ollama valide
         } else {
             rawModel
         }
