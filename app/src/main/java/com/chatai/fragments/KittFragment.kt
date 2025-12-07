@@ -28,6 +28,7 @@ import com.chatai.R
 import com.chatai.MainActivity
 import com.chatai.viewmodels.KittViewModel
 import com.chatai.services.KittAIService
+import com.chatai.services.KittVoiceAIService
 import com.chatai.services.KittActionCallback
 import com.chatai.managers.*
 import com.chatai.SecureConfig
@@ -121,7 +122,8 @@ class KittFragment : Fragment(),
     // Autres
     private lateinit var audioManager: AudioManager
     private lateinit var sharedPrefs: SharedPreferences
-    private lateinit var kittAIService: KittAIService
+    private lateinit var kittAIService: KittAIService // ⚠️ Conservé pour compatibilité (webapp)
+    private lateinit var kittVoiceAIService: KittVoiceAIService // ⭐ NOUVEAU: Service IA dédié KITT vocal
     
     // Flags
     private var hasActivationMessageBeenSpoken = false
@@ -183,11 +185,18 @@ class KittFragment : Fragment(),
         // ⭐⭐⭐ INITIALISER TOUS LES MANAGERS
         initializeManagers()
         
-        // Initialiser KittAIService
+        // Initialiser KittAIService (pour compatibilité webapp)
         val aiConfigPrefs = requireContext().getSharedPreferences("chatai_ai_config", Context.MODE_PRIVATE)
         val selectedPersonality = aiConfigPrefs.getString("selected_personality", "KITT") ?: "KITT"
         kittAIService = KittAIService(requireContext(), selectedPersonality, platform = "vocal", actionCallback = this)
         android.util.Log.i(TAG, "KittAIService initialisé avec personnalité: $selectedPersonality")
+        
+        // ⭐ NOUVEAU: Initialiser KittVoiceAIService (service IA dédié KITT vocal)
+        kittVoiceAIService = KittVoiceAIService(requireContext())
+        coroutineScope.launch {
+            kittVoiceAIService.initialize()
+            android.util.Log.i(TAG, "✅ KittVoiceAIService initialisé (config spéciale KITT)")
+        }
         
         // Setup UI
         setupScanner()
@@ -615,7 +624,8 @@ class KittFragment : Fragment(),
                 animationManager.startThinkingAnimation()
                 stateManager.isThinking = true
                 
-                val response = kittAIService.processUserInput(userMessage)
+                // ⭐ NOUVEAU: Utiliser KittVoiceAIService au lieu de KittAIService
+                val response = kittVoiceAIService.processVoiceInput(userMessage)
                 
                 // Arrêter thinking animation
                 animationManager.stopThinkingAnimation { updateStatusIndicators() }
@@ -889,7 +899,8 @@ class KittFragment : Fragment(),
                 animationManager.startThinkingAnimation()
                 stateManager.isThinking = true
                 
-                val response = kittAIService.processUserInput(command)
+                // ⭐ NOUVEAU: Utiliser KittVoiceAIService au lieu de KittAIService
+                val response = kittVoiceAIService.processVoiceInput(command)
                 
                 animationManager.stopThinkingAnimation { updateStatusIndicators() }
                 stateManager.isThinking = false
@@ -1370,8 +1381,11 @@ class KittFragment : Fragment(),
     override fun onPersonalityChanged(personality: String) {
         drawerManager.savePersonality(personality)
         
-        // Réinitialiser KittAIService
+        // Réinitialiser KittAIService (pour compatibilité webapp)
         kittAIService = KittAIService(requireContext(), personality, platform = "vocal", actionCallback = this)
+        
+        // ⭐ NOTE: KittVoiceAIService utilise toujours la config KITT (non affecté par personnalité)
+        // La personnalité dans KittVoiceAIService est toujours "KITT" (défini dans config SecureConfig)
         
         // Changer voix TTS
         ttsManager.selectVoiceForPersonality(personality)
@@ -1426,22 +1440,28 @@ class KittFragment : Fragment(),
     
     /**
      * Affiche le thinking trace si debug mode activé
+     * ⭐ NOTE: KittVoiceAIService n'a pas de thinking trace (utilise Hugging Face directement)
      */
     private fun displayThinkingTraceIfEnabled() {
         val debugModeEnabled = sharedPrefs.getBoolean("show_thinking_trace", false)
         
         if (!debugModeEnabled) {
             thinkingCard.visibility = View.GONE
-                return
-            }
-            
-        val thinking = kittAIService.getLastThinkingTrace()
+            return
+        }
         
-        if (thinking.isNotEmpty()) {
-            thinkingText.text = thinking
-            thinkingCard.visibility = View.VISIBLE
-            android.util.Log.d(TAG, "🧠 Thinking trace displayed (${thinking.length} chars)")
-        } else {
+        // ⭐ KittVoiceAIService n'a pas de thinking trace, utiliser KittAIService pour compatibilité
+        try {
+            val thinking = kittAIService.getLastThinkingTrace()
+            if (thinking.isNotEmpty()) {
+                thinkingText.text = thinking
+                thinkingCard.visibility = View.VISIBLE
+                android.util.Log.d(TAG, "🧠 Thinking trace displayed (${thinking.length} chars)")
+            } else {
+                thinkingCard.visibility = View.GONE
+            }
+        } catch (e: Exception) {
+            // Si getLastThinkingTrace() n'existe pas, cacher le card
             thinkingCard.visibility = View.GONE
         }
     }
@@ -1474,9 +1494,14 @@ class KittFragment : Fragment(),
         
         // Click normal pour ouvrir dialog avec thinking complet
         thinkingCard.setOnClickListener {
-            val thinking = kittAIService.getLastThinkingTrace()
-            if (thinking.isNotEmpty()) {
-                showThinkingDialog(thinking)
+            try {
+                // ⭐ KittVoiceAIService n'a pas de thinking trace, utiliser KittAIService pour compatibilité
+                val thinking = kittAIService.getLastThinkingTrace()
+                if (thinking.isNotEmpty()) {
+                    showThinkingDialog(thinking)
+                }
+            } catch (e: Exception) {
+                // Si getLastThinkingTrace() n'existe pas, ne rien faire
             }
         }
     }

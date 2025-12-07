@@ -17,6 +17,9 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.json.JSONObject;
+import org.json.JSONException;
+
 /**
  * Gestionnaire de configuration sécurisée avec Android Keystore System
  * Utilise AES-256/GCM pour un chiffrement authentifié
@@ -365,6 +368,7 @@ public class SecureConfig {
     private static final String OLLAMA_CLOUD_MIGRATED = "ollama_cloud_migrated";
     private static final String HUGGINGFACE_API_KEY = "huggingface_api_key";
     private static final String HUGGINGFACE_MIGRATED = "huggingface_migrated";
+    private static final String KITT_VOICE_AI_CONFIG = "kitt_voice_ai_config";
     
     /**
      * Sauvegarde la clé API Ollama Cloud de manière sécurisée
@@ -630,5 +634,111 @@ public class SecureConfig {
      */
     public void clearHuggingFaceApiKey() {
         prefs.edit().remove(HUGGINGFACE_API_KEY).apply();
+    }
+    
+    // ========== MÉTHODES POUR CONFIGURATION KITT VOICE AI ==========
+    
+    /**
+     * Sauvegarde la configuration spéciale KITT Voice AI de manière sécurisée
+     * 
+     * @param config Configuration JSON avec les paramètres KITT
+     */
+    public void setKittVoiceAIConfig(JSONObject config) {
+        if (config == null) {
+            Log.d(TAG, "setKittVoiceAIConfig: config null, suppression");
+            clearKittVoiceAIConfig();
+            return;
+        }
+        
+        try {
+            String configJson = config.toString();
+            Log.d(TAG, "setKittVoiceAIConfig: sauvegarde config (" + configJson.length() + " chars)");
+            String encryptedConfig = encrypt(configJson);
+            prefs.edit().putString(KITT_VOICE_AI_CONFIG, encryptedConfig).apply();
+            
+            // Vérifier que la sauvegarde a fonctionné
+            String verifyConfig = prefs.getString(KITT_VOICE_AI_CONFIG, null);
+            if (verifyConfig != null) {
+                Log.d(TAG, "Config KITT Voice AI sauvegardée avec succès dans SecureConfig");
+            } else {
+                Log.e(TAG, "ERREUR: Config non trouvée après sauvegarde!");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de la sauvegarde de la config KITT Voice AI", e);
+            throw new RuntimeException("Erreur sauvegarde config KITT Voice AI", e);
+        }
+    }
+    
+    /**
+     * Récupère la configuration spéciale KITT Voice AI de manière sécurisée
+     * 
+     * @return Configuration JSON ou null si non configurée
+     */
+    public JSONObject getKittVoiceAIConfig() {
+        String encryptedConfig = prefs.getString(KITT_VOICE_AI_CONFIG, null);
+        if (encryptedConfig == null) {
+            Log.d(TAG, "Aucune config KITT Voice AI trouvée dans SecureConfig");
+            return null;
+        }
+        
+        // Config chiffrée trouvée, essayer de la déchiffrer
+        Log.d(TAG, "Config KITT Voice AI chiffrée trouvée dans SecureConfig (" + encryptedConfig.length() + " chars chiffrés)");
+        try {
+            String decrypted = decrypt(encryptedConfig);
+            Log.d(TAG, "Config KITT Voice AI déchiffrée avec succès (" + decrypted.length() + " chars)");
+            return new JSONObject(decrypted);
+        } catch (JSONException e) {
+            Log.e(TAG, "ERREUR: Config KITT Voice AI déchiffrée mais JSON invalide!", e);
+            return null;
+        } catch (Exception e) {
+            Log.e(TAG, "ERREUR: Config KITT Voice AI trouvée mais déchiffrement échoué!", e);
+            return null;
+        }
+    }
+    
+    /**
+     * Récupère la configuration spéciale KITT Voice AI avec valeurs par défaut
+     * 
+     * @return Configuration JSON avec valeurs par défaut si non configurée
+     */
+    public JSONObject getKittVoiceAIConfigWithDefaults() {
+        JSONObject config = getKittVoiceAIConfig();
+        if (config != null) {
+            return config;
+        }
+        
+        // Créer config par défaut
+        try {
+            JSONObject defaultConfig = new JSONObject();
+            defaultConfig.put("wakeword_enabled", true);
+            defaultConfig.put("wakeword_keywords", new org.json.JSONArray().put("hey_kitt"));
+            defaultConfig.put("stt_engine", "google_speech");
+            defaultConfig.put("tts_engine", "google_tts");
+            defaultConfig.put("llm_model", "meta-llama/Llama-3.2-1B-Instruct");
+            defaultConfig.put("rag_enabled", true);
+            defaultConfig.put("rag_top_k", 5);
+            defaultConfig.put("rag_min_similarity", 0.6);
+            defaultConfig.put("system_prompt_template", "Tu es KITT, l'assistant IA vocal intelligent. Tu es l'assistant personnel de l'utilisateur. Réponds de manière naturelle et concise en français.");
+            Log.d(TAG, "Retour config KITT Voice AI par défaut");
+            return defaultConfig;
+        } catch (JSONException e) {
+            Log.e(TAG, "Erreur création config par défaut", e);
+            return null;
+        }
+    }
+    
+    /**
+     * Supprime la configuration KITT Voice AI
+     */
+    public void clearKittVoiceAIConfig() {
+        prefs.edit().remove(KITT_VOICE_AI_CONFIG).apply();
+        Log.d(TAG, "Config KITT Voice AI supprimée");
+    }
+    
+    /**
+     * Vérifie si la configuration KITT Voice AI est configurée
+     */
+    public boolean hasKittVoiceAIConfig() {
+        return getKittVoiceAIConfig() != null;
     }
 }
